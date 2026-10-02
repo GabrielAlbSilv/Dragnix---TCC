@@ -1,4 +1,4 @@
-const { DatabaseSync } = require('node:sqlite');
+const { DatabaseSync } = require('node:sqlite'); // SQLite embutido no Node 22.5+
 const bcrypt = require('bcryptjs');
 const db = new DatabaseSync(process.env.DB_FILE || 'data.db');
 db.exec('PRAGMA foreign_keys = ON');
@@ -9,7 +9,16 @@ CREATE TABLE IF NOT EXISTS lessons(id INTEGER PRIMARY KEY, track_id INTEGER NOT 
 CREATE TABLE IF NOT EXISTS questions(id INTEGER PRIMARY KEY, lesson_id INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE, prompt TEXT NOT NULL, options TEXT NOT NULL DEFAULT '[]', answer INTEGER NOT NULL DEFAULT 0, position INTEGER DEFAULT 0);
 CREATE TABLE IF NOT EXISTS progress(user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, lesson_id INTEGER REFERENCES lessons(id) ON DELETE CASCADE, xp INTEGER DEFAULT 10, PRIMARY KEY(user_id, lesson_id));
 `);
-// Cria o primeiro ADM (a partir do .env / variáveis de ambiente) se ainda não existir
+// Migrações (seguras para bancos já existentes: ignora se a coluna já existe)
+for (const sql of [
+  "ALTER TABLE users ADD COLUMN hearts INTEGER DEFAULT 5",
+  "ALTER TABLE users ADD COLUMN hearts_at INTEGER DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN streak INTEGER DEFAULT 0",
+  "ALTER TABLE users ADD COLUMN last_day TEXT",
+  "ALTER TABLE lessons ADD COLUMN intro TEXT DEFAULT ''",
+  "ALTER TABLE questions ADD COLUMN type TEXT DEFAULT 'multipla'",
+]) { try { db.exec(sql); } catch {} }
+
 const email = process.env.ADMIN_EMAIL || 'admin@exemplo.com';
 if (!db.prepare('SELECT 1 FROM users WHERE email=?').get(email)) {
   db.prepare('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)')

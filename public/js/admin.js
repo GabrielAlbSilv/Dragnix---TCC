@@ -5,17 +5,21 @@ const main = document.getElementById('main'), dlg = document.getElementById('dlg
 // Definição dos formulários de cada recurso (sem conteúdo: apenas a estrutura)
 const FORMS = {
   tracks: [['title', 'Título da trilha'], ['description', 'Descrição', 'textarea'], ['icon', 'Ícone (emoji)'], ['position', 'Ordem', 'number']],
-  lessons: [['title', 'Título da lição'], ['position', 'Ordem', 'number']],
-  questions: [['prompt', 'Enunciado', 'textarea'], ['options', 'Alternativas (uma por linha)', 'textarea'], ['answer', 'Nº da alternativa correta (começa em 0)', 'number'], ['position', 'Ordem', 'number']],
+  lessons: [['title', 'Título da lição'], ['intro', 'Texto explicativo (aparece antes das questões)', 'textarea'], ['position', 'Ordem', 'number']],
+  questions: [['type', 'Tipo de questão', 'select'], ['prompt', 'Enunciado', 'textarea'], ['options', 'Alternativas, uma por linha (em "Ordenar": já na ORDEM CORRETA; em V/F: ignorado)', 'textarea'], ['answer', 'Nº da alternativa correta, começa em 0 (V/F: 0=Verdadeiro, 1=Falso; Ordenar: ignorado)', 'number'], ['position', 'Ordem', 'number']],
 };
 
+const TYPES = [['multipla', 'Múltipla escolha'], ['vf', 'Verdadeiro ou falso'], ['ordenar', 'Ordenar itens']];
 function form(res, title, data = {}) {
   return new Promise(resolve => {
     document.getElementById('dt').textContent = title;
     document.getElementById('derr').textContent = '';
     document.getElementById('fields').innerHTML = FORMS[res].map(([k, label, type]) => {
-      let v = data[k] ?? ''; if (k === 'options' && Array.isArray(v)) v = v.join('\n');
-      return `<label>${label}${type === 'textarea' ? `<textarea name="${k}" rows="3">${esc(v)}</textarea>` : `<input name="${k}" type="${type || 'text'}" value="${esc(v)}">`}</label>`;
+      let v = data[k] ?? (k === 'type' ? 'multipla' : ''); if (k === 'options' && Array.isArray(v)) v = v.join('\n');
+      const ctl = type === 'textarea' ? `<textarea name="${k}" rows="3">${esc(v)}</textarea>`
+        : type === 'select' ? `<select name="${k}">${TYPES.map(([a, b]) => `<option value="${a}" ${a === v ? 'selected' : ''}>${b}</option>`).join('')}</select>`
+        : `<input name="${k}" type="${type || 'text'}" value="${esc(v)}">`;
+      return `<label>${label}${ctl}</label>`;
     }).join('');
     dlg.onclose = null; dlg.showModal();
     document.getElementById('ok').onclick = e => {
@@ -48,7 +52,7 @@ async function tracksView() {
     <button class="btn sm" onclick="add('lessons','track_id',${t.id})">+ Lição</button>
     ${t.lessons.map(l => `<div class="ind"><div class="row"><strong>${esc(l.title)}</strong><span>${btns('lessons', l.id)}</span></div>
       <button class="btn sm sec" onclick="add('questions','lesson_id',${l.id})">+ Questão</button>
-      ${l.questions.map(q => `<div class="ind row"><span>${esc(q.prompt)}</span><span>${btns('questions', q.id)}</span></div>`).join('')}</div>`).join('')}</div>`).join('');
+      ${l.questions.map(q => `<div class="ind row"><span><small class="mut">[${q.type}]</small> ${esc(q.prompt)}</span><span>${btns('questions', q.id)}</span></div>`).join('')}</div>`).join('')}</div>`).join('');
 }
 async function usersView() {
   const us = await api('/admin/users');

@@ -21,3 +21,6 @@ input,textarea,select{width:100%;padding:12px;margin:6px 0;border:2px solid var(
 .ind{margin-left:16px;border-left:3px solid var(--bd);padding-left:12px}
 dialog{border:2px solid var(--bd);border-radius:16px;background:var(--bg);color:var(--fg);width:min(92vw,480px)}
 .hide{display:none}
+button.link{background:none;border:0;color:var(--blue);cursor:pointer;font:inherit;font-weight:700}
+.okc{border-color:var(--g)}.badc{border-color:var(--red)}.intro{white-space:pre-wrap;line-height:1.5}
+.stats{display:flex;gap:12px;font-weight:700}

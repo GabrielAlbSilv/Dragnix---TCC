@@ -40,40 +40,83 @@ app.post('/api/auth/login', (req, res) => {
 });
 app.get('/api/auth/me', auth, (req, res) => res.json(pub(req.user)));
 
+// ---------- Vidas, sequência e utilidades ----------
+const MAX_HEARTS = 5, REGEN_MS = 30 * 60 * 1000; // 1 vida a cada 30 min
+const dayStr = d => d.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
+const today = () => dayStr(new Date()), yesterday = () => dayStr(new Date(Date.now() - 864e5));
+const streakOf = u => (u.last_day === today() || u.last_day === yesterday()) ? u.streak : 0;
+const shuffle = a => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
+function hearts(id) {
+  const u = db.prepare('SELECT hearts,hearts_at FROM users WHERE id=?').get(id), now = Date.now();
+  let h = u.hearts, at = u.hearts_at;
+  if (h < MAX_HEARTS) {
+    const g = Math.floor((now - at) / REGEN_MS);
+    if (g > 0) { h = Math.min(MAX_HEARTS, h + g); at += g * REGEN_MS; db.prepare('UPDATE users SET hearts=?,hearts_at=? WHERE id=?').run(h, at, id); }
+  }
+  return { hearts: h, at, next: h >= MAX_HEARTS ? 0 : Math.ceil((at + REGEN_MS - now) / 1000) };
+}
+function loseHeart(id) {
+  const s = hearts(id);
+  db.prepare('UPDATE users SET hearts=?,hearts_at=? WHERE id=?').run(Math.max(0, s.hearts - 1), s.hearts >= MAX_HEARTS ? Date.now() : s.at, id);
+  return hearts(id);
+}
+const isDone = (uid, lid) => !!db.prepare('SELECT 1 FROM progress WHERE user_id=? AND lesson_id=?').get(uid, lid);
+
 // ---------- Área do aluno (comum e ADM) ----------
 app.get('/api/tracks', auth, (req, res) => {
   const done = new Set(db.prepare('SELECT lesson_id FROM progress WHERE user_id=?').all(req.user.id).map(r => r.lesson_id));
-  const lessons = db.prepare('SELECT * FROM lessons ORDER BY position,id').all();
+  const lessons = db.prepare('SELECT id,track_id,title,position FROM lessons ORDER BY position,id').all();
   const tracks = db.prepare('SELECT * FROM tracks ORDER BY position,id').all()
     .map(t => ({ ...t, lessons: lessons.filter(l => l.track_id === t.id).map(l => ({ ...l, done: done.has(l.id) })) }));
   const xp = db.prepare('SELECT COALESCE(SUM(xp),0) xp FROM progress WHERE user_id=?').get(req.user.id).xp;
-  res.json({ tracks, xp });
+  const h = hearts(req.user.id), u = db.prepare('SELECT streak,last_day FROM users WHERE id=?').get(req.user.id);
+  res.json({ tracks, xp, hearts: h.hearts, next: h.next, streak: streakOf(u) });
 });
 app.get('/api/lessons/:id', auth, (req, res) => {
   const lesson = db.prepare('SELECT * FROM lessons WHERE id=?').get(req.params.id);
   if (!lesson) return res.status(404).json({ error: 'Lição não encontrada' });
-  const questions = db.prepare('SELECT id,prompt,options FROM questions WHERE lesson_id=? ORDER BY position,id').all(lesson.id)
-    .map(q => ({ ...q, options: JSON.parse(q.options) })); // resposta correta não é enviada
-  res.json({ ...lesson, questions });
+  const done = isDone(req.user.id, lesson.id), h = hearts(req.user.id);
+  if (h.hearts === 0 && !done) return res.status(403).json({ error: `Você está sem vidas. Próxima vida em ${Math.ceil(h.next / 60)} min.` });
+  const questions = db.prepare('SELECT id,prompt,options,type FROM questions WHERE lesson_id=? ORDER BY position,id').all(lesson.id).map(q => {
+    const o = JSON.parse(q.options), base = { id: q.id, prompt: q.prompt, type: q.type };
+    // a resposta correta nunca é enviada; itens de "ordenar" saem embaralhados
+    return q.type === 'ordenar' ? { ...base, items: shuffle(o.map((t, i) => ({ i, t }))) } : { ...base, options: o };
+  });
+  res.json({ id: lesson.id, title: lesson.title, intro: lesson.intro || '', questions, hearts: h.hearts, done });
 });
 app.post('/api/questions/:id/check', auth, (req, res) => {
-  const q = db.prepare('SELECT answer FROM questions WHERE id=?').get(req.params.id);
+  const q = db.prepare('SELECT * FROM questions WHERE id=?').get(req.params.id);
   if (!q) return res.status(404).json({ error: 'Questão não encontrada' });
-  res.json({ correct: Number(req.body.answer) === q.answer, answer: q.answer });
+  const ord = q.type === 'ordenar', opts = JSON.parse(q.options), a = req.body.answer;
+  const correct = ord ? Array.isArray(a) && a.length === opts.length && a.every((v, k) => Number(v) === k) : Number(a) === q.answer;
+  // errar tira uma vida (exceto ao revisar lições já concluídas)
+  const h = !correct && !isDone(req.user.id, q.lesson_id) ? loseHeart(req.user.id) : hearts(req.user.id);
+  res.json({ correct, answer: ord ? null : q.answer, solution: ord ? opts : null, hearts: h.hearts });
 });
 app.post('/api/lessons/:id/complete', auth, (req, res) => {
   db.prepare('INSERT OR IGNORE INTO progress(user_id,lesson_id) VALUES(?,?)').run(req.user.id, req.params.id);
-  res.json({ ok: true });
+  const u = db.prepare('SELECT streak,last_day FROM users WHERE id=?').get(req.user.id);
+  let streak = u.streak;
+  if (u.last_day !== today()) {
+    streak = u.last_day === yesterday() ? u.streak + 1 : 1;
+    db.prepare('UPDATE users SET streak=?,last_day=? WHERE id=?').run(streak, today(), req.user.id);
+  }
+  res.json({ ok: true, streak });
+});
+app.get('/api/ranking', auth, (req, res) => {
+  const rows = db.prepare(`SELECT u.id,u.name,u.streak,u.last_day,COALESCE(SUM(p.xp),0) xp FROM users u
+    LEFT JOIN progress p ON p.user_id=u.id GROUP BY u.id ORDER BY xp DESC,u.name LIMIT 20`).all();
+  res.json(rows.map(r => ({ name: r.name, xp: r.xp, streak: streakOf(r), me: r.id === req.user.id })));
 });
 
 // ---------- Área do ADM: criar/editar trilhas, lições e questões ----------
 const FIELDS = {
   tracks: ['title', 'description', 'icon', 'position'],
-  lessons: ['track_id', 'title', 'position'],
-  questions: ['lesson_id', 'prompt', 'options', 'answer', 'position'],
+  lessons: ['track_id', 'title', 'intro', 'position'],
+  questions: ['lesson_id', 'type', 'prompt', 'options', 'answer', 'position'],
 };
 const clean = (res, body) => FIELDS[res].reduce((o, f) => {
-  if (body[f] !== undefined) o[f] = f === 'options' ? JSON.stringify(body[f]) : body[f];
+  if (body[f] !== undefined) o[f] = f === 'options' ? JSON.stringify(body.type === 'vf' ? ['Verdadeiro', 'Falso'] : body[f]) : body[f];
   return o;
 }, {});
 
