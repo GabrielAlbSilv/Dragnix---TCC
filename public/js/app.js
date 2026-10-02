@@ -73,3 +73,45 @@ async function openLesson(id) {
   } else step();
 }
 home();
+
+// ---------- Simulador financeiro (roda no navegador, sem backend) ----------
+const brl = n => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+function addRow(id) {
+  $(id).insertAdjacentHTML('beforeend', `<div class="row" style="flex-wrap:nowrap"><input placeholder="Descrição"><input type="number" min="0" step="0.01" placeholder="R$ por mês"><button class="btn sm red" onclick="this.parentNode.remove()">✕</button></div>`);
+}
+function sim() {
+  main.innerHTML = `<h2>💹 Simulador financeiro</h2><p class="mut">Veja como seu dinheiro evolui com receitas, gastos e rendimento.</p>
+  <div class="card"><label>Saldo inicial (R$)<input id="s0" type="number" min="0" step="0.01" value="1000"></label>
+  <label>Rendimento (% ao ano)<input id="rate" type="number" min="0" step="0.1" value="10"></label>
+  <label>Inflação (% ao ano)<input id="inf" type="number" min="0" step="0.1" value="4"></label>
+  <label>Prazo (anos, até 60)<input id="yrs" type="number" min="1" max="60" value="5"></label></div>
+  <div class="card"><strong>💵 Receitas mensais</strong><div id="inc"></div><button class="btn sm sec" onclick="addRow('inc')">+ Receita</button></div>
+  <div class="card"><strong>🧾 Gastos mensais</strong><div id="exp"></div><button class="btn sm sec" onclick="addRow('exp')">+ Gasto</button></div>
+  <button class="btn" style="width:100%" onclick="calcSim()">Simular</button><div id="res"></div>`;
+  addRow('inc'); addRow('exp');
+}
+function calcSim() {
+  const num = id => Math.max(0, parseFloat($(id).value) || 0);
+  const sum = id => [...document.querySelectorAll(`#${id} input[type=number]`)].reduce((t, i) => t + (parseFloat(i.value) || 0), 0);
+  const s0 = num('s0'), yrs = Math.min(60, Math.max(1, Math.round(num('yrs')) || 1));
+  const rate = (1 + num('rate') / 100) ** (1 / 12) - 1, infl = (1 + num('inf') / 100) ** (1 / 12);
+  const net = sum('inc') - sum('exp');
+  let a = s0, b = s0; const pts = [{ m: 0, a, b }];
+  for (let m = 1; m <= yrs * 12; m++) { a = a * (1 + rate) + net; b += net; pts.push({ m, a, b }); }
+  const neg = pts.find(p => p.a < 0);
+  const W = 600, H = 220, all = pts.flatMap(p => [p.a, p.b]), mx = Math.max(...all, 1), mn = Math.min(...all, 0);
+  const X = m => m / (yrs * 12) * W, Y = v => H - (v - mn) / (mx - mn || 1) * H;
+  const line = (k, c) => `<polyline fill="none" stroke="${c}" stroke-width="3" points="${pts.map(p => X(p.m).toFixed(1) + ',' + Y(p[k]).toFixed(1)).join(' ')}"/>`;
+  $('res').innerHTML = `<div class="card"><h3>Resultado em ${yrs} ano(s)</h3>
+    <p>Sobra (ou falta) por mês: <strong>${brl(net)}</strong></p>
+    <p>Saldo final com rendimento: <strong>${brl(a)}</strong></p>
+    <p>Saldo final sem rendimento: ${brl(b)}</p>
+    <p>Rendimento acumulado: <strong>${brl(a - b)}</strong></p>
+    <p>Valor em poder de compra de hoje (descontada a inflação): ${brl(a / infl ** (yrs * 12))}</p>
+    ${neg ? `<p class="err">⚠️ Com esses gastos, o saldo fica negativo no mês ${neg.m}.</p>` : ''}</div>
+    <div class="card"><svg viewBox="0 0 ${W} ${H}" width="100%"><line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" style="stroke:var(--bd)"/>${line('b', '#1cb0f6')}${line('a', '#58cc02')}</svg>
+    <p><span style="color:#58cc02">■</span> com rendimento &nbsp; <span style="color:#1cb0f6">■</span> sem rendimento</p></div>
+    <div class="card" style="overflow-x:auto"><table style="width:100%;text-align:right"><tr><th style="text-align:left">Ano</th><th>Com rendimento</th><th>Sem rendimento</th></tr>
+    ${Array.from({ length: yrs }, (_, y) => `<tr><td style="text-align:left">${y + 1}</td><td>${brl(pts[(y + 1) * 12].a)}</td><td>${brl(pts[(y + 1) * 12].b)}</td></tr>`).join('')}</table></div>
+    <p class="mut">Simulação educativa: taxa constante, sem impostos e sem tarifas. Não é recomendação de investimento.</p>`;
+}
