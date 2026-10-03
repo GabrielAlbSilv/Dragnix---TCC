@@ -1,7 +1,46 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Painel ADM</title><link rel="stylesheet" href="css/style.css"></head><body>
-<header><strong>⚙️ Painel do Administrador</strong><span><a href="app.html">Ver como aluno</a> · <button class="link" onclick="logout()">Sair</button></span></header>
-<div class="wrap"><div class="tabs"><button class="btn" id="t1">Trilhas</button><button class="btn sec" id="t2">Usuários</button></div><div id="main"></div></div>
-<dialog id="dlg"><form method="dialog" id="frm"><h3 id="dt"></h3><div id="fields"></div><div class="err" id="derr"></div>
-<div class="row"><button class="btn sec" value="x">Cancelar</button><button class="btn" id="ok" value="ok">Salvar</button></div></form></dialog>
-<script src="js/api.js"></script><script src="js/admin.js"></script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Painel ADM</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <header>
+        <strong>⚙️ Painel do Administrador</strong>
+
+        <span>
+            <button class="link" id="t1">📚 Trilhas</button> ·
+            <button class="link" id="t2">👥 Usuários</button> ·
+            <a href="app.html">Ver como aluno</a> ·
+            <button class="link" onclick="logout()">Sair</button>
+        </span>
+    </header>
+
+    <div class="wrap wide" id="main"></div>
+
+    <dialog id="dlg">
+        <form id="frm">
+            <h3 id="dt"></h3>
+
+            <div id="fields"></div>
+
+            <div class="err" id="derr"></div>
+
+            <div class="row">
+                <button type="button" class="btn sec" id="cx">Cancelar</button>
+                <button class="btn" id="ok">Salvar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script src="js/api.js"></script>
+    <script src="js/admin.js"></script>
+
+</body>
+
+</html>
