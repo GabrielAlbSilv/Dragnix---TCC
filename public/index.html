@@ -86,6 +86,15 @@
 
 <script>
 
+(function () {
+    const splashExibida = sessionStorage.getItem('splashExibida');
+
+    if (!splashExibida) {
+        sessionStorage.setItem('splashExibida', 'true');
+        window.location.replace('splash.html');
+    }
+})();
+
 if (localStorage.token) {
     location = '/app.html';
 }

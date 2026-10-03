@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Dranix</title>
+
+    <style>
+        :root {
+            --g: #58cc02;
+            --gd: #46a302;
+            --bg: #131f24;
+            --fg: #ffffff;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100%;
+            height: 100vh;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            background: var(--bg);
+            color: var(--fg);
+
+            font-family: Arial, sans-serif;
+
+            overflow: hidden;
+        }
+
+        .splash {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+
+            animation: aparecer 0.8s ease;
+        }
+
+        .logo {
+            width: 150px;
+            height: 150px;
+
+            object-fit: contain;
+
+            animation: flutuar 2s ease-in-out infinite;
+        }
+
+        .nome {
+            margin-top: 20px;
+
+            font-size: 32px;
+            font-weight: bold;
+
+            color: var(--g);
+            letter-spacing: 1px;
+        }
+
+        .carregando {
+            width: 180px;
+            height: 5px;
+
+            margin-top: 30px;
+
+            background: #263238;
+            border-radius: 10px;
+
+            overflow: hidden;
+        }
+
+        .barra {
+            width: 0%;
+            height: 100%;
+
+            background: var(--g);
+            border-radius: 10px;
+
+            animation: carregar 2.5s linear forwards;
+        }
+
+        @keyframes carregar {
+            from {
+                width: 0%;
+            }
+
+            to {
+                width: 100%;
+            }
+        }
+
+        @keyframes aparecer {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        @keyframes flutuar {
+            0%, 100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-8px);
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="splash">
+
+        <img
+            src="css/images/dranix_icon_white_nobackground.png"
+            alt="Dranix"
+            class="logo"
+        >
+
+        <div class="nome">
+            Dranix
+        </div>
+
+        <div class="carregando">
+            <div class="barra"></div>
+        </div>
+
+    </div>
+
+    <script>
+        setTimeout(() => {
+            window.location.href = "index.html";
+        }, 2500);
+    </script>
+
+</body>
+</html>
