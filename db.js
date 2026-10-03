@@ -17,7 +17,27 @@ for (const sql of [
   "ALTER TABLE users ADD COLUMN last_day TEXT",
   "ALTER TABLE lessons ADD COLUMN intro TEXT DEFAULT ''",
   "ALTER TABLE questions ADD COLUMN type TEXT DEFAULT 'multipla'",
+  "ALTER TABLE questions ADD COLUMN explanation TEXT DEFAULT ''",
+  "ALTER TABLE lessons ADD COLUMN xp INTEGER DEFAULT 10",
+  "ALTER TABLE progress ADD COLUMN perfect INTEGER DEFAULT 0",
+  "ALTER TABLE progress ADD COLUMN done_at TEXT",
+  "ALTER TABLE users ADD COLUMN best_streak INTEGER DEFAULT 0",
 ]) { try { db.exec(sql); } catch {} }
+
+for (const sql of [
+  "ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0",
+  "ALTER TABLE lessons ADD COLUMN content TEXT DEFAULT '[]'",
+  "ALTER TABLE tracks ADD COLUMN color TEXT DEFAULT '#58cc02'",
+  "ALTER TABLE lessons ADD COLUMN xp INTEGER DEFAULT 10",
+  "ALTER TABLE questions ADD COLUMN explanation TEXT DEFAULT ''",
+  "ALTER TABLE progress ADD COLUMN perfect INTEGER DEFAULT 0",
+]) { try { db.exec(sql); } catch {} }
+db.exec(`
+CREATE TABLE IF NOT EXISTS answers(user_id INTEGER, question_id INTEGER, correct INTEGER, PRIMARY KEY(user_id,question_id));
+CREATE TABLE IF NOT EXISTS activity(user_id INTEGER, day TEXT, xp INTEGER DEFAULT 0, lessons INTEGER DEFAULT 0, correct INTEGER DEFAULT 0, PRIMARY KEY(user_id,day));
+CREATE TABLE IF NOT EXISTS badges(user_id INTEGER, code TEXT, PRIMARY KEY(user_id,code));
+CREATE TABLE IF NOT EXISTS claims(user_id INTEGER, day TEXT, code TEXT, PRIMARY KEY(user_id,day,code));
+`);
 
 const email = process.env.ADMIN_EMAIL || 'admin@exemplo.com';
 if (!db.prepare('SELECT 1 FROM users WHERE email=?').get(email)) {

@@ -2,11 +2,13 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const fs = require('fs'), crypto = require('crypto');
 const db = require('./db');
 
 const SECRET = process.env.JWT_SECRET || 'dev-secret';
 const app = express();
-app.use(express.json());
+const json = express.json(), jsonBig = express.json({ limit: '40mb' }); // o limite maior vale só para o upload do ADM
+app.use((req, res, next) => (req.path === '/api/admin/upload' && req.headers.authorization ? jsonBig : json)(req, res, next));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const sign = u => jwt.sign({ id: u.id, role: u.role }, SECRET, { expiresIn: '7d' });
@@ -25,8 +27,9 @@ const adm = (req, res, next) => req.user.role === 'adm' ? next() : res.status(40
 
 // ---------- Autenticação ----------
 app.post('/api/auth/register', (req, res) => {
-  const { name, email, password } = req.body;
+  const { name, email, password, confirm } = req.body;
   if (!name || !email || !password || password.length < 6) return res.status(400).json({ error: 'Preencha nome, e-mail e senha (mín. 6 caracteres)' });
+  if (password !== confirm) return res.status(400).json({ error: 'As senhas não coincidem' });
   if (db.prepare('SELECT 1 FROM users WHERE email=?').get(email)) return res.status(409).json({ error: 'E-mail já cadastrado' });
   // Todo cadastro público é "comum". ADM só é promovido por outro ADM.
   const id = db.prepare('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)').run(name, email, bcrypt.hashSync(password, 10), 'comum').lastInsertRowid;
@@ -40,12 +43,16 @@ app.post('/api/auth/login', (req, res) => {
 });
 app.get('/api/auth/me', auth, (req, res) => res.json(pub(req.user)));
 
-// ---------- Vidas, sequência e utilidades ----------
+// ---------- Constantes e utilidades ----------
 const MAX_HEARTS = 5, REGEN_MS = 30 * 60 * 1000; // 1 vida a cada 30 min
+const DAILY_GOAL = 2, PERFECT_BONUS = 5;          // meta diária (lições) e XP extra por lição sem erros
 const dayStr = d => d.toLocaleDateString('sv-SE', { timeZone: 'America/Sao_Paulo' });
 const today = () => dayStr(new Date()), yesterday = () => dayStr(new Date(Date.now() - 864e5));
 const streakOf = u => (u.last_day === today() || u.last_day === yesterday()) ? u.streak : 0;
 const shuffle = a => { const r = [...a]; for (let i = r.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [r[i], r[j]] = [r[j], r[i]]; } return r; };
+const norm = s => String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').replace(/,/g, '.').trim();
+const pairs = o => o.map(s => { const k = s.indexOf('='); return k < 0 ? [s.trim(), ''] : [s.slice(0, k).trim(), s.slice(k + 1).trim()]; });
+const errs = new Map(); // erros por tentativa (usuário:lição) para detectar lição perfeita
 function hearts(id) {
   const u = db.prepare('SELECT hearts,hearts_at FROM users WHERE id=?').get(id), now = Date.now();
   let h = u.hearts, at = u.hearts_at;
@@ -61,69 +68,175 @@ function loseHeart(id) {
   return hearts(id);
 }
 const isDone = (uid, lid) => !!db.prepare('SELECT 1 FROM progress WHERE user_id=? AND lesson_id=?').get(uid, lid);
+const goalDone = uid => db.prepare('SELECT COUNT(*) c FROM progress WHERE user_id=? AND done_at=?').get(uid, today()).c;
+const totalXp = uid => db.prepare('SELECT COALESCE(SUM(xp),0) xp FROM progress WHERE user_id=?').get(uid).xp;
+
+// ---------- Conquistas (calculadas a partir do progresso) ----------
+const A = [
+  ['primeiro', '🌱', 'Primeiro passo', 'Conclua 1 lição', s => s.n >= 1],
+  ['cinco', '📘', 'Estudioso', 'Conclua 5 lições', s => s.n >= 5],
+  ['perfeita', '💎', 'Sem erros', 'Conclua uma lição sem errar nenhuma questão', s => s.perf >= 1],
+  ['s3', '🔥', '3 dias seguidos', 'Alcance uma sequência de 3 dias', s => s.best >= 3],
+  ['s7', '🏅', 'Semana de fogo', 'Alcance uma sequência de 7 dias', s => s.best >= 7],
+  ['s30', '👑', 'Mestre da constância', 'Alcance uma sequência de 30 dias', s => s.best >= 30],
+  ['xp100', '⭐', '100 XP', 'Alcance 100 XP', s => s.xp >= 100],
+  ['xp500', '🚀', '500 XP', 'Alcance 500 XP', s => s.xp >= 500],
+  ['trilha', '🏆', 'Trilha completa', 'Conclua todas as lições de uma trilha', s => s.tracks >= 1],
+];
+function unlocked(uid) {
+  const p = db.prepare('SELECT COUNT(*) n, COALESCE(SUM(xp),0) xp, COALESCE(SUM(perfect),0) perf FROM progress WHERE user_id=?').get(uid);
+  const best = db.prepare('SELECT best_streak b FROM users WHERE id=?').get(uid).b;
+  const tracks = db.prepare(`SELECT COUNT(*) c FROM tracks t WHERE EXISTS(SELECT 1 FROM lessons l WHERE l.track_id=t.id)
+    AND NOT EXISTS(SELECT 1 FROM lessons l WHERE l.track_id=t.id AND l.id NOT IN (SELECT lesson_id FROM progress WHERE user_id=?))`).get(uid).c;
+  const s = { n: p.n, xp: p.xp, perf: p.perf, best, tracks };
+  return A.filter(a => a[4](s)).map(a => a[0]);
+}
+
+// ---------- Gamificação ----------
+const LEVEL = xp => Math.floor(Math.sqrt(xp / 40)) + 1, LEVEL_XP = n => (n - 1) ** 2 * 40;
+const BADGES = {
+  primeira: ['🌱', 'Primeiro passo', 'Conclua sua 1ª lição', c => c.lessons >= 1],
+  cinco: ['📘', 'Estudioso', 'Conclua 5 lições', c => c.lessons >= 5],
+  perfeita: ['💯', 'Perfeição', 'Termine uma lição sem errar', c => c.perfect >= 1],
+  trilha: ['🏁', 'Trilha completa', 'Conclua todas as lições de uma trilha', c => c.tracks >= 1],
+  s3: ['🔥', 'Em chamas', 'Sequência de 3 dias', c => c.streak >= 3],
+  s7: ['⚡', 'Imparável', 'Sequência de 7 dias', c => c.streak >= 7],
+  n5: ['🏆', 'Nível 5', 'Alcance o nível 5', c => c.level >= 5],
+};
+const MISSIONS = { licao: ['📚', 'Conclua 1 lição', 'lessons', 1], acertos: ['🎯', 'Acerte 5 questões', 'correct', 5], xp: ['⭐', 'Ganhe 30 XP', 'xp', 30] };
+const one = (sql, ...a) => db.prepare(sql).get(...a);
+function stats(uid) {
+  const xp = one('SELECT COALESCE(SUM(xp),0) v FROM progress WHERE user_id=?', uid).v;
+  const tracks = one(`SELECT COUNT(*) v FROM tracks t WHERE EXISTS(SELECT 1 FROM lessons WHERE track_id=t.id) AND NOT EXISTS(
+    SELECT 1 FROM lessons l WHERE l.track_id=t.id AND l.id NOT IN (SELECT lesson_id FROM progress WHERE user_id=?))`, uid).v;
+  const u = one('SELECT streak,last_day,coins FROM users WHERE id=?', uid);
+  return { xp, level: LEVEL(xp), tracks, streak: streakOf(u), coins: u.coins,
+    lessons: one('SELECT COUNT(*) v FROM progress WHERE user_id=?', uid).v, perfect: one('SELECT COUNT(*) v FROM progress WHERE user_id=? AND perfect=1', uid).v };
+}
+function awardBadges(uid) {
+  const s = stats(uid), have = new Set(db.prepare('SELECT code FROM badges WHERE user_id=?').all(uid).map(r => r.code)), fresh = [];
+  for (const [code, b] of Object.entries(BADGES)) if (!have.has(code) && b[3](s)) { db.prepare('INSERT INTO badges(user_id,code) VALUES(?,?)').run(uid, code); fresh.push({ icon: b[0], name: b[1] }); }
+  return fresh;
+}
+const todayAct = uid => one('SELECT xp,lessons,correct FROM activity WHERE user_id=? AND day=?', uid, today()) || { xp: 0, lessons: 0, correct: 0 };
+function bump(uid, f) {
+  db.prepare('INSERT OR IGNORE INTO activity(user_id,day) VALUES(?,?)').run(uid, today());
+  for (const [k, v] of Object.entries(f)) db.prepare(`UPDATE activity SET ${k}=${k}+? WHERE user_id=? AND day=?`).run(v, uid, today());
+}
 
 // ---------- Área do aluno (comum e ADM) ----------
 app.get('/api/tracks', auth, (req, res) => {
   const done = new Set(db.prepare('SELECT lesson_id FROM progress WHERE user_id=?').all(req.user.id).map(r => r.lesson_id));
-  const lessons = db.prepare('SELECT id,track_id,title,position FROM lessons ORDER BY position,id').all();
-  const tracks = db.prepare('SELECT * FROM tracks ORDER BY position,id').all()
-    .map(t => ({ ...t, lessons: lessons.filter(l => l.track_id === t.id).map(l => ({ ...l, done: done.has(l.id) })) }));
-  const xp = db.prepare('SELECT COALESCE(SUM(xp),0) xp FROM progress WHERE user_id=?').get(req.user.id).xp;
-  const h = hearts(req.user.id), u = db.prepare('SELECT streak,last_day FROM users WHERE id=?').get(req.user.id);
-  res.json({ tracks, xp, hearts: h.hearts, next: h.next, streak: streakOf(u) });
+  const lessons = db.prepare('SELECT id,track_id,title,position,xp FROM lessons ORDER BY position,id').all();
+  const tracks = db.prepare('SELECT * FROM tracks ORDER BY position,id').all().map(t => ({ ...t,
+    lessons: lessons.filter(l => l.track_id === t.id).map((l, i, arr) => ({ ...l, done: done.has(l.id), locked: req.user.role !== 'adm' && i > 0 && !done.has(arr[i - 1].id) })) }));
+  const h = hearts(req.user.id), st = stats(req.user.id);
+  res.json({ tracks, xp: st.xp, level: st.level, coins: st.coins, streak: st.streak, hearts: h.hearts, next: h.next });
 });
 app.get('/api/lessons/:id', auth, (req, res) => {
   const lesson = db.prepare('SELECT * FROM lessons WHERE id=?').get(req.params.id);
   if (!lesson) return res.status(404).json({ error: 'Lição não encontrada' });
   const done = isDone(req.user.id, lesson.id), h = hearts(req.user.id);
-  if (h.hearts === 0 && !done) return res.status(403).json({ error: `Você está sem vidas. Próxima vida em ${Math.ceil(h.next / 60)} min.` });
+  if (req.user.role !== 'adm') {
+    const prev = one('SELECT id FROM lessons WHERE track_id=? AND (position<? OR (position=? AND id<?)) ORDER BY position DESC,id DESC LIMIT 1', lesson.track_id, lesson.position, lesson.position, lesson.id);
+    if (prev && !isDone(req.user.id, prev.id)) return res.status(403).json({ error: 'Conclua a lição anterior primeiro 🔒' });
+  }
+  if (h.hearts === 0 && !done) return res.status(403).json({ error: `Você está sem vidas. Próxima vida em ${Math.ceil(h.next / 60)} min (ou recarregue no Perfil).` });
+  db.prepare('DELETE FROM answers WHERE user_id=? AND question_id IN (SELECT id FROM questions WHERE lesson_id=?)').run(req.user.id, lesson.id);
   const questions = db.prepare('SELECT id,prompt,options,type FROM questions WHERE lesson_id=? ORDER BY position,id').all(lesson.id).map(q => {
-    const o = JSON.parse(q.options), base = { id: q.id, prompt: q.prompt, type: q.type };
-    // a resposta correta nunca é enviada; itens de "ordenar" saem embaralhados
-    return q.type === 'ordenar' ? { ...base, items: shuffle(o.map((t, i) => ({ i, t }))) } : { ...base, options: o };
+    const o = JSON.parse(q.options), b = { id: q.id, prompt: q.prompt, type: q.type };
+    if (q.type === 'ordenar') return { ...b, items: shuffle(o.map((t, i) => ({ i, t }))) };
+    if (q.type === 'associar') { const p = pairs(o); return { ...b, left: p.map((x, i) => ({ i, t: x[0] })), right: shuffle(p.map((x, i) => ({ i, t: x[1] }))) }; }
+    return q.type === 'preencher' ? b : { ...b, options: o };
   });
-  res.json({ id: lesson.id, title: lesson.title, intro: lesson.intro || '', questions, hearts: h.hearts, done });
+  res.json({ id: lesson.id, title: lesson.title, content: (() => { const c = JSON.parse(lesson.content || '[]'); return c.length ? c : lesson.intro ? [{ type: 'texto', value: lesson.intro }] : []; })(), xp: lesson.xp, questions, hearts: h.hearts, done });
 });
 app.post('/api/questions/:id/check', auth, (req, res) => {
   const q = db.prepare('SELECT * FROM questions WHERE id=?').get(req.params.id);
   if (!q) return res.status(404).json({ error: 'Questão não encontrada' });
-  const ord = q.type === 'ordenar', opts = JSON.parse(q.options), a = req.body.answer;
-  const correct = ord ? Array.isArray(a) && a.length === opts.length && a.every((v, k) => Number(v) === k) : Number(a) === q.answer;
-  // errar tira uma vida (exceto ao revisar lições já concluídas)
+  const opts = JSON.parse(q.options), a = req.body.answer, multi = q.type === 'ordenar' || q.type === 'associar';
+  const correct = multi ? Array.isArray(a) && a.length === opts.length && a.every((v, k) => Number(v) === k)
+    : q.type === 'preencher' ? opts.some(x => norm(x) === norm(a)) : Number(a) === q.answer;
+  db.prepare('INSERT OR REPLACE INTO answers(user_id,question_id,correct) VALUES(?,?,?)').run(req.user.id, q.id, correct ? 1 : 0);
+  if (correct) bump(req.user.id, { correct: 1 });
   const h = !correct && !isDone(req.user.id, q.lesson_id) ? loseHeart(req.user.id) : hearts(req.user.id);
-  res.json({ correct, answer: ord ? null : q.answer, solution: ord ? opts : null, hearts: h.hearts });
+  res.json({ correct, answer: multi || q.type === 'preencher' ? null : q.answer, solution: multi || q.type === 'preencher' ? opts : null, explanation: q.explanation || '', hearts: h.hearts });
 });
 app.post('/api/lessons/:id/complete', auth, (req, res) => {
-  db.prepare('INSERT OR IGNORE INTO progress(user_id,lesson_id) VALUES(?,?)').run(req.user.id, req.params.id);
-  const u = db.prepare('SELECT streak,last_day FROM users WHERE id=?').get(req.user.id);
-  let streak = u.streak;
-  if (u.last_day !== today()) {
-    streak = u.last_day === yesterday() ? u.streak + 1 : 1;
-    db.prepare('UPDATE users SET streak=?,last_day=? WHERE id=?').run(streak, today(), req.user.id);
+  const L = db.prepare('SELECT * FROM lessons WHERE id=?').get(req.params.id), uid = req.user.id;
+  if (!L) return res.status(404).json({ error: 'Lição não encontrada' });
+  const total = one('SELECT COUNT(*) v FROM questions WHERE lesson_id=?', L.id).v;
+  const r = one('SELECT COUNT(*) n, COALESCE(SUM(correct),0) c FROM answers WHERE user_id=? AND question_id IN (SELECT id FROM questions WHERE lesson_id=?)', uid, L.id);
+  if (r.n < total) return res.status(400).json({ error: 'Responda todas as questões' });
+  const perfect = total > 0 && r.c === total ? 1 : 0;
+  let gained = 0, coins = 0;
+  if (!isDone(uid, L.id)) {
+    gained = L.xp + r.c * 2 + (perfect ? 10 : 0); coins = 5 + (perfect ? 5 : 0);
+    db.prepare('INSERT INTO progress(user_id,lesson_id,xp,perfect) VALUES(?,?,?,?)').run(uid, L.id, gained, perfect);
+    db.prepare('UPDATE users SET coins=coins+? WHERE id=?').run(coins, uid);
+    bump(uid, { xp: gained, lessons: 1 });
   }
-  res.json({ ok: true, streak });
+  const u = one('SELECT streak,last_day FROM users WHERE id=?', uid); let streak = u.streak;
+  if (u.last_day !== today()) { streak = u.last_day === yesterday() ? u.streak + 1 : 1; db.prepare('UPDATE users SET streak=?,last_day=? WHERE id=?').run(streak, today(), uid); }
+  const st = stats(uid);
+  res.json({ ok: true, streak, gained, coins, perfect: !!perfect, hits: r.c, total, level: st.level, levelUp: st.level > LEVEL(st.xp - gained), badges: awardBadges(uid) });
+});
+app.get('/api/me/profile', auth, (req, res) => {
+  const uid = req.user.id, s = stats(uid), t = todayAct(uid);
+  const claimed = new Set(db.prepare('SELECT code FROM claims WHERE user_id=? AND day=?').all(uid, today()).map(r => r.code));
+  const have = new Set(db.prepare('SELECT code FROM badges WHERE user_id=?').all(uid).map(r => r.code));
+  res.json({ ...s, name: req.user.name, curXp: LEVEL_XP(s.level), nextXp: LEVEL_XP(s.level + 1),
+    missions: Object.entries(MISSIONS).map(([code, [icon, label, key, goal]]) => ({ code, icon, label, goal, value: Math.min(t[key], goal), done: t[key] >= goal, claimed: claimed.has(code) })),
+    badges: Object.entries(BADGES).map(([code, b]) => ({ icon: b[0], name: b[1], desc: b[2], got: have.has(code) })),
+    week: db.prepare('SELECT day,xp FROM activity WHERE user_id=? ORDER BY day DESC LIMIT 7').all(uid).reverse() });
+});
+app.post('/api/missions/:code/claim', auth, (req, res) => {
+  const m = MISSIONS[req.params.code];
+  if (!m || todayAct(req.user.id)[m[2]] < m[3]) return res.status(400).json({ error: 'Missão ainda não concluída' });
+  if (db.prepare('INSERT OR IGNORE INTO claims(user_id,day,code) VALUES(?,?,?)').run(req.user.id, today(), req.params.code).changes)
+    db.prepare('UPDATE users SET coins=coins+10 WHERE id=?').run(req.user.id);
+  res.json({ ok: true });
+});
+app.post('/api/shop/hearts', auth, (req, res) => {
+  const COST = 30;
+  if (hearts(req.user.id).hearts >= MAX_HEARTS) return res.status(400).json({ error: 'Suas vidas já estão cheias' });
+  if (one('SELECT coins FROM users WHERE id=?', req.user.id).coins < COST) return res.status(400).json({ error: `Você precisa de ${COST} moedas` });
+  db.prepare('UPDATE users SET coins=coins-?,hearts=?,hearts_at=? WHERE id=?').run(COST, MAX_HEARTS, Date.now(), req.user.id);
+  res.json({ ok: true });
 });
 app.get('/api/ranking', auth, (req, res) => {
   const rows = db.prepare(`SELECT u.id,u.name,u.streak,u.last_day,COALESCE(SUM(p.xp),0) xp FROM users u
     LEFT JOIN progress p ON p.user_id=u.id GROUP BY u.id ORDER BY xp DESC,u.name LIMIT 20`).all();
-  res.json(rows.map(r => ({ name: r.name, xp: r.xp, streak: streakOf(r), me: r.id === req.user.id })));
+  res.json(rows.map(r => ({ name: r.name, xp: r.xp, level: LEVEL(r.xp), streak: streakOf(r), me: r.id === req.user.id })));
 });
 
 // ---------- Área do ADM: criar/editar trilhas, lições e questões ----------
 const FIELDS = {
-  tracks: ['title', 'description', 'icon', 'position'],
-  lessons: ['track_id', 'title', 'intro', 'position'],
-  questions: ['lesson_id', 'type', 'prompt', 'options', 'answer', 'position'],
+  tracks: ['title', 'description', 'icon', 'color', 'position'],
+  lessons: ['track_id', 'title', 'intro', 'content', 'xp', 'position'],
+  questions: ['lesson_id', 'type', 'prompt', 'options', 'answer', 'explanation', 'position'],
 };
 const clean = (res, body) => FIELDS[res].reduce((o, f) => {
-  if (body[f] !== undefined) o[f] = f === 'options' ? JSON.stringify(body.type === 'vf' ? ['Verdadeiro', 'Falso'] : body[f]) : body[f];
+  if (body[f] !== undefined) o[f] = f === 'content' ? JSON.stringify(body[f]) : f === 'options' ? JSON.stringify(body.type === 'vf' ? ['Verdadeiro', 'Falso'] : body[f]) : body[f];
   return o;
 }, {});
 
 app.get('/api/admin/tree', auth, adm, (req, res) => {
   const qs = db.prepare('SELECT * FROM questions ORDER BY position,id').all().map(q => ({ ...q, options: JSON.parse(q.options) }));
-  const ls = db.prepare('SELECT * FROM lessons ORDER BY position,id').all().map(l => ({ ...l, questions: qs.filter(q => q.lesson_id === l.id) }));
+  const ls = db.prepare('SELECT * FROM lessons ORDER BY position,id').all().map(l => ({ ...l, content: JSON.parse(l.content || '[]'), questions: qs.filter(q => q.lesson_id === l.id) }));
   res.json(db.prepare('SELECT * FROM tracks ORDER BY position,id').all().map(t => ({ ...t, lessons: ls.filter(l => l.track_id === t.id) })));
+});
+// Upload de imagens/vídeos da explicação (precisa vir ANTES da rota genérica /api/admin/:res)
+const UP = path.join(__dirname, 'public', 'uploads'); fs.mkdirSync(UP, { recursive: true });
+const EXT = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'mp4', 'webm']);
+app.post('/api/admin/upload', auth, adm, (req, res) => {
+  const ext = String(req.body.name || '').split('.').pop().toLowerCase();
+  if (!EXT.has(ext)) return res.status(400).json({ error: 'Formato não permitido (use png, jpg, gif, webp, mp4 ou webm)' });
+  const buf = Buffer.from(String(req.body.data || ''), 'base64');
+  if (!buf.length || buf.length > 25 * 1024 * 1024) return res.status(400).json({ error: 'Arquivo vazio ou maior que 25 MB' });
+  const name = crypto.randomBytes(8).toString('hex') + '.' + ext;
+  fs.writeFileSync(path.join(UP, name), buf);
+  res.json({ url: '/uploads/' + name });
 });
 app.post('/api/admin/:res', auth, adm, (req, res) => {
   if (!FIELDS[req.params.res]) return res.status(404).end();
@@ -140,6 +253,15 @@ app.put('/api/admin/:res/:id', auth, adm, (req, res) => {
     db.prepare(`UPDATE ${req.params.res} SET ${k.map(c => c + '=?')} WHERE id=?`).run(...Object.values(d), req.params.id);
     res.json({ ok: true });
   } catch (e) { res.status(400).json({ error: e.message }); }
+});
+// Excluir conta (precisa vir ANTES da rota genérica /api/admin/:res/:id)
+app.delete('/api/admin/users/:id', auth, adm, (req, res) => {
+  const id = Number(req.params.id);
+  if (id === req.user.id) return res.status(400).json({ error: 'Você não pode excluir a própria conta' });
+  if (!db.prepare('SELECT 1 FROM users WHERE id=?').get(id)) return res.status(404).json({ error: 'Usuário não encontrado' });
+  for (const t of ['progress', 'answers', 'activity', 'badges', 'claims']) db.prepare(`DELETE FROM ${t} WHERE user_id=?`).run(id);
+  db.prepare('DELETE FROM users WHERE id=?').run(id);
+  res.json({ ok: true });
 });
 app.delete('/api/admin/:res/:id', auth, adm, (req, res) => {
   if (!FIELDS[req.params.res]) return res.status(404).end();

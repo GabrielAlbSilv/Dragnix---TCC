@@ -639,3 +639,61 @@ label {
     object-fit: contain;
     margin-right: 6px;
 }
+
+.blk {
+    border: 2px solid var(--bd);
+    border-radius: 12px;
+    padding: 10px;
+    margin: 8px 0;
+}
+
+.lesson-content figure,
+details figure {
+    margin: 16px 0;
+    text-align: center;
+}
+
+.lesson-content img,
+.lesson-content video,
+details img,
+details video {
+    max-width: 100%;
+    border-radius: 12px;
+}
+
+.lesson-content iframe,
+details iframe {
+    width: 100%;
+    aspect-ratio: 16/9;
+    border: 0;
+    border-radius: 12px;
+}
+
+figcaption {
+    font-size: 14px;
+    margin-top: 6px;
+}
+
+.steps {
+    display: flex;
+    gap: 8px;
+    margin: 10px 0;
+}
+
+.pill {
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: var(--bd);
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.pill.on {
+    background: var(--g);
+    color: #fff;
+}
+
+details summary {
+    cursor: pointer;
+    font-weight: 700;
+}

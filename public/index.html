@@ -1,30 +1,263 @@
-<!doctype html><html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dragnix — Entrar</title>
-<link rel="stylesheet" href="css/style.css">
-<link rel="icon" href="css/images/dranix_icon_white_nobackground.png"image/png">
 
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+
+    <title>Dragnix — Entrar</title>
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <link
+        rel="icon"
+        href="css/images/dranix_icon_white_nobackground.png"
+        type="image/png"
+    >
 </head>
-<body>
-<div class="wrap">
-  <section class="hero">
-    <img src="css/images/dranix_logo_white_nobackground.png" alt="Logo da marca">
-</section>
 
-<div class="tabs"><button class="btn" id="tl">Entrar</button><button class="btn sec" id="tr">Criar conta</button></div>
-<div class="card"><input id="name" class="hide" placeholder="Nome"><input id="email" type="email" placeholder="E-mail">
-<input id="pass" type="password" placeholder="Senha (mín. 6 caracteres)"><div class="err" id="err"></div>
-<button class="btn" id="go" style="width:100%">Entrar</button></div></div>
-<script src="js/api.js"></script><script>
-if (localStorage.token) location = '/app.html';
-let mode = 'login'; const $ = id => document.getElementById(id);
-function set(m) { mode = m; $('name').classList.toggle('hide', m === 'login'); $('go').textContent = m === 'login' ? 'Entrar' : 'Criar conta';
-  $('tl').className = 'btn' + (m === 'login' ? '' : ' sec'); $('tr').className = 'btn' + (m === 'login' ? ' sec' : ''); $('err').textContent = ''; }
-$('tl').onclick = () => set('login'); $('tr').onclick = () => set('register');
-$('go').onclick = async () => {
-  try {
-    const d = await api('/auth/' + mode, 'POST', { name: $('name').value, email: $('email').value, password: $('pass').value });
-    localStorage.token = d.token; localStorage.user = JSON.stringify(d.user); location = '/app.html';
-  } catch (e) { $('err').textContent = e.message; }
+<body>
+
+<div class="wrap">
+
+    <section class="hero">
+        <img
+            src="css/images/dranix_logo_white_nobackground.png"
+            alt="Logo da marca"
+        >
+    </section>
+
+    <div class="tabs">
+        <button class="btn" id="tl">Entrar</button>
+        <button class="btn sec" id="tr">Criar conta</button>
+    </div>
+
+    <div class="card">
+
+        <!-- Nome -->
+        <input
+            id="name"
+            class="hide"
+            type="text"
+            placeholder="Nome"
+        >
+
+        <!-- E-mail -->
+        <input
+            id="email"
+            type="email"
+            placeholder="E-mail"
+        >
+
+        <!-- Senha -->
+        <input
+            id="pass"
+            type="password"
+            placeholder="Senha (mín. 6 caracteres)"
+        >
+
+        <!-- Confirmar senha -->
+        <input
+            id="passConfirm"
+            type="password"
+            class="hide"
+            placeholder="Confirmar senha"
+        >
+
+        <!-- Mensagem de erro -->
+        <div class="err" id="err"></div>
+
+        <!-- Botão -->
+        <button
+            class="btn"
+            id="go"
+            type="button"
+            style="width:100%"
+        >
+            Entrar
+        </button>
+
+    </div>
+
+</div>
+
+<script src="js/api.js"></script>
+
+<script>
+
+if (localStorage.token) {
+    location = '/app.html';
+}
+
+let mode = 'login';
+
+const $ = id => document.getElementById(id);
+
+
+/* =========================
+   ALTERAR ENTRE LOGIN/CADASTRO
+========================= */
+
+function set(m) {
+
+    mode = m;
+
+    // Nome aparece somente no cadastro
+    $('name').classList.toggle(
+        'hide',
+        m === 'login'
+    );
+
+    // Confirmar senha aparece somente no cadastro
+    $('passConfirm').classList.toggle(
+        'hide',
+        m === 'login'
+    );
+
+    // Texto do botão
+    $('go').textContent =
+        m === 'login'
+            ? 'Entrar'
+            : 'Criar conta';
+
+    // Estilo das abas
+    $('tl').className =
+        'btn' + (m === 'login' ? '' : ' sec');
+
+    $('tr').className =
+        'btn' + (m === 'login' ? ' sec' : '');
+
+    // Limpa erros
+    $('err').textContent = '';
+
+    // Limpa confirmação ao trocar de tela
+    $('passConfirm').value = '';
+}
+
+
+/* =========================
+   BOTÕES DAS ABAS
+========================= */
+
+$('tl').onclick = () => {
+    set('login');
 };
-</script></body></html>
+
+$('tr').onclick = () => {
+    set('register');
+};
+
+
+/* =========================
+   LOGIN / CADASTRO
+========================= */
+
+$('go').onclick = async () => {
+
+    $('err').textContent = '';
+
+    const name = $('name').value.trim();
+    const email = $('email').value.trim();
+    const password = $('pass').value;
+    const confirmPassword = $('passConfirm').value;
+
+
+    /* =========================
+       VALIDAÇÃO DO CADASTRO
+    ========================= */
+
+    if (mode === 'register') {
+
+        if (!name) {
+            $('err').textContent =
+                'Digite seu nome.';
+            return;
+        }
+
+        if (!email) {
+            $('err').textContent =
+                'Digite seu e-mail.';
+            return;
+        }
+
+        if (password.length < 6) {
+            $('err').textContent =
+                'A senha deve ter pelo menos 6 caracteres.';
+            return;
+        }
+
+        if (!confirmPassword) {
+            $('err').textContent =
+                'Confirme sua senha.';
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            $('err').textContent =
+                'As senhas não são iguais.';
+            return;
+        }
+    }
+
+
+    /* =========================
+       VALIDAÇÃO DO LOGIN
+    ========================= */
+
+    if (mode === 'login') {
+
+        if (!email) {
+            $('err').textContent =
+                'Digite seu e-mail.';
+            return;
+        }
+
+        if (!password) {
+            $('err').textContent =
+                'Digite sua senha.';
+            return;
+        }
+    }
+
+
+    /* =========================
+       ENVIA PARA O SERVIDOR
+    ========================= */
+
+    try {
+
+        const d = await api(
+            '/auth/' + mode,
+            'POST',
+            {
+                name: name,
+                email: email,
+                password: password,
+
+                // IMPORTANTE:
+                // O server.js espera o campo "confirm"
+                confirm: confirmPassword
+            }
+        );
+
+        localStorage.token = d.token;
+
+        localStorage.user =
+            JSON.stringify(d.user);
+
+        location = '/app.html';
+
+    } catch (e) {
+
+        $('err').textContent =
+            e.message || 'Erro ao realizar operação.';
+    }
+
+};
+
+</script>
+
+</body>
+</html>
+
