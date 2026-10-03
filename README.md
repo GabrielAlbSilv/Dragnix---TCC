@@ -1,4 +1,4 @@
-# Finanças em Trilhas
+# Dragnix---TCC
 
 Plataforma de trilhas de aprendizagem (estilo Duolingo). Este projeto contém apenas a estrutura — o conteúdo das trilhas é criado pelos ADMs no painel.
 
