@@ -10,14 +10,22 @@ window.addEventListener('unhandledrejection', e => { main.innerHTML = `<div clas
 const refresh = () => api('/tracks').then(setStats);
 
 async function home() {
-  const d = await api('/tracks'); setStats(d);
+  const d = await api('/tracks'); setStats(d); window.TRACKS = d.tracks;
   main.innerHTML = d.tracks.length ? d.tracks.map(t => { const c = esc(t.color || '#58cc02'), n = t.lessons.filter(l => l.done).length; return `
     <div class="card" style="border-color:${c}"><h2>${esc(t.icon)} ${esc(t.title)}</h2><p class="mut">${esc(t.description)}</p>
-    <div class="bar"><div style="width:${t.lessons.length ? n / t.lessons.length * 100 : 0}%;background:${c}"></div></div><small class="mut">${n}/${t.lessons.length} lições</small>
-    <div class="path">${t.lessons.map((l, i) => `<div style="text-align:center;opacity:${l.locked ? .5 : 1}"><button class="node ${l.done ? 'done' : ''}" style="${l.done ? '' : 'background:' + c}"
-      onclick="${l.locked ? "alert('Conclua a lição anterior para desbloquear 🔒')" : `openLesson(${l.id})`}">${l.locked ? '🔒' : l.done ? '✓' : i + 1}</button>
-      <div class="mut">${esc(l.title)}<br><small>+${l.xp} XP</small></div></div>`).join('') || '<span class="mut">Sem lições ainda.</span>'}</div></div>`; }).join('')
-    : '<p class="mut">Nenhuma trilha disponível ainda.</p>';
+    <div class="bar"><div style="width:${t.lessons.length ? n / t.lessons.length * 100 : 0}%;background:${c}"></div></div><small class="mut">${n}/${t.lessons.length} módulos concluídos</small>
+    <div class="path">
+      ${t.presentation.length ? `<div style="text-align:center"><button class="node" style="background:${c}" onclick="showTrack(${t.id})">📌</button><div class="mut">Apresentação<br><small>da trilha</small></div></div>` : ''}
+      ${t.lessons.map((l, i) => `<div style="text-align:center;opacity:${l.locked ? .5 : 1}"><button class="node ${l.done ? 'done' : ''}" style="${l.done ? '' : 'background:' + c}"
+        onclick="${l.locked ? "alert('Conclua o módulo anterior para desbloquear 🔒')" : `openLesson(${l.id})`}">${l.locked ? '🔒' : l.done ? '✓' : i + 1}</button>
+        <div class="mut"><b>Módulo ${i + 1}</b><br>${esc(l.title)}<br><small>+${l.xp} XP</small></div></div>`).join('')}
+      <div style="text-align:center;opacity:.5"><button class="node" style="background:var(--bd)" onclick="alert('Os desafios chegam em breve! 🏆')">🏆</button><div class="mut">Desafios<br><small>em breve</small></div></div>
+    </div></div>`; }).join('') : '<p class="mut">Nenhuma trilha disponível ainda.</p>';
+}
+function showTrack(id) {
+  const t = TRACKS.find(x => x.id === id);
+  main.innerHTML = `<button class="link" onclick="home()">← Voltar</button><h2>${esc(t.icon)} ${esc(t.title)}</h2><div class="steps"><span class="pill on">📌 Apresentação</span></div>
+    <div class="card lesson-content">${t.presentation.map(block).join('')}</div><button class="btn" onclick="home()">Ir para os módulos</button>`;
 }
 
 async function rank() {
@@ -129,11 +137,17 @@ async function openLesson(id) {
       ${r.levelUp ? `<h3>🎖️ Você subiu para o nível ${r.level}!</h3>` : ''}${r.badges.map(b => `<p>🏅 Nova conquista: ${b.icon} <b>${esc(b.name)}</b></p>`).join('')}
       <button class="btn" onclick="home()">Voltar às trilhas</button></div>`;
   };
-  if (lesson.content.length) {
-    main.innerHTML = `<button class="link" onclick="home()">✕ Sair</button><div class="steps"><span class="pill on">📖 Explicação</span><span class="pill">📝 Perguntas</span></div>
+  const explain = () => {
+    if (!lesson.content.length) return step();
+    main.innerHTML = `<button class="link" onclick="home()">✕ Sair</button><div class="steps">${lesson.presentation.length ? '<span class="pill">📌 Apresentação</span>' : ''}<span class="pill on">📖 Explicação</span><span class="pill">📝 Perguntas</span></div>
       <h2>${esc(lesson.title)}</h2><div class="card lesson-content">${lesson.content.map(block).join('')}</div><button class="btn" id="go">Começar as perguntas (+${lesson.xp} XP)</button>`;
     $('go').onclick = step;
-  } else step();
+  };
+  if (lesson.presentation.length) { // Apresentação do módulo → Explicação → Perguntas
+    main.innerHTML = `<button class="link" onclick="home()">✕ Sair</button><div class="steps"><span class="pill on">📌 Apresentação</span><span class="pill">📖 Explicação</span><span class="pill">📝 Perguntas</span></div>
+      <h2>${esc(lesson.title)}</h2><div class="card lesson-content">${lesson.presentation.map(block).join('')}</div><button class="btn" id="go0">Continuar</button>`;
+    $('go0').onclick = explain;
+  } else explain();
 }
 home();
 

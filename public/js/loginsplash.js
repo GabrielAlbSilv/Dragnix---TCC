@@ -5,7 +5,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================
 
     const splashExibida = sessionStorage.getItem('splashExibida');
-
     if (!splashExibida) {
         sessionStorage.setItem('splashExibida', 'true');
         window.location.replace('splash.html');
@@ -169,7 +168,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
         }
-
+    const splashExibida = sessionStorage.getItem('splashExibida');
+    if (!splashExibida) {
+        sessionStorage.setItem('splashExibida', 'true');
+        window.location.replace('splash.html');
+        return;
+    }
 
         // =========================
         // ENVIA PARA O SERVIDOR

@@ -67,21 +67,22 @@ function questionForm(q = {}) {
     });
 }
 
-// ---------- Editor da lição: explicação com texto, imagem e vídeo ----------
-function lessonForm(l = {}) {
-  let blocks = Array.isArray(l.content) && l.content.length ? l.content.map(b => ({ ...b })) : (l.intro ? [{ type: 'texto', value: l.intro }] : []);
-  const NAME = { texto: '📝 Texto', imagem: '🖼️ Imagem', video: '🎬 Vídeo' };
-  const sync = () => $('ed').querySelectorAll('[data-b]').forEach(e => blocks[+e.dataset.b][e.dataset.f] = e.value);
+// ---------- Editor de blocos (texto, imagem, vídeo): usado na Apresentação e na Explicação ----------
+function blockEditor(host, initial) {
+  const blocks = (initial || []).map(b => ({ ...b })), NAME = { texto: '📝 Texto', imagem: '🖼️ Imagem', video: '🎬 Vídeo' };
+  const sync = () => host.querySelectorAll('[data-b]').forEach(e => blocks[+e.dataset.b][e.dataset.f] = e.value);
   const draw = () => {
-    $('ed').innerHTML = blocks.map((b, i) => `<div class="blk"><div class="row"><b>${NAME[b.type]}</b><span class="acts">
+    host.innerHTML = (blocks.map((b, i) => `<div class="blk"><div class="row"><b>${NAME[b.type]}</b><span class="acts">
       <button type="button" class="btn sm sec" data-m="${i}:-1">↑</button><button type="button" class="btn sm sec" data-m="${i}:1">↓</button><button type="button" class="btn sm red" data-d="${i}">✕</button></span></div>
-      ${b.type === 'texto' ? `<textarea data-b="${i}" data-f="value" rows="5" placeholder="Escreva o texto da explicação...">${esc(b.value)}</textarea>`
+      ${b.type === 'texto' ? `<textarea data-b="${i}" data-f="value" rows="4" placeholder="Escreva o texto...">${esc(b.value)}</textarea>`
         : `<input data-b="${i}" data-f="value" value="${esc(b.value)}" placeholder="${b.type === 'video' ? 'Link do YouTube ou de um vídeo (.mp4)' : 'Link da imagem'}">
            <label class="btn sm sec" style="display:inline-block">⬆️ Enviar do computador<input type="file" hidden data-u="${i}" accept="${b.type === 'video' ? 'video/mp4,video/webm' : 'image/*'}"></label>
-           <input data-b="${i}" data-f="caption" value="${esc(b.caption)}" placeholder="Legenda (opcional)">`}</div>`).join('') || '<p class="mut">Nenhum conteúdo ainda. Adicione blocos abaixo.</p>';
-    $('ed').querySelectorAll('[data-m]').forEach(x => x.onclick = () => { sync(); const [i, d] = x.dataset.m.split(':').map(Number); if (blocks[i + d]) [blocks[i], blocks[i + d]] = [blocks[i + d], blocks[i]]; draw(); });
-    $('ed').querySelectorAll('[data-d]').forEach(x => x.onclick = () => { sync(); blocks.splice(+x.dataset.d, 1); draw(); });
-    $('ed').querySelectorAll('[data-u]').forEach(x => x.onchange = async () => {
+           <input data-b="${i}" data-f="caption" value="${esc(b.caption)}" placeholder="Legenda (opcional)">`}</div>`).join('') || '<p class="mut">Nenhum conteúdo ainda.</p>') +
+      '<div class="acts" style="margin:8px 0"><button type="button" class="btn sm sec" data-add="texto">+ Texto</button><button type="button" class="btn sm sec" data-add="imagem">+ Imagem</button><button type="button" class="btn sm sec" data-add="video">+ Vídeo</button></div>';
+    host.querySelectorAll('[data-m]').forEach(x => x.onclick = () => { sync(); const [i, d] = x.dataset.m.split(':').map(Number); if (blocks[i + d]) [blocks[i], blocks[i + d]] = [blocks[i + d], blocks[i]]; draw(); });
+    host.querySelectorAll('[data-d]').forEach(x => x.onclick = () => { sync(); blocks.splice(+x.dataset.d, 1); draw(); });
+    host.querySelectorAll('[data-add]').forEach(x => x.onclick = () => { sync(); blocks.push({ type: x.dataset.add, value: '', caption: '' }); draw(); });
+    host.querySelectorAll('[data-u]').forEach(x => x.onchange = async () => {
       const f = x.files[0]; if (!f) return; sync();
       if (f.size > 25 * 1024 * 1024) { $('derr').textContent = 'Arquivo maior que 25 MB'; return; }
       $('derr').textContent = 'Enviando arquivo...';
@@ -91,17 +92,34 @@ function lessonForm(l = {}) {
       } catch (e) { $('derr').textContent = e.message; }
     });
   };
-  return modal(l.id ? 'Editar lição' : 'Nova lição',
-    `<label>Título da lição<input id="lt" value="${esc(l.title)}"></label><label>XP da lição (recompensa)<input id="lx" type="number" value="${esc(l.xp ?? 10)}"></label>
-     <p><b>📖 Explicação</b> <small class="mut">— o aluno lê antes de começar as perguntas</small></p><div id="ed"></div>
-     <div class="acts" style="margin:8px 0"><button type="button" class="btn sm sec" data-add="texto">+ Texto</button><button type="button" class="btn sm sec" data-add="imagem">+ Imagem</button><button type="button" class="btn sm sec" data-add="video">+ Vídeo</button></div>`,
-    () => { $('fields').querySelectorAll('[data-add]').forEach(x => x.onclick = () => { sync(); blocks.push({ type: x.dataset.add, value: '', caption: '' }); draw(); }); draw(); },
-    () => {
-      sync(); const title = $('lt').value.trim(); if (!title) throw new Error('Informe o título');
-      const content = blocks.map(b => ({ ...b, value: (b.value || '').trim(), caption: (b.caption || '').trim() })).filter(b => b.value);
-      if (content.some(b => b.type !== 'texto' && !/^(https?:\/\/|\/uploads\/)/.test(b.value))) throw new Error('Links de imagem/vídeo devem começar com http:// ou https:// (ou envie o arquivo)');
-      return { title, xp: Math.max(0, Number($('lx').value) || 10), content };
-    });
+  draw();
+  return { get() {
+    sync(); const c = blocks.map(b => ({ ...b, value: (b.value || '').trim(), caption: (b.caption || '').trim() })).filter(b => b.value);
+    if (c.some(b => b.type !== 'texto' && !/^(https?:\/\/|\/uploads\/)/.test(b.value))) throw new Error('Links de imagem/vídeo devem começar com http:// ou https:// (ou envie o arquivo)');
+    return c;
+  } };
+}
+
+// ---------- Formulário do módulo (apresentação + explicação) ----------
+function lessonForm(l = {}) {
+  let pe, ce;
+  return modal(l.id ? 'Editar módulo' : 'Novo módulo',
+    `<label>Título do módulo<input id="lt" value="${esc(l.title)}"></label><label>XP do módulo (recompensa)<input id="lx" type="number" value="${esc(l.xp ?? 10)}"></label>
+     <p><b>📌 Apresentação</b> <small class="mut">— opcional, aparece no começo do módulo</small></p><div id="pe"></div>
+     <p><b>📖 Explicação</b> <small class="mut">— o aluno lê antes das perguntas</small></p><div id="ce"></div>`,
+    () => { pe = blockEditor($('pe'), l.presentation); ce = blockEditor($('ce'), Array.isArray(l.content) && l.content.length ? l.content : (l.intro ? [{ type: 'texto', value: l.intro }] : [])); },
+    () => { const title = $('lt').value.trim(); if (!title) throw new Error('Informe o título'); return { title, xp: Math.max(0, Number($('lx').value) || 10), presentation: pe.get(), content: ce.get() }; });
+}
+
+// ---------- Formulário da trilha (com apresentação opcional) ----------
+function trackForm(t = {}) {
+  let pe; t = { color: '#58cc02', ...t };
+  return modal(t.id ? 'Editar trilha' : 'Nova trilha',
+    `<label>Título da trilha<input id="tt" value="${esc(t.title)}"></label><label>Ícone (emoji)<input id="ti" value="${esc(t.icon)}"></label>
+     <label>Cor da trilha<input id="tc" type="color" value="${esc(t.color)}"></label><label>Descrição<textarea id="td" rows="3">${esc(t.description)}</textarea></label>
+     <p><b>📌 Apresentação da trilha</b> <small class="mut">— opcional, aparece no começo da trilha</small></p><div id="pe"></div>`,
+    () => { pe = blockEditor($('pe'), t.presentation); },
+    () => { const title = $('tt').value.trim(); if (!title) throw new Error('Informe o título'); return { title, icon: $('ti').value.trim() || '📚', color: $('tc').value, description: $('td').value.trim(), presentation: pe.get() }; });
 }
 
 // ---------- Dados e ações ----------
@@ -118,13 +136,14 @@ async function act(a, id, d) {
   const Lq = lessons().find(l => l.questions.some(q => q.id === id)), Q = Lq?.questions.find(q => q.id === id);
   let o;
   if (a === 'sel') { sel = id; return render(); }
+  if (a === 'tab') { tab = id ? 'des' : 'mod'; return render(); }
   if (a === 'tog') { open.has(id) ? open.delete(id) : open.add(id); return render(); }
-  if (a === 'nt' && (o = await simple('tracks', 'Nova trilha'))) run(async () => { sel = (await api('/admin/tracks', 'POST', { ...o, position: tree.length })).id; });
-  if (a === 'et' && (o = await simple('tracks', 'Editar trilha', T))) run(() => api(`/admin/tracks/${T.id}`, 'PUT', o));
+  if (a === 'nt' && (o = await trackForm())) run(async () => { sel = (await api('/admin/tracks', 'POST', { ...o, position: tree.length })).id; });
+  if (a === 'et' && (o = await trackForm(T))) run(() => api(`/admin/tracks/${T.id}`, 'PUT', o));
   if (a === 'dt' && confirm(`Excluir a trilha "${T.title}" e todo o conteúdo dela?`)) run(() => api(`/admin/tracks/${T.id}`, 'DELETE'));
   if (a === 'nl' && (o = await lessonForm())) run(async () => { open.add((await api('/admin/lessons', 'POST', { ...o, track_id: T.id, position: T.lessons.length })).id); });
   if (a === 'el' && (o = await lessonForm(L))) run(() => api(`/admin/lessons/${id}`, 'PUT', o));
-  if (a === 'dl' && confirm(`Excluir a lição "${L.title}" e suas questões?`)) run(() => api(`/admin/lessons/${id}`, 'DELETE'));
+  if (a === 'dl' && confirm(`Excluir o módulo "${L.title}" e suas questões?`)) run(() => api(`/admin/lessons/${id}`, 'DELETE'));
   if (a === 'nq' && (o = await questionForm())) { open.add(id); run(() => api('/admin/questions', 'POST', { ...o, lesson_id: id, position: L.questions.length })); }
   if (a === 'eq' && (o = await questionForm(Q))) run(() => api(`/admin/questions/${id}`, 'PUT', o));
   if (a === 'dq' && confirm('Excluir esta questão?')) run(() => api(`/admin/questions/${id}`, 'DELETE'));
@@ -138,19 +157,24 @@ const arrows = (a, id, i, n) => `<button class="btn sm sec" data-a="${a}" data-i
 const questionHtml = (q, i, n) => `<div class="q"><span class="badge">${TYPE[q.type || 'multipla'][1]} ${TYPE[q.type || 'multipla'][0]}</span><span class="qp">${esc(q.prompt)}</span>
   <span class="acts">${arrows('mq', q.id, i, n)}<button class="btn sm sec" data-a="eq" data-id="${q.id}">✏️</button><button class="btn sm red" data-a="dq" data-id="${q.id}">🗑️</button></span></div>`;
 const lessonHtml = (l, i, n) => `<div class="lesson"><div class="lh"><button class="lt" data-a="tog" data-id="${l.id}"><span class="num">${i + 1}</span>
-  <span><b>${esc(l.title)}</b><small>${l.questions.length} questões · ${l.xp ?? 10} XP${(l.content?.length || l.intro) ? ` · 📖 ${l.content?.length || 1} bloco(s)` : ''}</small></span><span class="chev">${open.has(l.id) ? '▾' : '▸'}</span></button>
-  <div class="acts">${arrows('ml', l.id, i, n)}<button class="btn sm sec" data-a="el" data-id="${l.id}">✏️ Editar</button><button class="btn sm red" data-a="dl" data-id="${l.id}">🗑️</button></div></div>
+  <span><b>Módulo ${i + 1} — ${esc(l.title)}</b><small>${l.questions.length} questões · ${l.xp ?? 10} XP${l.presentation?.length ? ' · 📌 apresentação' : ''}${(l.content?.length || l.intro) ? ` · 📖 ${l.content?.length || 1} bloco(s)` : ''}</small></span><span class="chev">${open.has(l.id) ? '▾' : '▸'}</span></button>
+  <div class="acts">${arrows('ml', l.id, i, n)}<button class="btn sm sec" data-a="el" data-id="${l.id}">✏️ Editar</button><button class="btn sm red" data-a="dl" data-id="${l.id}" ${n <= 1 ? 'disabled title="Cada trilha precisa de ao menos 1 módulo"' : ''}>🗑️</button></div></div>
   ${open.has(l.id) ? `<div class="lb">${l.questions.map((q, k) => questionHtml(q, k, l.questions.length)).join('') || '<p class="mut">Nenhuma questão ainda.</p>'}
   <p><button class="btn sm" data-a="nq" data-id="${l.id}">+ Nova questão</button></p></div>` : ''}</div>`;
+let tab = 'mod';
 function render() {
   const t = tree.find(x => x.id === sel), nL = lessons().length, nQ = lessons().reduce((n, l) => n + l.questions.length, 0);
-  $('main').innerHTML = `<div class="stats-row"><div class="stat"><b>${tree.length}</b>Trilhas</div><div class="stat"><b>${nL}</b>Lições</div><div class="stat"><b>${nQ}</b>Questões</div></div>
+  $('main').innerHTML = `<div class="stats-row"><div class="stat"><b>${tree.length}</b>Trilhas</div><div class="stat"><b>${nL}</b>Módulos</div><div class="stat"><b>${nQ}</b>Questões</div></div>
   <div class="split"><aside><button class="btn" data-a="nt">+ Nova trilha</button>
-  ${tree.map(x => `<button class="tr ${x.id === sel ? 'on' : ''}" data-a="sel" data-id="${x.id}"><span class="ic">${esc(x.icon)}</span><span><b>${esc(x.title)}</b><small>${x.lessons.length} lições</small></span></button>`).join('')}</aside>
-  <section>${t ? `<div class="thead"><div class="ic big">${esc(t.icon)}</div><div style="flex:1"><h2>${esc(t.title)}</h2><p class="mut">${esc(t.description) || 'Sem descrição'}</p></div>
+  ${tree.map(x => `<button class="tr ${x.id === sel ? 'on' : ''}" data-a="sel" data-id="${x.id}"><span class="ic">${esc(x.icon)}</span><span><b>${esc(x.title)}</b><small>${x.lessons.length} módulos</small></span></button>`).join('')}</aside>
+  <section>${t ? `<div class="thead"><div class="ic big">${esc(t.icon)}</div><div style="flex:1"><h2>${esc(t.title)}</h2><p class="mut">${esc(t.description) || 'Sem descrição'}</p>
+    <small class="mut">📌 Apresentação da trilha: ${t.presentation?.length ? t.presentation.length + ' bloco(s)' : 'não definida'}</small></div>
     <div class="acts"><button class="btn sm sec" data-a="et">✏️ Editar</button><button class="btn sm red" data-a="dt">🗑️</button></div></div>
-    <div class="row" style="margin:16px 0"><h3 style="margin:0">Lições (${t.lessons.length})</h3><button class="btn sm" data-a="nl">+ Nova lição</button></div>
-    ${t.lessons.map((l, i) => lessonHtml(l, i, t.lessons.length)).join('') || '<div class="empty">Esta trilha ainda não tem lições.</div>'}`
+    <div class="steps" style="margin-top:16px"><span class="pill ${tab === 'mod' ? 'on' : ''}" data-a="tab" data-id="0">📚 Módulos</span><span class="pill ${tab === 'des' ? 'on' : ''}" data-a="tab" data-id="1">🏆 Desafios</span></div>
+    ${tab === 'des' ? '<div class="empty">🏆 Os desafios serão adicionados em breve.</div>' : `
+    <div class="row" style="margin:12px 0"><div><h3 style="margin:0">Módulos (${t.lessons.length}/10)</h3><small class="mut">Os alunos seguem a ordem 1, 2, 3… e só abrem o módulo seguinte ao concluir o anterior. Mínimo 1, máximo 10.</small></div>
+    <button class="btn sm" data-a="nl" ${t.lessons.length >= 10 ? 'disabled' : ''}>+ Novo módulo</button></div>
+    ${t.lessons.map((l, i) => lessonHtml(l, i, t.lessons.length)).join('')}`}`
     : '<div class="empty">Crie sua primeira trilha para começar. 🚀</div>'}</section></div>`;
 }
 let US = [];

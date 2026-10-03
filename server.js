@@ -128,7 +128,7 @@ function bump(uid, f) {
 app.get('/api/tracks', auth, (req, res) => {
   const done = new Set(db.prepare('SELECT lesson_id FROM progress WHERE user_id=?').all(req.user.id).map(r => r.lesson_id));
   const lessons = db.prepare('SELECT id,track_id,title,position,xp FROM lessons ORDER BY position,id').all();
-  const tracks = db.prepare('SELECT * FROM tracks ORDER BY position,id').all().map(t => ({ ...t,
+  const tracks = db.prepare('SELECT * FROM tracks ORDER BY position,id').all().map(t => ({ ...t, presentation: JSON.parse(t.presentation || '[]'),
     lessons: lessons.filter(l => l.track_id === t.id).map((l, i, arr) => ({ ...l, done: done.has(l.id), locked: req.user.role !== 'adm' && i > 0 && !done.has(arr[i - 1].id) })) }));
   const h = hearts(req.user.id), st = stats(req.user.id);
   res.json({ tracks, xp: st.xp, level: st.level, coins: st.coins, streak: st.streak, hearts: h.hearts, next: h.next });
@@ -149,7 +149,7 @@ app.get('/api/lessons/:id', auth, (req, res) => {
     if (q.type === 'associar') { const p = pairs(o); return { ...b, left: p.map((x, i) => ({ i, t: x[0] })), right: shuffle(p.map((x, i) => ({ i, t: x[1] }))) }; }
     return q.type === 'preencher' ? b : { ...b, options: o };
   });
-  res.json({ id: lesson.id, title: lesson.title, content: (() => { const c = JSON.parse(lesson.content || '[]'); return c.length ? c : lesson.intro ? [{ type: 'texto', value: lesson.intro }] : []; })(), xp: lesson.xp, questions, hearts: h.hearts, done });
+  res.json({ id: lesson.id, title: lesson.title, presentation: JSON.parse(lesson.presentation || '[]'), content: (() => { const c = JSON.parse(lesson.content || '[]'); return c.length ? c : lesson.intro ? [{ type: 'texto', value: lesson.intro }] : []; })(), xp: lesson.xp, questions, hearts: h.hearts, done });
 });
 app.post('/api/questions/:id/check', auth, (req, res) => {
   const q = db.prepare('SELECT * FROM questions WHERE id=?').get(req.params.id);
@@ -212,19 +212,40 @@ app.get('/api/ranking', auth, (req, res) => {
 
 // ---------- Área do ADM: criar/editar trilhas, lições e questões ----------
 const FIELDS = {
-  tracks: ['title', 'description', 'icon', 'color', 'position'],
-  lessons: ['track_id', 'title', 'intro', 'content', 'xp', 'position'],
+  tracks: ['title', 'description', 'icon', 'color', 'presentation', 'position'],
+  lessons: ['track_id', 'title', 'intro', 'presentation', 'content', 'xp', 'position'],
   questions: ['lesson_id', 'type', 'prompt', 'options', 'answer', 'explanation', 'position'],
 };
 const clean = (res, body) => FIELDS[res].reduce((o, f) => {
-  if (body[f] !== undefined) o[f] = f === 'content' ? JSON.stringify(body[f]) : f === 'options' ? JSON.stringify(body.type === 'vf' ? ['Verdadeiro', 'Falso'] : body[f]) : body[f];
+  if (body[f] !== undefined) o[f] = (f === 'content' || f === 'presentation') ? JSON.stringify(body[f]) : f === 'options' ? JSON.stringify(body.type === 'vf' ? ['Verdadeiro', 'Falso'] : body[f]) : body[f];
   return o;
 }, {});
 
 app.get('/api/admin/tree', auth, adm, (req, res) => {
   const qs = db.prepare('SELECT * FROM questions ORDER BY position,id').all().map(q => ({ ...q, options: JSON.parse(q.options) }));
-  const ls = db.prepare('SELECT * FROM lessons ORDER BY position,id').all().map(l => ({ ...l, content: JSON.parse(l.content || '[]'), questions: qs.filter(q => q.lesson_id === l.id) }));
-  res.json(db.prepare('SELECT * FROM tracks ORDER BY position,id').all().map(t => ({ ...t, lessons: ls.filter(l => l.track_id === t.id) })));
+  const ls = db.prepare('SELECT * FROM lessons ORDER BY position,id').all().map(l => ({ ...l, presentation: JSON.parse(l.presentation || '[]'), content: JSON.parse(l.content || '[]'), questions: qs.filter(q => q.lesson_id === l.id) }));
+  res.json(db.prepare('SELECT * FROM tracks ORDER BY position,id').all().map(t => ({ ...t, presentation: JSON.parse(t.presentation || '[]'), lessons: ls.filter(l => l.track_id === t.id) })));
+});
+// ---------- Módulos: mínimo 1 e máximo 10 por trilha (precisam vir ANTES das rotas genéricas /api/admin/:res) ----------
+const MAX_MODULES = 10;
+app.post('/api/admin/tracks', auth, adm, (req, res) => { // toda trilha nasce com o "Módulo 1"
+  const d = clean('tracks', req.body), k = Object.keys(d);
+  try {
+    const id = db.prepare(`INSERT INTO tracks(${k}) VALUES(${k.map(() => '?')})`).run(...Object.values(d)).lastInsertRowid;
+    db.prepare('INSERT INTO lessons(track_id,title,position,xp) VALUES(?,?,0,10)').run(id, 'Módulo 1');
+    res.json({ id });
+  } catch (e) { res.status(400).json({ error: e.message }); }
+});
+app.post('/api/admin/lessons', auth, adm, (req, res, next) => {
+  if (one('SELECT COUNT(*) v FROM lessons WHERE track_id=?', Number(req.body.track_id)).v >= MAX_MODULES)
+    return res.status(400).json({ error: `Cada trilha pode ter no máximo ${MAX_MODULES} módulos` });
+  next('route');
+});
+app.delete('/api/admin/lessons/:id', auth, adm, (req, res, next) => {
+  const l = one('SELECT track_id FROM lessons WHERE id=?', req.params.id);
+  if (l && one('SELECT COUNT(*) v FROM lessons WHERE track_id=?', l.track_id).v <= 1)
+    return res.status(400).json({ error: 'Cada trilha precisa ter ao menos 1 módulo' });
+  next('route');
 });
 // Upload de imagens/vídeos da explicação (precisa vir ANTES da rota genérica /api/admin/:res)
 const UP = path.join(__dirname, 'public', 'uploads'); fs.mkdirSync(UP, { recursive: true });

@@ -26,6 +26,8 @@ for (const sql of [
 
 for (const sql of [
   "ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0",
+  "ALTER TABLE tracks ADD COLUMN presentation TEXT DEFAULT '[]'",
+  "ALTER TABLE lessons ADD COLUMN presentation TEXT DEFAULT '[]'",
   "ALTER TABLE lessons ADD COLUMN content TEXT DEFAULT '[]'",
   "ALTER TABLE tracks ADD COLUMN color TEXT DEFAULT '#58cc02'",
   "ALTER TABLE lessons ADD COLUMN xp INTEGER DEFAULT 10",
@@ -44,4 +46,7 @@ if (!db.prepare('SELECT 1 FROM users WHERE email=?').get(email)) {
   db.prepare('INSERT INTO users(name,email,password,role) VALUES(?,?,?,?)')
     .run(process.env.ADMIN_NAME || 'Administrador', email, bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin123', 10), 'adm');
 }
+// Toda trilha precisa ter ao menos 1 módulo (cria o "Módulo 1" para trilhas que ainda não têm nenhum)
+for (const t of db.prepare('SELECT id FROM tracks WHERE id NOT IN (SELECT track_id FROM lessons)').all())
+  db.prepare("INSERT INTO lessons(track_id,title,position,xp) VALUES(?,?,0,10)").run(t.id, 'Módulo 1');
 module.exports = db;
