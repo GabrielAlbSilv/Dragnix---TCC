@@ -1,9 +1,9 @@
 :root {
     --g: #58cc02;
     --gd: #46a302;
-    --bg: #fff;
+    --bg: #f2f2f2;
     --fg: #3c3c3c;
-    --bd: #e5e5e5;
+    --bd: #d6d6d6;
     --mut: #777;
     --red: #ff4b4b;
     --blue: #1cb0f6;
@@ -11,9 +11,9 @@
 
 @media (prefers-color-scheme: dark) {
     :root {
-        --bg: #131f24;
+        --bg: #252525;
         --fg: #f1f7fb;
-        --bd: #37464f;
+        --bd: #444;
         --mut: #9fb0b9;
     }
 }
