@@ -1,3 +1,4 @@
+const { execSync } = require('child_process');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -15,6 +16,20 @@ const sign = u => jwt.sign({ id: u.id, role: u.role }, SECRET, { expiresIn: '7d'
 const pub = u => ({ id: u.id, name: u.name, email: u.email, role: u.role });
 
 // ---------- Middlewares ----------
+function getGitCommit() {
+    try {
+        return execSync('git rev-parse --short HEAD')
+            .toString()
+            .trim();
+    } catch (e) {
+        return 'desconhecida';
+    }
+}
+app.get('/api/version', (req, res) => {
+    res.json({
+        commit: getGitCommit()
+    });
+});
 function auth(req, res, next) {
   try {
     const p = jwt.verify((req.headers.authorization || '').replace('Bearer ', ''), SECRET);

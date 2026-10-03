@@ -269,3 +269,43 @@ function mostrarSenhas(botao) {
     botao.textContent =
         mostrar ? '🙈' : '👁';
 }
+
+async function carregarCommit() {
+
+        const commitInfo =
+            document.getElementById('commitInfo');
+
+        try {
+
+            const resposta =
+                await fetch('/api/version');
+
+            if (!resposta.ok) {
+                throw new Error('Erro ao buscar versão');
+            }
+
+            const dados =
+                await resposta.json();
+
+            commitInfo.textContent =
+                'Commit ' + dados.commit;
+
+        } catch (erro) {
+
+            console.error(erro);
+
+            commitInfo.textContent =
+                'Commit desconhecida';
+        }
+    }
+
+    carregarCommit();
+
+
+    const destino =
+        new URLSearchParams(window.location.search)
+            .get('destino') || 'index.html';
+
+    setTimeout(() => {
+        window.location.replace(destino);
+    }, 2500);
