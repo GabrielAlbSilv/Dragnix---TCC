@@ -244,14 +244,14 @@ button.link {
 }
 
 .hero {
-    min-height: 70vh;
+    min-height: 40vh;
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
 .hero img {
-    width: 50%;
+    width: 80%;
     border: none;
     max-width: 1000px;
 }
