@@ -207,3 +207,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 });
+
+function mostrarSenhas(botao) {
+    const senha = document.getElementById("pass");
+    const confirmar = document.getElementById("passConfirm");
+
+    const mostrar = senha.type === "password";
+
+    senha.type = mostrar ? "text" : "password";
+    confirmar.type = mostrar ? "text" : "password";
+
+    botao.textContent = mostrar ? "🙈" : "👁";
+}

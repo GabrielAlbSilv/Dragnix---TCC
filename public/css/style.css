@@ -257,6 +257,39 @@ button.link {
 }
 
 
+/* ---- Visualização de senha ---- */
+
+.senha-box {
+    position: relative;
+    width: 100%;
+}
+
+.senha-box input {
+    width: 100%;
+    padding-right: 45px;
+}
+
+.senha-btn {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+
+    background: transparent;
+    border: 0;
+    padding: 5px;
+    margin: 0;
+
+    color: inherit;
+    cursor: pointer;
+    font: inherit;
+}
+
+.senha-btn:hover {
+    opacity: .8;
+}
+
+
 /* ---- Complementos do Painel ADM ---- */
 
 .wide {
@@ -628,7 +661,6 @@ label {
 }
 
 .trilhas-title {
-    color: var(--g);
     color: var(--g);
     font-size: 24px;
 }

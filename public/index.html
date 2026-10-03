@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="pt-BR">
 
@@ -50,19 +49,37 @@
         >
 
         <!-- Senha -->
-        <input
-            id="pass"
-            type="password"
-            placeholder="Senha (mín. 6 caracteres)"
-        >
+        <div class="senha-box">
+            <input
+                id="pass"
+                type="password"
+                placeholder="Senha (mín. 6 caracteres)"
+            >
+
+            <button
+                type="button"
+                class="senha-btn"
+                onclick="mostrarSenhas('pass', this)"
+                aria-label="Mostrar senha"
+            >👁</button>
+        </div>
 
         <!-- Confirmar senha -->
-        <input
-            id="passConfirm"
-            type="password"
-            class="hide"
-            placeholder="Confirmar senha"
-        >
+        <div class="senha-box" id="passConfirmBox">
+            <input
+                id="passConfirm"
+                type="password"
+                class="hide"
+                placeholder="Confirmar senha"
+            >
+
+            <button
+                type="button"
+                class="senha-btn hide"
+                onclick="mostrarSenha('passConfirm', this)"
+                aria-label="Mostrar senha"
+            >👁</button>
+        </div>
 
         <!-- Mensagem de erro -->
         <div class="err" id="err"></div>
@@ -80,9 +97,9 @@
     </div>
 
 </div>
+
 <script src="js/api.js"></script>
 <script src="js/loginsplash.js"></script>
 
 </body>
 </html>
-
