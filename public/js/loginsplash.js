@@ -1,13 +1,18 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // =========================
-    // SPLASH
+    // SPLASH INICIAL
     // =========================
 
     const splashExibida = sessionStorage.getItem('splashExibida');
+
     if (!splashExibida) {
         sessionStorage.setItem('splashExibida', 'true');
-        window.location.replace('splash.html');
+
+        window.location.replace(
+            'splash.html?destino=index.html'
+        );
+
         return;
     }
 
@@ -17,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================
 
     if (localStorage.token) {
-        window.location.replace('/app.html');
+        window.location.replace('app.html');
         return;
     }
 
@@ -40,9 +45,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const err = $('err');
 
 
-    // Verifica se os elementos existem
-    if (!tl || !tr || !go || !name || !email || !pass || !passConfirm || !err) {
-        console.error('Erro: elementos do login não encontrados.');
+    // =========================
+    // VERIFICA ELEMENTOS
+    // =========================
+
+    if (
+        !tl ||
+        !tr ||
+        !go ||
+        !name ||
+        !email ||
+        !pass ||
+        !passConfirm ||
+        !err
+    ) {
+        console.error(
+            'Erro: elementos do login não encontrados.'
+        );
+
         return;
     }
 
@@ -71,10 +91,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 : 'Criar conta';
 
         tl.className =
-            'btn' + (m === 'login' ? '' : ' sec');
+            'btn' + (
+                m === 'login'
+                    ? ''
+                    : ' sec'
+            );
 
         tr.className =
-            'btn' + (m === 'login' ? ' sec' : '');
+            'btn' + (
+                m === 'login'
+                    ? ' sec'
+                    : ''
+            );
 
         err.textContent = '';
 
@@ -121,12 +149,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mode === 'register') {
 
             if (!nameValue) {
-                err.textContent = 'Digite seu nome.';
+                err.textContent =
+                    'Digite seu nome.';
                 return;
             }
 
             if (!emailValue) {
-                err.textContent = 'Digite seu e-mail.';
+                err.textContent =
+                    'Digite seu e-mail.';
                 return;
             }
 
@@ -168,12 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
         }
-    const splashExibida = sessionStorage.getItem('splashExibida');
-    if (!splashExibida) {
-        sessionStorage.setItem('splashExibida', 'true');
-        window.location.replace('splash.html');
-        return;
-    }
+
 
         // =========================
         // ENVIA PARA O SERVIDOR
@@ -197,7 +222,14 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.user =
                 JSON.stringify(d.user);
 
-            window.location.replace('/app.html');
+
+            // =========================
+            // SPLASH APÓS LOGIN/CADASTRO
+            // =========================
+
+            window.location.replace(
+                'splash.html?destino=app.html'
+            );
 
         } catch (e) {
 
@@ -212,14 +244,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
 });
 
+
+// =========================
+// MOSTRAR/OCULTAR SENHAS
+// =========================
+
 function mostrarSenhas(botao) {
-    const senha = document.getElementById("pass");
-    const confirmar = document.getElementById("passConfirm");
 
-    const mostrar = senha.type === "password";
+    const senha =
+        document.getElementById('pass');
 
-    senha.type = mostrar ? "text" : "password";
-    confirmar.type = mostrar ? "text" : "password";
+    const confirmar =
+        document.getElementById('passConfirm');
 
-    botao.textContent = mostrar ? "🙈" : "👁";
+    const mostrar =
+        senha.type === 'password';
+
+    senha.type =
+        mostrar ? 'text' : 'password';
+
+    confirmar.type =
+        mostrar ? 'text' : 'password';
+
+    botao.textContent =
+        mostrar ? '🙈' : '👁';
 }
