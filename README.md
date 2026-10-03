@@ -4,7 +4,11 @@ Plataforma de trilhas de aprendizagem (estilo Duolingo). Este projeto contém ap
 
 ## Executar
 ```bash
-npm install
+Baixar node.js em https://nodejs.org/pt-br
+Rodar no terminal:      
+            node -v 
+            npm install
+            npm.cmd start
 cp .env.example .env   # ajuste os valores
 export $(cat .env | xargs) && npm start   # Windows: defina as variáveis manualmente
 ```
