@@ -1,18 +1,24 @@
 document.addEventListener('DOMContentLoaded', () => {
 
     // =========================
-    // SPLASH INICIAL
+    // SPLASH AO ABRIR O SITE (1x por sessão)
     // =========================
 
-    const splashExibida = sessionStorage.getItem('splashExibida');
+    // Se acabou de vir da splash (?splash=1), nunca volta para ela: isso evita o
+    // "loop de recarregamento" quando o navegador não guarda o sessionStorage.
+    const veioDaSplash = new URLSearchParams(window.location.search).has('splash');
+    if (veioDaSplash) history.replaceState(null, '', window.location.pathname);
 
-    if (!splashExibida) {
-        sessionStorage.setItem('splashExibida', 'true');
+    let jaViu = true;
+    try {
+        jaViu = veioDaSplash || !!sessionStorage.getItem('splashExibida');
+        if (!jaViu || veioDaSplash) sessionStorage.setItem('splashExibida', 'true');
+    } catch (e) {
+        jaViu = true; // armazenamento bloqueado: pula a splash
+    }
 
-        window.location.replace(
-            'splash.html?destino=index.html'
-        );
-
+    if (!jaViu) {
+        window.location.replace('splash.html');
         return;
     }
 
@@ -22,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================
 
     if (localStorage.token) {
-        window.location.replace('app.html');
+        window.location.replace('/app.html');
         return;
     }
 
@@ -45,26 +51,51 @@ document.addEventListener('DOMContentLoaded', () => {
     const err = $('err');
 
 
-    // =========================
-    // VERIFICA ELEMENTOS
-    // =========================
-
-    if (
-        !tl ||
-        !tr ||
-        !go ||
-        !name ||
-        !email ||
-        !pass ||
-        !passConfirm ||
-        !err
-    ) {
-        console.error(
-            'Erro: elementos do login não encontrados.'
-        );
-
+    // Verifica se os elementos existem
+    if (!tl || !tr || !go || !name || !email || !pass || !passConfirm || !err) {
+        console.error('Erro: elementos do login não encontrados.');
         return;
     }
+
+
+    // =========================
+    // MOSTRAR / OCULTAR SENHA
+    // =========================
+
+    document.querySelectorAll('.eye').forEach(b => {
+        b.addEventListener('click', () => {
+            const campo = $(b.dataset.t);
+            const mostrar = campo.type === 'password';
+
+            campo.type = mostrar ? 'text' : 'password';
+            b.textContent = mostrar ? '🙈' : '👁️';
+        });
+    });
+
+
+    // =========================
+    // AVISO AO VIVO: SENHAS IGUAIS?
+    // =========================
+
+    function check() {
+        const m = $('match');
+
+        if (mode !== 'register' || !passConfirm.value) {
+            m.textContent = '';
+            return;
+        }
+
+        const ok = pass.value === passConfirm.value;
+
+        m.textContent = ok
+            ? '✅ As senhas coincidem'
+            : '❌ As senhas não coincidem';
+
+        m.className = 'hint ' + (ok ? 'good' : 'err');
+    }
+
+    pass.addEventListener('input', check);
+    passConfirm.addEventListener('input', check);
 
 
     // =========================
@@ -80,7 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
             m === 'login'
         );
 
-        passConfirm.classList.toggle(
+        $('cw').classList.toggle(
             'hide',
             m === 'login'
         );
@@ -91,22 +122,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 : 'Criar conta';
 
         tl.className =
-            'btn' + (
-                m === 'login'
-                    ? ''
-                    : ' sec'
-            );
+            'btn' + (m === 'login' ? '' : ' sec');
 
         tr.className =
-            'btn' + (
-                m === 'login'
-                    ? ' sec'
-                    : ''
-            );
+            'btn' + (m === 'login' ? ' sec' : '');
 
         err.textContent = '';
 
         passConfirm.value = '';
+
+        check();
     }
 
 
@@ -149,14 +174,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mode === 'register') {
 
             if (!nameValue) {
-                err.textContent =
-                    'Digite seu nome.';
+                err.textContent = 'Digite seu nome.';
                 return;
             }
 
             if (!emailValue) {
-                err.textContent =
-                    'Digite seu e-mail.';
+                err.textContent = 'Digite seu e-mail.';
                 return;
             }
 
@@ -222,14 +245,8 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.user =
                 JSON.stringify(d.user);
 
-
-            // =========================
-            // SPLASH APÓS LOGIN/CADASTRO
-            // =========================
-
-            window.location.replace(
-                'splash.html?destino=app.html'
-            );
+            // Login/cadastro OK -> splash -> app
+            window.location.replace('/splash.html');
 
         } catch (e) {
 
@@ -243,69 +260,3 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
 });
-
-
-// =========================
-// MOSTRAR/OCULTAR SENHAS
-// =========================
-
-function mostrarSenhas(botao) {
-
-    const senha =
-        document.getElementById('pass');
-
-    const confirmar =
-        document.getElementById('passConfirm');
-
-    const mostrar =
-        senha.type === 'password';
-
-    senha.type =
-        mostrar ? 'text' : 'password';
-
-    confirmar.type =
-        mostrar ? 'text' : 'password';
-
-    botao.textContent =
-        mostrar ? '🙈' : '👁';
-}
-
-async function carregarCommit() {
-
-        const commitInfo =
-            document.getElementById('commitInfo');
-
-        try {
-
-            const resposta =
-                await fetch('/api/version');
-
-            if (!resposta.ok) {
-                throw new Error('Erro ao buscar versão');
-            }
-
-            const dados =
-                await resposta.json();
-
-            commitInfo.textContent =
-                'Commit ' + dados.commit;
-
-        } catch (erro) {
-
-            console.error(erro);
-
-            commitInfo.textContent =
-                'Commit desconhecida';
-        }
-    }
-
-    carregarCommit();
-
-
-    const destino =
-        new URLSearchParams(window.location.search)
-            .get('destino') || 'index.html';
-
-    setTimeout(() => {
-        window.location.replace(destino);
-    }, 2500);

@@ -64,13 +64,36 @@
             letter-spacing: 1px;
         }
 
+        .versao {
+            position: fixed;
+            right: 14px;
+            bottom: 10px;
+
+            max-width: 70vw;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+
+            font-size: 12px;
+            color: #6f808a;
+            opacity: .9;
+        }
+
+        .saudacao {
+            margin-top: 10px;
+            min-height: 24px;
+
+            font-size: 18px;
+            color: #9fb0b9;
+        }
+
         .carregando {
             width: 180px;
             height: 5px;
 
             margin-top: 30px;
 
-            background: var(--bg);;
+            background: #263238;
             border-radius: 10px;
 
             overflow: hidden;
@@ -126,34 +149,53 @@
 
         <img
             src="css/images/dranix_icon_white_nobackground.png"
-            alt="Dranix"
+            alt="Dragnix"
             class="logo"
         >
 
         <div class="nome">
-            Dranix
+            Dragnix
         </div>
+
+        <div class="saudacao" id="saudacao"></div>
 
         <div class="carregando">
             <div class="barra"></div>
         </div>
-        <div id="commitInfo" class="commit-info">
-                Versão...
-        </div>
+
     </div>
 
+    <div class="versao" id="versao"></div>
+
     <script>
+        // Canto da tela: último commit do git (vem do servidor)
+        fetch('/api/version')
+            .then(r => r.json())
+            .then(v => {
+                if (!v.hash) return;
+                const data = new Date(v.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+                document.getElementById('versao').textContent =
+                    'último commit: ' + v.hash + ' · ' + v.message + ' · ' + data + (v.dirty ? ' · alterações não commitadas' : '');
+            })
+            .catch(() => {});
+    </script>
+
+    <script>
+        // Mesma splash em dois momentos:
+        //  - ao abrir o site (sem login): depois vai para a tela de login
+        //  - após login/cadastro (com login): mostra a saudação e vai para o app
+        const logado = !!localStorage.getItem('token');
+
+        if (logado) {
+            const user = JSON.parse(localStorage.getItem('user') || 'null');
+            const nome = (user && user.name ? user.name : '').split(' ')[0];
+            document.getElementById('saudacao').textContent = nome ? 'Bem-vindo, ' + nome + '!' : 'Bem-vindo!';
+        }
+
         setTimeout(() => {
-            window.location.href = "index.html";
+            location.replace(logado ? '/app.html' : 'index.html?splash=1');
         }, 2500);
     </script>
-<script>
-    const destino = new URLSearchParams(window.location.search)
-        .get('destino') || 'index.html';
 
-    setTimeout(() => {
-        window.location.replace(destino);
-    }, 2500);
-</script>
 </body>
 </html>

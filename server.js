@@ -1,9 +1,9 @@
-const { execSync } = require('child_process');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const fs = require('fs'), crypto = require('crypto');
+const { execFileSync } = require('child_process');
 const db = require('./db');
 
 const SECRET = process.env.JWT_SECRET || 'dev-secret';
@@ -16,20 +16,6 @@ const sign = u => jwt.sign({ id: u.id, role: u.role }, SECRET, { expiresIn: '7d'
 const pub = u => ({ id: u.id, name: u.name, email: u.email, role: u.role });
 
 // ---------- Middlewares ----------
-function getGitCommit() {
-    try {
-        return execSync('git rev-parse --short HEAD')
-            .toString()
-            .trim();
-    } catch (e) {
-        return 'desconhecida';
-    }
-}
-app.get('/api/version', (req, res) => {
-    res.json({
-        commit: getGitCommit()
-    });
-});
 function auth(req, res, next) {
   try {
     const p = jwt.verify((req.headers.authorization || '').replace('Bearer ', ''), SECRET);
@@ -55,6 +41,14 @@ app.post('/api/auth/login', (req, res) => {
   const u = db.prepare('SELECT * FROM users WHERE email=?').get(req.body.email || '');
   if (!u || !bcrypt.compareSync(req.body.password || '', u.password)) return res.status(401).json({ error: 'E-mail ou senha inválidos' });
   res.json({ token: sign(u), user: pub(u) });
+});
+// Último commit do git (lido na hora, então acompanha novos commits sem reiniciar). Público: a splash usa antes do login.
+app.get('/api/version', (req, res) => {
+  try {
+    const git = args => execFileSync('git', args, { cwd: __dirname, stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 }).toString().trim();
+    const [hash, date, ...msg] = git(['log', '-1', '--format=%h|%cI|%s']).split('|');
+    res.json({ hash, date, message: msg.join('|'), dirty: git(['status', '--porcelain']).length > 0 });
+  } catch { res.json({}); } // sem git instalado ou sem repositório: a splash simplesmente não mostra nada
 });
 app.get('/api/auth/me', auth, (req, res) => res.json(pub(req.user)));
 
@@ -143,8 +137,11 @@ function bump(uid, f) {
 app.get('/api/tracks', auth, (req, res) => {
   const done = new Set(db.prepare('SELECT lesson_id FROM progress WHERE user_id=?').all(req.user.id).map(r => r.lesson_id));
   const lessons = db.prepare('SELECT id,track_id,title,position,xp FROM lessons ORDER BY position,id').all();
+  // andamento de cada módulo: concluído = 100%; senão, perguntas respondidas na tentativa atual / total
+  const qn = Object.fromEntries(db.prepare('SELECT lesson_id l, COUNT(*) n FROM questions GROUP BY lesson_id').all().map(r => [r.l, r.n]));
+  const an = Object.fromEntries(db.prepare('SELECT q.lesson_id l, COUNT(*) n FROM answers a JOIN questions q ON q.id=a.question_id WHERE a.user_id=? GROUP BY q.lesson_id').all(req.user.id).map(r => [r.l, r.n]));
   const tracks = db.prepare('SELECT * FROM tracks ORDER BY position,id').all().map(t => ({ ...t, presentation: JSON.parse(t.presentation || '[]'),
-    lessons: lessons.filter(l => l.track_id === t.id).map((l, i, arr) => ({ ...l, done: done.has(l.id), locked: req.user.role !== 'adm' && i > 0 && !done.has(arr[i - 1].id) })) }));
+    lessons: lessons.filter(l => l.track_id === t.id).map((l, i, arr) => ({ ...l, done: done.has(l.id), total: qn[l.id] || 0, answered: an[l.id] || 0, pct: done.has(l.id) ? 100 : qn[l.id] ? Math.min(99, Math.round((an[l.id] || 0) / qn[l.id] * 100)) : 0, locked: req.user.role !== 'adm' && i > 0 && !done.has(arr[i - 1].id) })) }));
   const h = hearts(req.user.id), st = stats(req.user.id);
   res.json({ tracks, xp: st.xp, level: st.level, coins: st.coins, streak: st.streak, hearts: h.hearts, next: h.next });
 });
