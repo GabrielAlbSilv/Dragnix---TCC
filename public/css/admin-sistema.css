@@ -11,7 +11,7 @@
 .admin-system-top {
     width: min(1400px, 94%);
     margin: 0 auto;
-    min-height: 74px;
+    min-height: 40px;
 
     display: flex;
     align-items: center;
