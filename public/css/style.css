@@ -811,3 +811,100 @@ dialog {
 .fin3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .fin3 h3 { margin: 4px 0 0; }
 @media (max-width: 560px) { .fin3 { grid-template-columns: 1fr; } }
+
+
+/* ============================================================
+   BARRA INFERIOR — SOBRE / EQUIPE / FEEDBACK
+   ============================================================ */
+
+.site-footer {
+    width: 100%;
+
+    margin-top: 24px;
+
+    padding: 14px 16px;
+
+    border-top: 2px solid var(--bd);
+
+    background: var(--bg);
+}
+
+.site-footer-inner {
+    width: 100%;
+    max-width: 640px;
+
+    margin: 0 auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    gap: 10px;
+
+    flex-wrap: wrap;
+
+    text-align: center;
+}
+
+.footer-link {
+    border: 0;
+    background: transparent;
+
+    color: var(--blue);
+
+    padding: 5px 8px;
+
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+
+    cursor: pointer;
+
+    border-radius: 8px;
+
+    transition:
+        opacity .15s ease,
+        background .15s ease;
+}
+
+.footer-link:hover {
+    opacity: .8;
+
+    background: #1cb0f61a;
+}
+
+.footer-link:active {
+    opacity: .6;
+}
+
+.footer-separator {
+    color: var(--mut);
+
+    font-weight: 700;
+}
+
+
+/* ============================================================
+   RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 500px) {
+
+    .site-footer {
+        padding: 12px;
+    }
+
+    .site-footer-inner {
+        gap: 4px;
+    }
+
+    .footer-link {
+        font-size: 12px;
+        padding: 5px 6px;
+    }
+
+    .footer-separator {
+        font-size: 12px;
+    }
+
+}

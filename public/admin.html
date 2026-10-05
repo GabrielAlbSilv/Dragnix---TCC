@@ -33,95 +33,85 @@
     <!-- ====================================================== -->
     <!-- CABEÇALHO / BARRA DO ADM -->
     <!-- ====================================================== -->
+<header class="admin-header">
 
-    <header class="admin-header">
+    <div class="admin-header-inner">
 
-        <div class="admin-header-inner">
+        <!-- Logo / título -->
+        <div class="admin-brand">
 
-            <!-- Logo / título -->
-            <div class="admin-brand">
+            <img
+                src="css/images/dranix_icon_white_nobackground.png"
+                alt="Dragão"
+                class="trilhas-icon"
+            >
 
-                <img
-                    src="css/images/dranix_icon_white_nobackground.png"
-                    alt="Dragão"
-                    class="trilhas-icon"
-                >
-
-                <strong class="trilhas-title">
-                    Dragnix — Painel ADM
-                </strong>
-
-            </div>
-
-            <!-- Navegação -->
-            <nav class="admin-nav">
-
-                <div class="admin-nav-main">
-
-                    <button
-                        type="button"
-                        class="link"
-                        id="t1"
-                    >
-                        Trilhas
-                    </button>
-
-                    <button
-                        type="button"
-                        class="link"
-                        id="t2"
-                    >
-                        Usuários
-                    </button>
-
-                    <a
-                        href="app.html"
-                        class="admin-link"
-                    >
-                        Ver como aluno
-                    </a>
-
-                </div>
-
-          <button
-            type="button"
-            class="admin-action-btn"
-            onclick="window.location.href='admin-sistema.html'"
-        >
-            ⚙️ Sistema / Banco
-</button>
-                <!-- Sair -->
-                <div class="admin-nav-exit">
-
-                    <button
-                        type="button"
-                        class="link admin-exit-btn"
-                        onclick="logout()"
-                    >
-                        Sair
-                    </button>
-
-                </div>
-
-            </nav>
+            <strong class="trilhas-title">
+                Dragnix — Painel ADM
+            </strong>
 
         </div>
 
-        <!-- Status do backup -->
-        <div
-            id="backupStatus"
-            class="backup-status"
-            aria-live="polite"
-        ></div>
 
-        <!-- Preview do backup -->
-        <div
-            id="backupPreview"
-            class="backup-preview"
-        ></div>
+        <!-- Navegação -->
+        <nav class="admin-nav">
 
-    </header>
+            <div class="admin-nav-main">
 
+                <button
+                    type="button"
+                    class="link"
+                    id="t1"
+                >
+                    Trilhas
+                </button>
+
+                <button
+                    type="button"
+                    class="link"
+                    id="t2"
+                >
+                    Usuários
+                </button>
+
+                <a
+                    href="app.html"
+                    class="admin-link"
+                >
+                    Ver como aluno
+                </a>
+
+            </div>
+
+
+            <!-- Sistema / Banco -->
+            <button
+                type="button"
+                class="admin-action-btn"
+                onclick="window.location.href='admin-sistema.html'"
+            >
+                ⚙️ Sistema / Banco
+            </button>
+
+
+            <!-- Sair -->
+            <div class="admin-nav-exit">
+
+                <button
+                    type="button"
+                    class="link admin-exit-btn"
+                    onclick="logout()"
+                >
+                    Sair
+                </button>
+
+            </div>
+
+        </nav>
+
+    </div>
+
+</header>
     <!-- ====================================================== -->
     <!-- CONTEÚDO PRINCIPAL -->
     <!-- ====================================================== -->

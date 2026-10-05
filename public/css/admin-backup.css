@@ -1,97 +1,271 @@
+
+/* ============================================================
+   BACKUP — PAINEL ADMINISTRATIVO
+   ============================================================ */
+
+
+/* ============================================================
+   PAINEL DE BACKUP
+   ============================================================ */
+
 .admin-backup-panel {
-  width: 100%;
-  margin: 24px 0;
+    width: 100%;
+    margin: 24px 0;
 }
 
 .admin-backup-content {
-  padding: 24px;
-  border: 1px solid #d6d6d6;
-  border-radius: 16px;
-  background: #fff;
+    padding: 24px;
+
+    border: 2px solid var(--bd);
+    border-radius: 18px;
+
+    background: var(--bg);
+    color: var(--fg);
 }
 
 .admin-backup-content h2 {
-  margin: 0 0 8px;
+    margin: 0 0 8px;
 }
 
 .admin-backup-content p {
-  margin: 8px 0 16px;
+    margin: 8px 0 16px;
 }
 
-#btnGerarBackup {
-  border: 0;
-  border-radius: 12px;
-  padding: 12px 18px;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-}
 
-#btnGerarBackup:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-#backupStatus {
-  min-height: 20px;
-  font-size: 14px;
-}
-
-.admin-backup-panel {
-  width: 100%;
-  margin: 24px 0;
-}
-
-.admin-backup-content {
-  padding: 24px;
-  border: 1px solid #d6d6d6;
-  border-radius: 16px;
-  background: #fff;
-}
-
-.admin-backup-content h2 {
-  margin: 0 0 8px;
-}
-
-.admin-backup-content p {
-  margin: 8px 0 16px;
-}
+/* ============================================================
+   AÇÕES DE BACKUP
+   ============================================================ */
 
 .backup-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
-.backup-preview {
-  margin-top: 20px;
+
+/* ============================================================
+   BOTÕES — PADRÃO DRAGNIX
+   ============================================================ */
+
+.admin-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    background: var(--g);
+    color: #fff;
+
+    border: 0;
+    border-bottom: 4px solid var(--gd);
+
+    border-radius: 14px;
+
+    padding: 10px 16px;
+
+    min-height: 40px;
+
+    font: inherit;
+    font-weight: 800;
+    font-size: 14px;
+
+    cursor: pointer;
+
+    text-transform: uppercase;
+
+    white-space: nowrap;
+
+    transition:
+        transform .15s ease,
+        opacity .15s ease;
 }
 
-.backup-preview-box {
-  padding: 18px;
-  border: 1px solid #d6d6d6;
-  border-radius: 14px;
+.admin-action-btn:hover {
+    transform: translateY(-1px);
 }
 
-.backup-preview-box h3 {
-  margin-top: 0;
+.admin-action-btn:active {
+    transform: translateY(2px);
 }
 
-.backup-preview-box p {
-  margin: 6px 0;
+.admin-action-btn:disabled {
+    opacity: .4;
+    cursor: default;
+    transform: none;
 }
 
-#backupStatus {
-  min-height: 20px;
-  margin-top: 16px;
+
+/* ============================================================
+   GERAR BACKUP — PRINCIPAL
+   ============================================================ */
+
+#btnGerarBackup {
+    background: var(--g);
+    color: #fff;
+
+    border: 0;
+    border-bottom: 4px solid var(--gd);
+
+    border-radius: 14px;
+
+    padding: 10px 16px;
+
+    font: inherit;
+    font-weight: 800;
+    font-size: 14px;
+
+    cursor: pointer;
+    text-transform: uppercase;
 }
+
+#btnGerarBackup:hover {
+    transform: translateY(-1px);
+}
+
+
+/* ============================================================
+   LER BACKUP — SECUNDÁRIO
+   ============================================================ */
+
+#btnSelecionarBackup {
+    background: transparent;
+    color: var(--blue);
+
+    border: 2px solid var(--bd);
+    border-bottom-width: 4px;
+
+    border-radius: 14px;
+
+    padding: 10px 16px;
+
+    font: inherit;
+    font-weight: 800;
+    font-size: 14px;
+
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+#btnSelecionarBackup:hover {
+    border-color: var(--blue);
+}
+
+
+/* ============================================================
+   RESTAURAR BACKUP
+   ============================================================ */
+
+#btnRestaurarBackup {
+    background: var(--g);
+    color: #fff;
+
+    border: 0;
+    border-bottom: 4px solid var(--gd);
+
+    border-radius: 14px;
+
+    padding: 10px 16px;
+
+    font: inherit;
+    font-weight: 800;
+    font-size: 14px;
+
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+#btnRestaurarBackup:hover {
+    transform: translateY(-1px);
+}
+
+
+/* ============================================================
+   LIMPAR BANCO — PERIGOSO
+   ============================================================ */
+
+#btnLimparBanco,
+.admin-danger-btn {
+    background: var(--red);
+    color: #fff;
+
+    border: 0;
+    border-bottom: 4px solid #c33;
+
+    border-radius: 14px;
+
+    padding: 10px 16px;
+
+    font: inherit;
+    font-weight: 800;
+    font-size: 14px;
+
+    cursor: pointer;
+    text-transform: uppercase;
+}
+
+#btnLimparBanco:hover,
+.admin-danger-btn:hover {
+    opacity: .9;
+    transform: translateY(-1px);
+}
+
+
+/* ============================================================
+   ESTADOS DESABILITADOS
+   ============================================================ */
 
 #btnGerarBackup:disabled,
 #btnSelecionarBackup:disabled,
-#btnRestaurarBackup:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+#btnRestaurarBackup:disabled,
+#btnLimparBanco:disabled {
+    opacity: .4;
+    cursor: default;
+    transform: none;
 }
+
+
+/* ============================================================
+   STATUS DO BACKUP
+   ============================================================ */
+
+#backupStatus {
+    min-height: 20px;
+
+    margin-top: 16px;
+
+    font-size: 14px;
+
+    color: var(--fg);
+}
+
+
+/* ============================================================
+   PREVIEW DO BACKUP
+   ============================================================ */
+
+.backup-preview {
+    width: 100%;
+
+    margin-top: 20px;
+}
+
+.backup-preview-box {
+    padding: 18px;
+
+    border: 2px solid var(--bd);
+    border-radius: 16px;
+
+    background: transparent;
+    color: var(--fg);
+}
+
+.backup-preview-box h3 {
+    margin: 0 0 12px;
+}
+
+.backup-preview-box p {
+    margin: 6px 0;
+}
+
 
 /* ============================================================
    BARRA DO PAINEL ADM
@@ -99,41 +273,64 @@
 
 .admin-header {
     width: 100%;
+
+    border-bottom: 2px solid var(--bd);
+
     box-sizing: border-box;
 }
 
 .admin-header-inner {
     width: 100%;
     max-width: 1400px;
+
     margin: 0 auto;
 
     display: flex;
     align-items: center;
     justify-content: space-between;
 
-    gap: 24px;
-    padding: 14px 20px;
+    gap: 20px;
+
+    /*
+       Apenas 6px em cima e embaixo.
+       Mantém a barra compacta.
+    */
+    padding: 6px 20px;
 
     box-sizing: border-box;
 }
 
+
+/* ============================================================
+   LOGO / MARCA
+   ============================================================ */
+
 .admin-brand {
     display: flex;
     align-items: center;
+
     gap: 10px;
 
     flex-shrink: 0;
 }
 
-.admin-brand .trilhas-icon {
-    width: 34px;
-    height: 34px;
+.admin-brand .trilhas-icon,
+.admin-brand img {
+    width: 42px;
+    height: 42px;
+
     object-fit: contain;
+    display: block;
 }
 
 .admin-brand .trilhas-title {
     white-space: nowrap;
+
+    color: var(--g);
+
+    font-size: 24px;
 }
+
 
 /* ============================================================
    NAVEGAÇÃO
@@ -150,15 +347,17 @@
 }
 
 .admin-nav-main,
-.admin-backup-actions,
 .admin-nav-exit {
     display: flex;
     align-items: center;
+
     gap: 8px;
 }
 
+
 /* ============================================================
-   LINKS
+   LINKS DO ADM
+   TRILHAS / USUÁRIOS / VER COMO ALUNO / SAIR
    ============================================================ */
 
 .admin-link,
@@ -167,69 +366,38 @@
     align-items: center;
     justify-content: center;
 
-    min-height: 38px;
+    min-height: 34px;
 
-    padding: 8px 12px;
-
-    border-radius: 10px;
-
-    white-space: nowrap;
-
-    text-decoration: none;
-}
-
-/* ============================================================
-   BOTÕES DE BACKUP
-   ============================================================ */
-
-.admin-action-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-
-    min-height: 40px;
-
-    padding: 9px 13px;
+    padding: 6px 12px;
 
     border: 0;
+
     border-radius: 10px;
 
-    cursor: pointer;
+    background: transparent;
+
+    color: var(--blue);
 
     font: inherit;
     font-weight: 700;
 
+    line-height: 1;
+
     white-space: nowrap;
 
-    transition:
-        transform 0.15s ease,
-        opacity 0.15s ease;
+    text-decoration: none;
+
+    cursor: pointer;
 }
 
-.admin-action-btn:hover {
-    transform: translateY(-1px);
+.admin-link:hover,
+.admin-nav .link:hover {
+    opacity: .8;
 }
 
-.admin-action-btn:active {
-    transform: translateY(0);
-}
-
-.admin-action-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-}
 
 /* ============================================================
-   BOTÃO SAIR
-   ============================================================ */
-
-.admin-exit-btn {
-    white-space: nowrap;
-}
-
-/* ============================================================
-   STATUS DO BACKUP
+   STATUS / PREVIEW — ÁREA ANTIGA
    ============================================================ */
 
 .backup-status {
@@ -237,6 +405,7 @@
     max-width: 1400px;
 
     margin: 0 auto;
+
     padding: 0 20px 10px;
 
     box-sizing: border-box;
@@ -246,59 +415,53 @@
     font-size: 14px;
 }
 
-/* ============================================================
-   PREVIEW
-   ============================================================ */
-
-.backup-preview {
-    width: 100%;
-    max-width: 1400px;
-
-    margin: 0 auto;
-
-    padding: 0 20px 12px;
-
-    box-sizing: border-box;
-}
-
-.backup-preview-box {
-    padding: 16px;
-
-    border-radius: 12px;
-    border: 1px solid #d6d6d6;
-}
 
 /* ============================================================
-   RESPONSIVO
+   RESPONSIVO — TABLET
    ============================================================ */
 
 @media (max-width: 1100px) {
 
     .admin-header-inner {
         align-items: flex-start;
+
         flex-direction: column;
+
+        padding: 8px 20px;
     }
 
     .admin-nav {
         width: 100%;
+
         justify-content: flex-start;
     }
 
 }
 
+
+/* ============================================================
+   RESPONSIVO — CELULAR
+   ============================================================ */
+
 @media (max-width: 700px) {
 
+    .admin-header-inner {
+        gap: 10px;
+    }
+
     .admin-nav {
+        width: 100%;
+
         flex-direction: column;
         align-items: stretch;
     }
 
     .admin-nav-main,
-    .admin-backup-actions,
     .admin-nav-exit {
         width: 100%;
 
         flex-wrap: wrap;
+
         justify-content: flex-start;
     }
 
@@ -310,14 +473,25 @@
 
 }
 
+
+/* ============================================================
+   RESPONSIVO — CELULAR PEQUENO
+   ============================================================ */
+
 @media (max-width: 450px) {
 
     .admin-header-inner {
-        padding: 12px;
+        padding: 8px 12px;
     }
 
     .admin-brand .trilhas-title {
         font-size: 15px;
+    }
+
+    .admin-brand .trilhas-icon,
+    .admin-brand img {
+        width: 40px;
+        height: 40px;
     }
 
     .admin-action-btn,
@@ -328,10 +502,3 @@
 
 }
 
-.admin-danger-btn {
-    border: 1px solid #ff4b4b;
-}
-
-.admin-danger-btn:hover {
-    opacity: 0.85;
-}

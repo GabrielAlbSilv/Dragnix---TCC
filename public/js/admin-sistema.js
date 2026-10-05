@@ -843,29 +843,46 @@ document.addEventListener(
 
     }
 
+if (logoutButton) {
 
-    if (logoutButton) {
+  logoutButton.addEventListener(
+    'click',
+    () => {
 
-      logoutButton.addEventListener(
-        'click',
-        () => {
+      // ==============================================
+      // ENCERRA A SESSÃO
+      // ==============================================
 
-          localStorage.removeItem(
-            'token'
-          );
+      localStorage.removeItem(
+        'token'
+      );
 
-          localStorage.removeItem(
-            'user'
-          );
+      localStorage.removeItem(
+        'user'
+      );
 
-          window.location.href =
-            'login.html';
 
-        }
+      // ==============================================
+      // PERMITE EXIBIR A SPLASH NOVAMENTE
+      // ==============================================
+
+      sessionStorage.removeItem(
+        'splashExibida'
+      );
+
+
+      // ==============================================
+      // SPLASH -> LOGIN/CADASTRO
+      // ==============================================
+
+      window.location.replace(
+        'splash.html?destino=login.html'
       );
 
     }
+  );
 
+}
 
     if (refreshButton) {
 

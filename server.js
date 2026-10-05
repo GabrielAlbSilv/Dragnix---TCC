@@ -55,7 +55,7 @@ const jsonBig = express.json({
 });
 
 const jsonBackup = express.json({
-  limit: '70mb'
+  limit: '280mb'
 });
 
 // Upload pode receber arquivos grandes.

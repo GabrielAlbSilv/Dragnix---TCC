@@ -329,15 +329,15 @@ document.addEventListener(
         return;
       }
 
-      if (
-        file.size >
-        45 * 1024 * 1024
+     if (
+          file.size >
+          200 * 1024 * 1024
       ) {
-        alert(
-          'O arquivo de backup é maior que o limite permitido.'
-        );
+          alert(
+              'O arquivo de backup é maior que 200 MB.'
+          );
 
-        return;
+          return;
       }
 
       if (selectButton) {

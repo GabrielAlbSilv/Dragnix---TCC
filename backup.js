@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 const zlib = require('zlib');
+const fs = require('fs');
+const path = require('path');
 
 // ============================================================
 // CONFIGURAÇÕES
@@ -15,7 +17,56 @@ const SALT_LENGTH = 16;
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
-// Tabelas essenciais do Dragnix.
+// Diretório dos uploads.
+// Se UPLOAD_DIR estiver configurado no ambiente,
+// ele será utilizado.
+const UPLOAD_DIR =
+  process.env.UPLOAD_DIR ||
+  path.join(__dirname, 'public', 'uploads');
+
+// ============================================================
+// EXTENSÕES DE MÍDIA
+// ============================================================
+
+const IMAGE_EXTENSIONS = new Set([
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.gif',
+  '.webp',
+  '.svg',
+  '.bmp',
+  '.avif',
+  '.ico',
+  '.tif',
+  '.tiff'
+]);
+
+const VIDEO_EXTENSIONS = new Set([
+  '.mp4',
+  '.webm',
+  '.mov',
+  '.m4v',
+  '.avi',
+  '.mkv',
+  '.wmv',
+  '.flv',
+  '.mpeg',
+  '.mpg',
+  '.3gp',
+  '.ogv',
+  '.m2ts'
+]);
+
+const MEDIA_EXTENSIONS = new Set([
+  ...IMAGE_EXTENSIONS,
+  ...VIDEO_EXTENSIONS
+]);
+
+// ============================================================
+// TABELAS ESSENCIAIS
+// ============================================================
+
 const REQUIRED_TABLES = [
   'users',
   'tracks',
@@ -53,12 +104,251 @@ function getBackupSecret() {
   return secret;
 }
 
-function safeJsonParse(value, fallback) {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return fallback;
+// ============================================================
+// UTILITÁRIOS DE CAMINHO / MÍDIA
+// ============================================================
+
+function normalizeRelativePath(filePath) {
+  return String(
+    filePath
+  )
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '');
+}
+
+function isMediaFile(fileName) {
+  const extension =
+    path
+      .extname(fileName)
+      .toLowerCase();
+
+  return MEDIA_EXTENSIONS.has(
+    extension
+  );
+}
+
+function isPathInsideBase(
+  baseDir,
+  targetPath
+) {
+  const base =
+    path.resolve(
+      baseDir
+    );
+
+  const target =
+    path.resolve(
+      targetPath
+    );
+
+  return (
+    target === base ||
+    target.startsWith(
+      base + path.sep
+    )
+  );
+}
+
+// ============================================================
+// NORMALIZAR LISTA DE MÍDIAS
+// ============================================================
+//
+// Aceita:
+// 1. media como array
+// 2. media como objeto contendo { files: [] }
+//
+// Isso permite trabalhar tanto com backups novos
+// quanto com backups antigos.
+// ============================================================
+
+function getMediaFiles(
+  media
+) {
+  if (
+    Array.isArray(media)
+  ) {
+    return media;
   }
+
+  if (
+    media &&
+    typeof media === 'object' &&
+    Array.isArray(media.files)
+  ) {
+    return media.files;
+  }
+
+  return null;
+}
+
+// ============================================================
+// COLETAR MÍDIAS
+// ============================================================
+
+function collectMediaFiles(
+  currentDir = UPLOAD_DIR,
+  relativeDir = '',
+  result = []
+) {
+  if (
+    !fs.existsSync(
+      currentDir
+    )
+  ) {
+    return result;
+  }
+
+  const entries =
+    fs.readdirSync(
+      currentDir,
+      {
+        withFileTypes: true
+      }
+    );
+
+  for (
+    const entry of entries
+  ) {
+    const absolutePath =
+      path.join(
+        currentDir,
+        entry.name
+      );
+
+    const relativePath =
+      normalizeRelativePath(
+        path.join(
+          relativeDir,
+          entry.name
+        )
+      );
+
+    // Ignora links simbólicos.
+    if (
+      entry.isSymbolicLink()
+    ) {
+      continue;
+    }
+
+    if (
+      entry.isDirectory()
+    ) {
+      collectMediaFiles(
+        absolutePath,
+        relativePath,
+        result
+      );
+
+      continue;
+    }
+
+    if (
+      !entry.isFile()
+    ) {
+      continue;
+    }
+
+    if (
+      !isMediaFile(
+        entry.name
+      )
+    ) {
+      continue;
+    }
+
+    const fileBuffer =
+      fs.readFileSync(
+        absolutePath
+      );
+
+    const stats =
+      fs.statSync(
+        absolutePath
+      );
+
+    result.push({
+      path:
+        relativePath,
+
+      size:
+        stats.size,
+
+      modifiedAt:
+        stats.mtime.toISOString(),
+
+      data:
+        fileBuffer.toString(
+          'base64'
+        )
+    });
+  }
+
+  return result;
+}
+
+// ============================================================
+// RESUMO DAS MÍDIAS
+// ============================================================
+
+function mediaSummary(
+  media
+) {
+  const files =
+    getMediaFiles(
+      media
+    ) || [];
+
+  const totalBytes =
+    files.reduce(
+      (
+        total,
+        file
+      ) =>
+        total +
+        Number(
+          file?.size || 0
+        ),
+      0
+    );
+
+  const images =
+    files.filter(
+      file =>
+        file &&
+        typeof file.path === 'string' &&
+        IMAGE_EXTENSIONS.has(
+          path
+            .extname(
+              file.path
+            )
+            .toLowerCase()
+        )
+    ).length;
+
+  const videos =
+    files.filter(
+      file =>
+        file &&
+        typeof file.path === 'string' &&
+        VIDEO_EXTENSIONS.has(
+          path
+            .extname(
+              file.path
+            )
+            .toLowerCase()
+        )
+    ).length;
+
+  return {
+    files:
+      files.length,
+
+    images,
+
+    videos,
+
+    totalBytes
+  };
 }
 
 // ============================================================
@@ -94,33 +384,37 @@ function collectDatabase(db) {
         item =>
           item.type === 'table'
       )
-      .map(table => {
-        const name =
-          table.name;
+      .map(
+        table => {
+          const name =
+            table.name;
 
-        const identifier =
-          quoteIdentifier(name);
+          const identifier =
+            quoteIdentifier(
+              name
+            );
 
-        const columns =
-          db
-            .prepare(
-              `PRAGMA table_info(${identifier})`
-            )
-            .all();
+          const columns =
+            db
+              .prepare(
+                `PRAGMA table_info(${identifier})`
+              )
+              .all();
 
-        const rows =
-          db
-            .prepare(
-              `SELECT * FROM ${identifier}`
-            )
-            .all();
+          const rows =
+            db
+              .prepare(
+                `SELECT * FROM ${identifier}`
+              )
+              .all();
 
-        return {
-          name,
-          columns,
-          rows
-        };
-      });
+          return {
+            name,
+            columns,
+            rows
+          };
+        }
+      );
 
   return {
     schema,
@@ -173,7 +467,9 @@ function encryptBackup(
     );
 
   const json =
-    JSON.stringify(data);
+    JSON.stringify(
+      data
+    );
 
   const compressed =
     zlib.gzipSync(
@@ -221,10 +517,14 @@ function encryptBackup(
       new Date().toISOString(),
 
     salt:
-      salt.toString('base64'),
+      salt.toString(
+        'base64'
+      ),
 
     iv:
-      iv.toString('base64'),
+      iv.toString(
+        'base64'
+      ),
 
     authTag:
       authTag.toString(
@@ -399,10 +699,14 @@ function decryptBackup(
         .gunzipSync(
           compressed
         )
-        .toString('utf8');
+        .toString(
+          'utf8'
+        );
 
     const data =
-      JSON.parse(json);
+      JSON.parse(
+        json
+      );
 
     if (
       data?.format !==
@@ -414,7 +718,9 @@ function decryptBackup(
     }
 
     return data;
+
   } catch (error) {
+
     console.error(
       'Falha interna ao descriptografar backup:',
       error
@@ -424,6 +730,168 @@ function decryptBackup(
       'Backup inválido, corrompido ou incompatível com a chave de segurança.'
     );
   }
+}
+
+// ============================================================
+// VALIDAR MÍDIAS
+// ============================================================
+
+function validateMedia(
+  media
+) {
+  // Backups antigos podem não possuir mídia.
+  if (
+    media === undefined ||
+    media === null
+  ) {
+    return true;
+  }
+
+  const files =
+    getMediaFiles(
+      media
+    );
+
+  if (
+    files === null
+  ) {
+    throw new Error(
+      'A seção de mídias do backup é inválida.'
+    );
+  }
+
+  const seenPaths =
+    new Set();
+
+  for (
+    const file of files
+  ) {
+
+    if (
+      !file ||
+      typeof file !== 'object' ||
+      Array.isArray(file)
+    ) {
+      throw new Error(
+        'Registro de mídia inválido no backup.'
+      );
+    }
+
+    if (
+      typeof file.path !== 'string' ||
+      !file.path.trim()
+    ) {
+      throw new Error(
+        'Caminho de mídia inválido no backup.'
+      );
+    }
+
+    const relativePath =
+      normalizeRelativePath(
+        file.path
+      );
+
+    // Proteção contra path traversal.
+    if (
+      !relativePath ||
+      relativePath.startsWith('../') ||
+      relativePath.includes('/../') ||
+      relativePath === '..' ||
+      path.isAbsolute(file.path)
+    ) {
+      throw new Error(
+        `Caminho de mídia inseguro: ${file.path}`
+      );
+    }
+
+    if (
+      !isMediaFile(
+        relativePath
+      )
+    ) {
+      throw new Error(
+        `Tipo de mídia não permitido: ${relativePath}`
+      );
+    }
+
+    if (
+      seenPaths.has(
+        relativePath
+      )
+    ) {
+      throw new Error(
+        `Mídia duplicada no backup: ${relativePath}`
+      );
+    }
+
+    seenPaths.add(
+      relativePath
+    );
+
+    if (
+      typeof file.data !== 'string' ||
+      !file.data
+    ) {
+      throw new Error(
+        `Dados ausentes para a mídia: ${relativePath}`
+      );
+    }
+
+    let buffer;
+
+    try {
+      buffer =
+        Buffer.from(
+          file.data,
+          'base64'
+        );
+    } catch {
+      throw new Error(
+        `Arquivo de mídia inválido: ${relativePath}`
+      );
+    }
+
+    if (
+      !buffer.length
+    ) {
+      throw new Error(
+        `Arquivo de mídia vazio: ${relativePath}`
+      );
+    }
+
+    if (
+      file.size !== undefined
+    ) {
+      const declaredSize =
+        Number(
+          file.size
+        );
+
+      if (
+        !Number.isFinite(
+          declaredSize
+        ) ||
+        declaredSize < 0
+      ) {
+        throw new Error(
+          `Tamanho inválido para a mídia: ${relativePath}`
+        );
+      }
+    }
+
+    // Verifica se o tamanho declarado corresponde
+    // ao conteúdo real quando ambos estão disponíveis.
+    if (
+      file.size !== undefined &&
+      Number(file.size) !== buffer.length
+    ) {
+      throw new Error(
+        `O tamanho da mídia "${relativePath}" não corresponde aos dados armazenados.`
+      );
+    }
+  }
+
+  return true;
 }
 
 // ============================================================
@@ -489,16 +957,20 @@ function validateBackup(
         ) !== index
     );
 
-  if (duplicate) {
+  if (
+    duplicate
+  ) {
     throw new Error(
       'O backup contém tabelas duplicadas.'
     );
   }
 
-  // Verifica tabelas essenciais.
+  // ----------------------------------------------------------
+  // TABELAS ESSENCIAIS
+  // ----------------------------------------------------------
+
   for (
-    const required
-    of REQUIRED_TABLES
+    const required of REQUIRED_TABLES
   ) {
     if (
       !backupTableNames.includes(
@@ -511,12 +983,14 @@ function validateBackup(
     }
   }
 
-  // Verifica se as tabelas do backup existem
-  // no banco atual.
+  // ----------------------------------------------------------
+  // TABELAS
+  // ----------------------------------------------------------
+
   for (
-    const table
-    of data.tables
+    const table of data.tables
   ) {
+
     if (
       typeof table.name !==
       'string'
@@ -528,17 +1002,19 @@ function validateBackup(
 
     const exists =
       db
-        .prepare(
-          `SELECT 1
-           FROM sqlite_master
-           WHERE type='table'
-           AND name=?`
-        )
+        .prepare(`
+          SELECT 1
+          FROM sqlite_master
+          WHERE type='table'
+          AND name=?
+        `)
         .get(
           table.name
         );
 
-    if (!exists) {
+    if (
+      !exists
+    ) {
       throw new Error(
         `A tabela "${table.name}" não existe no banco atual.`
       );
@@ -605,8 +1081,7 @@ function validateBackup(
     }
 
     for (
-      const row
-      of table.rows
+      const row of table.rows
     ) {
       if (
         !row ||
@@ -621,7 +1096,10 @@ function validateBackup(
     }
   }
 
-  // Deve existir pelo menos um ADM.
+  // ----------------------------------------------------------
+  // ADM
+  // ----------------------------------------------------------
+
   const users =
     data.tables.find(
       table =>
@@ -644,6 +1122,14 @@ function validateBackup(
     );
   }
 
+  // ----------------------------------------------------------
+  // MÍDIAS
+  // ----------------------------------------------------------
+
+  validateMedia(
+    data.media
+  );
+
   return true;
 }
 
@@ -659,6 +1145,7 @@ function backupSummary(
       table => ({
         name:
           table.name,
+
         rows:
           table.rows.length
       })
@@ -703,6 +1190,13 @@ function backupSummary(
         'questions'
     );
 
+  // CORREÇÃO:
+  // aceita media como array ou como { files: [] }.
+  const media =
+    getMediaFiles(
+      data.media
+    ) || [];
+
   return {
     application:
       data.application,
@@ -740,6 +1234,11 @@ function backupSummary(
     questions:
       questions?.rows.length ||
       0,
+
+    media:
+      mediaSummary(
+        media
+      ),
 
     tables
   };
@@ -798,7 +1297,6 @@ function restoreDatabase(
     );
   }
 
-  // Guarda o estado original.
   const foreignKeys =
     db
       .prepare(
@@ -808,8 +1306,7 @@ function restoreDatabase(
       ?.foreign_keys ?? 1;
 
   try {
-    // Foreign keys precisam ser desativadas
-    // antes de iniciar a transação.
+
     db.exec(
       'PRAGMA foreign_keys = OFF'
     );
@@ -823,8 +1320,7 @@ function restoreDatabase(
     // --------------------------------------------------------
 
     for (
-      const tableName
-      of currentTables
+      const tableName of currentTables
     ) {
       db.exec(
         `DELETE FROM ${quoteIdentifier(
@@ -838,9 +1334,9 @@ function restoreDatabase(
     // --------------------------------------------------------
 
     for (
-      const table
-      of data.tables
+      const table of data.tables
     ) {
+
       if (
         table.rows.length ===
         0
@@ -859,14 +1355,18 @@ function restoreDatabase(
           .map(
             () => '?'
           )
-          .join(', ');
+          .join(
+            ', '
+          );
 
       const columnList =
         columns
           .map(
             quoteIdentifier
           )
-          .join(', ');
+          .join(
+            ', '
+          );
 
       const statement =
         db.prepare(
@@ -877,8 +1377,7 @@ function restoreDatabase(
         );
 
       for (
-        const row
-        of table.rows
+        const row of table.rows
       ) {
         statement.run(
           ...columns.map(
@@ -890,7 +1389,7 @@ function restoreDatabase(
     }
 
     // --------------------------------------------------------
-    // VERIFICAR INTEGRIDADE
+    // INTEGRIDADE
     // --------------------------------------------------------
 
     const integrity =
@@ -908,8 +1407,6 @@ function restoreDatabase(
       );
     }
 
-    // Só confirma a transação depois
-    // que tudo foi validado.
     db.exec(
       'COMMIT'
     );
@@ -921,25 +1418,179 @@ function restoreDatabase(
     }
 
     return true;
+
   } catch (error) {
+
     try {
       db.exec(
         'ROLLBACK'
       );
-    } catch {
-      // Ignorado se a transação já estiver encerrada.
-    }
+    } catch {}
 
     try {
       db.exec(
         'PRAGMA foreign_keys = ON'
       );
-    } catch {
-      // Ignorado.
-    }
+    } catch {}
 
     throw error;
   }
+}
+
+// ============================================================
+// RESTAURAR MÍDIAS
+// ============================================================
+
+function restoreMedia(
+  media
+) {
+  // CORREÇÃO:
+  // aceita tanto array quanto objeto { files: [] }.
+  const files =
+    getMediaFiles(
+      media
+    ) || [];
+
+  // Garante que a pasta exista.
+  fs.mkdirSync(
+    UPLOAD_DIR,
+    {
+      recursive: true
+    }
+  );
+
+  // ----------------------------------------------------------
+  // LIMPA MÍDIAS ATUAIS
+  // ----------------------------------------------------------
+
+  function removeExistingMedia(
+    currentDir
+  ) {
+    if (
+      !fs.existsSync(
+        currentDir
+      )
+    ) {
+      return;
+    }
+
+    const entries =
+      fs.readdirSync(
+        currentDir,
+        {
+          withFileTypes: true
+        }
+      );
+
+    for (
+      const entry of entries
+    ) {
+
+      const absolutePath =
+        path.join(
+          currentDir,
+          entry.name
+        );
+
+      if (
+        entry.isSymbolicLink()
+      ) {
+        continue;
+      }
+
+      if (
+        entry.isDirectory()
+      ) {
+        removeExistingMedia(
+          absolutePath
+        );
+
+        continue;
+      }
+
+      if (
+        entry.isFile() &&
+        isMediaFile(
+          entry.name
+        )
+      ) {
+        fs.unlinkSync(
+          absolutePath
+        );
+      }
+    }
+  }
+
+  removeExistingMedia(
+    UPLOAD_DIR
+  );
+
+  // ----------------------------------------------------------
+  // RESTAURA ARQUIVOS
+  // ----------------------------------------------------------
+
+  for (
+    const file of files
+  ) {
+
+    const relativePath =
+      normalizeRelativePath(
+        file.path
+      );
+
+    const targetPath =
+      path.resolve(
+        UPLOAD_DIR,
+        ...relativePath.split('/')
+      );
+
+    // Proteção contra path traversal.
+    if (
+      !isPathInsideBase(
+        UPLOAD_DIR,
+        targetPath
+      )
+    ) {
+      throw new Error(
+        `Caminho de mídia fora do diretório permitido: ${file.path}`
+      );
+    }
+
+    if (
+      !isMediaFile(
+        relativePath
+      )
+    ) {
+      throw new Error(
+        `Tipo de mídia não permitido: ${relativePath}`
+      );
+    }
+
+    const buffer =
+      Buffer.from(
+        file.data,
+        'base64'
+      );
+
+    const parentDir =
+      path.dirname(
+        targetPath
+      );
+
+    fs.mkdirSync(
+      parentDir,
+      {
+        recursive: true
+      }
+    );
+
+    fs.writeFileSync(
+      targetPath,
+      buffer
+    );
+  }
+
+  return true;
 }
 
 // ============================================================
@@ -978,7 +1629,7 @@ function backupFilename() {
 }
 
 // ============================================================
-// ROTAS DE BACKUP
+// ROTAS
 // ============================================================
 
 function registerBackupRoutes(
@@ -987,136 +1638,131 @@ function registerBackupRoutes(
   auth,
   adm
 ) {
-// ==========================================================
-// LIMPAR BANCO
-// ==========================================================
-        app.post(
-        '/api/admin/database/clear',
-        auth,
-        adm,
-        (req, res) => {
-            try {
-            // Confirma que existe pelo menos um ADM
-            // antes de iniciar a operação.
-            const adminCount =
-                db
-                .prepare(
-                    `SELECT COUNT(*) count
-                    FROM users
-                    WHERE role='adm'`
-                )
-                .get()
-                .count;
 
-            if (adminCount < 1) {
-                return res.status(500).json({
-                error:
-                    'Operação bloqueada: nenhum administrador foi encontrado.'
-                });
-            }
+  // ==========================================================
+  // LIMPAR BANCO
+  // ==========================================================
 
-            db.exec('BEGIN IMMEDIATE');
+  app.post(
+    '/api/admin/database/clear',
+    auth,
+    adm,
+    (req, res) => {
 
-            try {
-                // ----------------------------------------------------
-                // DADOS DEPENDENTES DOS USUÁRIOS
-                // ----------------------------------------------------
+      try {
 
-                db.exec(`
-                DELETE FROM answers;
-                DELETE FROM progress;
-                DELETE FROM activity;
-                DELETE FROM badges;
-                DELETE FROM claims;
-                DELETE FROM finance;
-                `);
+        const adminCount =
+          db
+            .prepare(`
+              SELECT COUNT(*) AS count
+              FROM users
+              WHERE role='adm'
+            `)
+            .get()
+            .count;
 
-                // ----------------------------------------------------
-                // CONTEÚDO EDUCACIONAL
-                // ----------------------------------------------------
-
-                db.exec(`
-                DELETE FROM questions;
-                DELETE FROM lessons;
-                DELETE FROM tracks;
-                `);
-
-                // ----------------------------------------------------
-                // USUÁRIOS
-                // ----------------------------------------------------
-                // Mantém TODOS os administradores.
-                // Remove somente usuários comuns.
-
-                const deletedUsers =
-                db
-                    .prepare(
-                    `DELETE FROM users
-                    WHERE role <> 'adm'`
-                    )
-                    .run()
-                    .changes;
-
-                // ----------------------------------------------------
-                // GARANTIA DE SEGURANÇA
-                // ----------------------------------------------------
-
-                const remainingAdmins =
-                db
-                    .prepare(
-                    `SELECT COUNT(*) count
-                    FROM users
-                    WHERE role='adm'`
-                    )
-                    .get()
-                    .count;
-
-                if (
-                remainingAdmins < 1
-                ) {
-                throw new Error(
-                    'Falha de segurança: nenhuma conta ADM permaneceu.'
-                );
-                }
-
-                db.exec('COMMIT');
-
-                console.log(
-                `Banco limpo pelo administrador ${req.user.email}. Usuários comuns removidos: ${deletedUsers}.`
-                );
-
-                return res.json({
-                ok: true,
-
-                message:
-                    'Banco de dados limpo com sucesso.',
-
-                deletedUsers,
-
-                remainingAdmins
-                });
-            } catch (error) {
-                try {
-                db.exec('ROLLBACK');
-                } catch {
-                // Ignorado caso a transação já tenha sido encerrada.
-                }
-
-                throw error;
-            }
-            } catch (error) {
-            console.error(
-                'Erro ao limpar banco:',
-                error
-            );
-
-            return res.status(500).json({
-                error:
-                error.message ||
-                'Não foi possível limpar o banco de dados.'
-            });
-            }
+        if (
+          adminCount < 1
+        ) {
+          return res.status(500).json({
+            error:
+              'Operação bloqueada: nenhum administrador foi encontrado.'
+          });
         }
+
+        db.exec(
+          'BEGIN IMMEDIATE'
         );
+
+        try {
+
+          db.exec(`
+            DELETE FROM answers;
+            DELETE FROM progress;
+            DELETE FROM activity;
+            DELETE FROM badges;
+            DELETE FROM claims;
+            DELETE FROM finance;
+          `);
+
+          db.exec(`
+            DELETE FROM questions;
+            DELETE FROM lessons;
+            DELETE FROM tracks;
+          `);
+
+          const deletedUsers =
+            db
+              .prepare(`
+                DELETE FROM users
+                WHERE role <> 'adm'
+              `)
+              .run()
+              .changes;
+
+          const remainingAdmins =
+            db
+              .prepare(`
+                SELECT COUNT(*) AS count
+                FROM users
+                WHERE role='adm'
+              `)
+              .get()
+              .count;
+
+          if (
+            remainingAdmins < 1
+          ) {
+            throw new Error(
+              'Falha de segurança: nenhuma conta ADM permaneceu.'
+            );
+          }
+
+          db.exec(
+            'COMMIT'
+          );
+
+          console.log(
+            `Banco limpo pelo administrador ${req.user.email}. Usuários comuns removidos: ${deletedUsers}.`
+          );
+
+          return res.json({
+            ok: true,
+
+            message:
+              'Banco de dados limpo com sucesso.',
+
+            deletedUsers,
+
+            remainingAdmins
+          });
+
+        } catch (error) {
+
+          try {
+            db.exec(
+              'ROLLBACK'
+            );
+          } catch {}
+
+          throw error;
+        }
+
+      } catch (error) {
+
+        console.error(
+          'Erro ao limpar banco:',
+          error
+        );
+
+        return res.status(500).json({
+          error:
+            error.message ||
+            'Não foi possível limpar o banco de dados.'
+        });
+      }
+    }
+  );
 
   // ==========================================================
   // VISÃO GERAL DO SISTEMA
@@ -1127,49 +1773,71 @@ function registerBackupRoutes(
     auth,
     adm,
     (req, res) => {
+
       try {
+
         const tables =
           db
             .prepare(`
               SELECT name
               FROM sqlite_master
-              WHERE type = 'table'
+              WHERE type='table'
               AND name NOT LIKE 'sqlite_%'
               ORDER BY name
             `)
             .all()
-            .map(row => row.name);
+            .map(
+              row =>
+                row.name
+            );
 
         const tableData =
-          tables.map(tableName => {
-            const columns =
-              db
-                .prepare(
-                  `PRAGMA table_info(${quoteIdentifier(
-                    tableName
-                  )})`
-                )
-                .all();
+          tables.map(
+            tableName => {
 
-            const count =
-              db
-                .prepare(
-                  `SELECT COUNT(*) AS count
-                   FROM ${quoteIdentifier(tableName)}`
-                )
-                .get();
+              const columns =
+                db
+                  .prepare(
+                    `PRAGMA table_info(${quoteIdentifier(
+                      tableName
+                    )})`
+                  )
+                  .all();
 
-            return {
-              name: tableName,
-              rows: Number(count?.count || 0),
-              columns: columns.length
-            };
-          });
+              const count =
+                db
+                  .prepare(
+                    `SELECT COUNT(*) AS count
+                     FROM ${quoteIdentifier(
+                       tableName
+                     )}`
+                  )
+                  .get();
+
+              return {
+                name:
+                  tableName,
+
+                rows:
+                  Number(
+                    count?.count ||
+                    0
+                  ),
+
+                columns:
+                  columns.length
+              };
+            }
+          );
 
         const totalRows =
           tableData.reduce(
-            (total, table) =>
-              total + table.rows,
+            (
+              total,
+              table
+            ) =>
+              total +
+              table.rows,
             0
           );
 
@@ -1186,7 +1854,7 @@ function registerBackupRoutes(
             .prepare(
               `SELECT COUNT(*) AS count
                FROM users
-               WHERE role = 'adm'`
+               WHERE role='adm'`
             )
             .get();
 
@@ -1214,6 +1882,9 @@ function registerBackupRoutes(
             )
             .get();
 
+        const media =
+          collectMediaFiles();
+
         return res.json({
           ok: true,
 
@@ -1238,26 +1909,47 @@ function registerBackupRoutes(
             totalRows,
 
             users:
-              Number(users?.count || 0),
+              Number(
+                users?.count ||
+                0
+              ),
 
             admins:
-              Number(admins?.count || 0),
+              Number(
+                admins?.count ||
+                0
+              ),
 
             tracks:
-              Number(tracks?.count || 0),
+              Number(
+                tracks?.count ||
+                0
+              ),
 
             lessons:
-              Number(lessons?.count || 0),
+              Number(
+                lessons?.count ||
+                0
+              ),
 
             questions:
-              Number(questions?.count || 0),
+              Number(
+                questions?.count ||
+                0
+              ),
 
             tables:
               tableData
-          }
+          },
+
+          media:
+            mediaSummary(
+              media
+            )
         });
 
       } catch (error) {
+
         console.error(
           'Erro ao carregar visão geral do sistema:',
           error
@@ -1265,6 +1957,7 @@ function registerBackupRoutes(
 
         return res.status(500).json({
           ok: false,
+
           error:
             error.message ||
             'Não foi possível carregar a visão geral.'
@@ -1274,7 +1967,7 @@ function registerBackupRoutes(
   );
 
   // ==========================================================
-  // VISUALIZAR DADOS DE UMA TABELA
+  // VISUALIZAR TABELA
   // ==========================================================
 
   app.get(
@@ -1282,10 +1975,13 @@ function registerBackupRoutes(
     auth,
     adm,
     (req, res) => {
+
       try {
+
         const tableName =
           String(
-            req.params.tableName || ''
+            req.params.tableName ||
+              ''
           ).trim();
 
         const tableExists =
@@ -1293,13 +1989,17 @@ function registerBackupRoutes(
             .prepare(`
               SELECT name
               FROM sqlite_master
-              WHERE type = 'table'
+              WHERE type='table'
               AND name NOT LIKE 'sqlite_%'
-              AND name = ?
+              AND name=?
             `)
-            .get(tableName);
+            .get(
+              tableName
+            );
 
-        if (!tableExists) {
+        if (
+          !tableExists
+        ) {
           return res.status(404).json({
             ok: false,
             error:
@@ -1316,7 +2016,6 @@ function registerBackupRoutes(
             )
             .all();
 
-        // Nunca envia hashes de senha para o navegador.
         const visibleColumns =
           columns.filter(
             column =>
@@ -1344,11 +2043,15 @@ function registerBackupRoutes(
                   column.name
                 )
             )
-            .join(', ');
+            .join(
+              ', '
+            );
 
         let rows = [];
 
-        if (columnList) {
+        if (
+          columnList
+        ) {
           rows =
             db
               .prepare(
@@ -1383,6 +2086,7 @@ function registerBackupRoutes(
         });
 
       } catch (error) {
+
         console.error(
           'Erro ao carregar tabela:',
           error
@@ -1390,6 +2094,7 @@ function registerBackupRoutes(
 
         return res.status(500).json({
           ok: false,
+
           error:
             error.message ||
             'Não foi possível carregar a tabela.'
@@ -1398,18 +2103,30 @@ function registerBackupRoutes(
     }
   );
 
-  // ----------------------------------------------------------
-  // GERAR
-  // ----------------------------------------------------------
+  // ==========================================================
+  // GERAR BACKUP
+  // ==========================================================
 
   app.get(
     '/api/admin/backup/export',
     auth,
     adm,
     (req, res) => {
+
       try {
+
         const database =
-          collectDatabase(db);
+          collectDatabase(
+            db
+          );
+
+        const media =
+          collectMediaFiles();
+
+        const mediaInfo =
+          mediaSummary(
+            media
+          );
 
         const backupData = {
           format:
@@ -1454,6 +2171,30 @@ function registerBackupRoutes(
               )
           },
 
+          // ====================================================
+          // CORREÇÃO PRINCIPAL
+          // ====================================================
+          //
+          // A mídia fica armazenada como um objeto com
+          // metadados e uma lista em "files".
+          //
+          media: {
+            fileCount:
+              mediaInfo.files,
+
+            imageCount:
+              mediaInfo.images,
+
+            videoCount:
+              mediaInfo.videos,
+
+            totalBytes:
+              mediaInfo.totalBytes,
+
+            files:
+              media
+          },
+
           schema:
             database.schema,
 
@@ -1495,13 +2236,15 @@ function registerBackupRoutes(
         );
 
         console.log(
-          `Backup gerado por ${req.user.email}: ${filename}`
+          `Backup gerado por ${req.user.email}: ${filename} | mídias: ${mediaInfo.files} | imagens: ${mediaInfo.images} | vídeos: ${mediaInfo.videos}`
         );
 
         return res.send(
           encrypted
         );
+
       } catch (error) {
+
         console.error(
           'Erro ao gerar backup:',
           error
@@ -1516,16 +2259,18 @@ function registerBackupRoutes(
     }
   );
 
-  // ----------------------------------------------------------
+  // ==========================================================
   // LER / VALIDAR
-  // ----------------------------------------------------------
+  // ==========================================================
 
   app.post(
     '/api/admin/backup/inspect',
     auth,
     adm,
     (req, res) => {
+
       try {
+
         const base64 =
           String(
             req.body?.data ||
@@ -1572,14 +2317,17 @@ function registerBackupRoutes(
           );
 
         console.log(
-          `Backup validado por ${req.user.email}: ${summary.totalRows} registros`
+          `Backup validado por ${req.user.email}: ${summary.totalRows} registros | mídias: ${summary.media.files}`
         );
 
         return res.json({
           ok: true,
+
           summary
         });
+
       } catch (error) {
+
         console.error(
           'Erro ao ler backup:',
           error
@@ -1594,16 +2342,18 @@ function registerBackupRoutes(
     }
   );
 
-  // ----------------------------------------------------------
+  // ==========================================================
   // RESTAURAR
-  // ----------------------------------------------------------
+  // ==========================================================
 
   app.post(
     '/api/admin/backup/restore',
     auth,
     adm,
     (req, res) => {
+
       try {
+
         const base64 =
           String(
             req.body?.data ||
@@ -1649,13 +2399,27 @@ function registerBackupRoutes(
             backup
           );
 
+        // ------------------------------------------------------
+        // RESTAURA BANCO
+        // ------------------------------------------------------
+
         restoreDatabase(
           db,
           backup
         );
 
+        // ------------------------------------------------------
+        // RESTAURA MÍDIAS
+        // ------------------------------------------------------
+
+        restoreMedia(
+          backup.media?.files ||
+          backup.media ||
+          []
+        );
+
         console.log(
-          `Backup restaurado por ${req.user.email}: ${summary.totalRows} registros`
+          `Backup restaurado por ${req.user.email}: ${summary.totalRows} registros | mídias: ${summary.media.files}`
         );
 
         return res.json({
@@ -1666,7 +2430,9 @@ function registerBackupRoutes(
 
           summary
         });
+
       } catch (error) {
+
         console.error(
           'Erro ao restaurar backup:',
           error
