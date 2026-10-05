@@ -1,6 +1,12 @@
 const logout = () => {
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    const nome = user?.name ? user.name.split(' ')[0] : '';
+
     localStorage.clear();
-    location = '/';
+
+    location.replace(
+        'splash.html?logout=1&nome=' + encodeURIComponent(nome)
+    );
 };
 
 const me = () =>

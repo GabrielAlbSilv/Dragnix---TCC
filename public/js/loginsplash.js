@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================
 
     if (localStorage.token) {
-        window.location.replace('/app.html');
+        window.location.replace('app.html');
         return;
     }
 

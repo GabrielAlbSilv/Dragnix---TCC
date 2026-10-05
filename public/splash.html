@@ -3,174 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Dragnix</title>
     <link rel="icon" href="css/images/dranix_icon_white_nobackground.png" type="image/png">
-    <style>
-        :root {
-            --g: #58cc02;
-            --gd: #46a302;
-            --bg: #131f24;
-            --fg: #ffffff;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            width: 100%;
-            height: 100vh;
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-
-            background: var(--bg);
-            color: var(--fg);
-
-            font-family: Arial, sans-serif;
-
-            overflow: hidden;
-        }
-
-        .splash {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-
-            animation: aparecer 0.8s ease;
-        }
-
-        .logo {
-            width: 150px;
-            height: 150px;
-
-            object-fit: contain;
-
-            animation: flutuar 2s ease-in-out infinite;
-        }
-
-        .nome {
-            margin-top: 20px;
-
-            font-size: 32px;
-            font-weight: bold;
-
-            color: var(--g);
-            letter-spacing: 1px;
-        }
-
-        .versao {
-            position: fixed;
-            right: 14px;
-            bottom: 10px;
-
-            max-width: 70vw;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-
-            font-size: 12px;
-            color: #9fb0b9;
-            opacity: .9;
-        }
-
-        .saudacao {
-            margin-top: 10px;
-            min-height: 24px;
-
-            font-size: 18px;
-            color: #9fb0b9;
-        }
-
-        .carregando {
-            width: 180px;
-            height: 5px;
-
-            margin-top: 30px;
-
-            background: #263238;
-            border-radius: 10px;
-
-            overflow: hidden;
-        }
-
-        .barra {
-            width: 0%;
-            height: 100%;
-
-            background: var(--g);
-            border-radius: 10px;
-
-            animation: carregar 2.5s linear forwards;
-        }
-
-        @keyframes carregar {
-            from {
-                width: 0%;
-            }
-
-            to {
-                width: 100%;
-            }
-        }
-
-        @keyframes aparecer {
-            from {
-                opacity: 0;
-                transform: scale(0.9);
-            }
-
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        @keyframes flutuar {
-            0%, 100% {
-                transform: translateY(0);
-            }
-
-            50% {
-                transform: translateY(-8px);
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="css/style_splash_screen.css">
 </head>
-
 <body>
-
     <div class="splash">
-
         <img
             src="css/images/dranix_icon_white_nobackground.png"
-            alt="Dranix"
+            alt="Dragnix"
             class="logo"
         >
-
         <div class="nome">
-            Dranix
+            Drangix
         </div>
-
         <div class="saudacao" id="saudacao"></div>
-
         <div class="carregando">
             <div class="barra"></div>
         </div>
-
     </div>
-
     <div class="versao" id="versao"></div>
-
     <script>
         // Canto da tela: último commit do git (vem do servidor)
         const versaoEl = document.getElementById('versao');
-
         fetch('/api/version')
             .then(r => (r.ok ? r.json() : Promise.reject()))
             .then(v => {
@@ -191,18 +46,34 @@
         // Mesma splash em dois momentos:
         //  - ao abrir o site (sem login): depois vai para a tela de login
         //  - após login/cadastro (com login): mostra a saudação e vai para o app
-        const logado = !!localStorage.getItem('token');
+            const logado = !!localStorage.getItem('token');
+            const params = new URLSearchParams(window.location.search);
+            const logout = params.get('logout') === '1';
+            const nomeLogout = params.get('nome') || '';
+            const saudacao = document.getElementById('saudacao');
+            if (logout) {
 
-        if (logado) {
-            const user = JSON.parse(localStorage.getItem('user') || 'null');
-            const nome = (user && user.name ? user.name : '').split(' ')[0];
-            document.getElementById('saudacao').textContent = nome ? 'Bem-vindo, ' + nome + '!' : 'Bem-vindo!';
-        }
+                saudacao.textContent = nomeLogout
+                    ? 'Até logo, ' + nomeLogout + '!'
+                    : 'Até logo!';
+            } else if (logado) {
 
-        setTimeout(() => {
-            location.replace(logado ? '/app.html' : 'index.html?splash=1');
-        }, 2500);
+                const user = JSON.parse(localStorage.getItem('user') || 'null');
+                const nome = (user && user.name ? user.name : '').split(' ')[0];
+
+                saudacao.textContent = nome
+                    ? 'Bem-vindo, ' + nome + '!'
+                    : 'Bem-vindo!';
+
+            }
+            setTimeout(() => {
+
+                if (logado) {
+                    location.replace('app.html');
+                } else {
+                    location.replace('index.html?splash=1');
+                }
+            }, 2500);
     </script>
-
 </body>
 </html>
