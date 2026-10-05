@@ -45,7 +45,7 @@
         >
 
         <!-- Senha -->
-        <div class="senha-box">
+       <div class="senha-box">
             <input
                 id="pass"
                 type="password"
@@ -55,23 +55,23 @@
             <button
                 type="button"
                 class="senha-btn"
-                onclick="mostrarSenhas('pass', this)"
+                onclick="mostrarSenha('pass', this)"
                 aria-label="Mostrar senha"
             >👁</button>
         </div>
 
         <!-- Confirmar senha -->
-        <div class="senha-box" id="passConfirmBox">
+      
+        <div class="senha-box hide" id="passConfirmBox">
             <input
                 id="passConfirm"
                 type="password"
-                class="hide"
                 placeholder="Confirmar senha"
             >
 
             <button
                 type="button"
-                class="senha-btn hide"
+                class="senha-btn"
                 onclick="mostrarSenha('passConfirm', this)"
                 aria-label="Mostrar senha"
             >👁</button>
