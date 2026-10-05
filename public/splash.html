@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dragnix</title>
+    <link rel="icon" href="css/images/dranix_icon_white_nobackground.png" type="image/png">
+    <link rel="stylesheet" href="css/style_splash_screen.css">
+</head>
+<body>
+    <div class="splash">
+        <img
+            src="css/images/dranix_icon_white_nobackground.png"
+            alt="Dragnix"
+            class="logo"
+        >
+        <div class="nome">
+            Drangix - Teste de Rede
+        </div>
+        <div class="saudacao" id="saudacao"></div>
+        <div class="carregando">
+            <div class="barra"></div>
+        </div>
+    </div>
+    <div class="versao" id="versao"></div>
+    <script>
+        // Canto da tela: último commit do git (vem do servidor)
+        const versaoEl = document.getElementById('versao');
+        fetch('/api/version')
+            .then(r => (r.ok ? r.json() : Promise.reject()))
+            .then(v => {
+                if (!v.hash) {
+                    versaoEl.textContent = 'versão indisponível (' + (v.error || 'git sem dados') + ')';
+                    return;
+                }
+                const data = new Date(v.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+                versaoEl.textContent =
+                    'última alteração: ' + v.hash + ' · ' + v.message
+            })
+            .catch(() => {
+                versaoEl.textContent = 'versão indisponível (reinicie o servidor)';
+            });
+    </script>
+
+    <script>
+        // Mesma splash em dois momentos:
+        //  - ao abrir o site (sem login): depois vai para a tela de login
+        //  - após login/cadastro (com login): mostra a saudação e vai para o app
+            const logado = !!localStorage.getItem('token');
+            const params = new URLSearchParams(window.location.search);
+            const logout = params.get('logout') === '1';
+            const nomeLogout = params.get('nome') || '';
+            const saudacao = document.getElementById('saudacao');
+            if (logout) {
+
+                saudacao.textContent = nomeLogout
+                    ? 'Até logo, ' + nomeLogout + '!'
+                    : 'Até logo!';
+            } else if (logado) {
+
+                const user = JSON.parse(localStorage.getItem('user') || 'null');
+                const nome = (user && user.name ? user.name : '').split(' ')[0];
+
+                saudacao.textContent = nome
+                    ? 'Bem-vindo, ' + nome + '!'
+                    : 'Bem-vindo!';
+
+            }
+            setTimeout(() => {
+
+                if (logado) {
+                    location.replace('app.html');
+                } else {
+                    location.replace('index.html?splash=1');
+                }
+            }, 2500);
+    </script>
+</body>
+</html>

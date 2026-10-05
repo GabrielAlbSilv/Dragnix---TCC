@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+
+    <title>Dragnix — Entrar</title>
+
+    <link rel="stylesheet" href="css/style.css">
+
+    <link rel="icon" href="css/images/dranix_icon_white_nobackground.png" type="image/png">
+</head>
+
+<body>
+<div class="wrap">
+
+    <section class="hero">
+        <img
+            src="css/images/dranix_logo_white_nobackground.png"
+            alt="Logo da marca"
+        >
+    </section>
+
+    <div class="tabs">
+        <button class="btn" id="tl">Entrar</button>
+        <button class="btn sec" id="tr">Criar conta</button>
+    </div>
+
+    <div class="card">
+
+        <!-- Nome -->
+        <input
+            id="name"
+            class="hide"
+            type="text"
+            placeholder="Nome"
+        >
+
+        <!-- E-mail -->
+        <input
+            id="email"
+            type="email"
+            placeholder="E-mail"
+        >
+
+        <!-- Senha -->
+       <div class="senha-box">
+            <input
+                id="pass"
+                type="password"
+                placeholder="Senha (mín. 6 caracteres)"
+            >
+
+            <button
+                type="button"
+                class="senha-btn"
+                onclick="mostrarSenha('pass', this)"
+                aria-label="Mostrar senha"
+            >👁</button>
+        </div>
+
+        <!-- Confirmar senha -->
+      
+        <div class="senha-box hide" id="passConfirmBox">
+            <input
+                id="passConfirm"
+                type="password"
+                placeholder="Confirmar senha"
+            >
+
+            <button
+                type="button"
+                class="senha-btn"
+                onclick="mostrarSenha('passConfirm', this)"
+                aria-label="Mostrar senha"
+            >👁</button>
+        </div>
+
+        <!-- Mensagem de erro -->
+        <div class="err" id="err"></div>
+
+        <!-- Botão -->
+        <button
+            class="btn"
+            id="go"
+            type="button"
+            style="width:100%"
+        >
+            Entrar
+        </button>
+
+    </div>
+
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/loginsplash.js"></script>
+
+</body>
+</html>

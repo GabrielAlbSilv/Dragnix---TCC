@@ -1,0 +1,63 @@
+<!doctype html>
+
+<html lang="pt-BR">
+
+<head>
+
+    <meta charset="utf-8">
+
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+
+    <title>Dragnix —Minhas trilhas</title>
+
+    <link rel="icon" href="css/images/dranix_icon_white_nobackground.png" type="image/png">
+
+    <link rel="stylesheet" href="css/style.css">
+     <link rel="icon" href="css/images/dranix_icon_white_nobackground.png"  type="image/png">
+
+</head>
+
+<body>
+
+    <header>
+
+        <strong class="trilhas-title">
+            <img src="css/images/dranix_icon_white_nobackground.png" alt="Dragão" class="trilhas-icon">
+            Minhas trilhas
+        </strong>
+
+        <span class="stats">
+            <span id="lvl"></span>
+            <span id="coins"></span>
+            <span id="streak">0</span>
+            <span id="hearts">5</span>
+            <span id="xp">0</span>
+        </span>
+
+    </header>
+
+    <header>
+
+        <span>
+            <button class="link" onclick="home()">Trilhas</button> ·
+            <button class="link" onclick="badges()">🏅 Conquistas</button> ·
+            <button class="link" onclick="profile()">👤 Perfil</button> ·
+            <button class="link" onclick="rank()">Ranking</button> ·
+            <button class="link" onclick="gestao()">💼 Gestão financeira</button>
+        </span>
+
+        <span>
+            <a id="adm" class="hide" href="admin.html">Painel ADM</a>
+            <button class="link" onclick="logout()">Sair</button>
+        </span>
+
+    </header>
+
+    <div class="wrap" id="main"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+
+</body>
+
+</html>

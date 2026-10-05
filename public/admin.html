@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+     <link rel="icon"  href="css/images/dranix_icon_white_nobackground.png" type="image/png">
+    <title></title>
+     <strong class="trilhas-title">
+        <img src="css/images/dranix_icon_white_nobackground.png" alt="Dragão" class="trilhas-icon">
+        Dragnix — Painel ADM
+</strong>
+    <link rel="icon" href="css/images/dranix_icon_white_nobackground.png"image/png">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+   <header>
+        <span>
+            <button class="link" id="t1">Trilhas</button> ·
+            <button class="link" id="t2">Usuários</button> ·
+            <a href="app.html">Ver como aluno</a> ·
+            <button class="link" onclick="logout()">Sair</button>
+        </span>
+    </header>
+
+    <div class="wrap wide" id="main"></div>
+
+    <dialog id="dlg">
+        <form id="frm">
+            <h3 id="dt"></h3>
+
+            <div id="fields"></div>
+
+            <div class="err" id="derr"></div>
+
+            <div class="row">
+                <button type="button" class="btn sec" id="cx">Cancelar</button>
+                <button class="btn" id="ok">Salvar</button>
+            </div>
+        </form>
+    </dialog>
+
+    <script src="js/api.js"></script>
+    <script src="js/admin.js"></script>
+
+</body>
+
+</html>
