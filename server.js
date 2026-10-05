@@ -43,12 +43,21 @@ app.post('/api/auth/login', (req, res) => {
   res.json({ token: sign(u), user: pub(u) });
 });
 // Último commit do git (lido na hora, então acompanha novos commits sem reiniciar). Público: a splash usa antes do login.
-app.get('/api/version', (req, res) => {
-  try {
+function gitInfo() {
+  try { // 1º: comando git
     const git = args => execFileSync('git', args, { cwd: __dirname, stdio: ['ignore', 'pipe', 'ignore'], timeout: 3000 }).toString().trim();
     const [hash, date, ...msg] = git(['log', '-1', '--format=%h|%cI|%s']).split('|');
-    res.json({ hash, date, message: msg.join('|'), dirty: git(['status', '--porcelain']).length > 0 });
-  } catch { res.json({}); } // sem git instalado ou sem repositório: a splash simplesmente não mostra nada
+    return { hash, date, message: msg.join('|'), dirty: git(['status', '--porcelain']).length > 0 };
+  } catch {
+    // 2º: sem o comando git (não está no PATH, "dubious ownership" no Windows etc.), lê o histórico em .git/logs/HEAD
+    const linhas = fs.readFileSync(path.join(__dirname, '.git', 'logs', 'HEAD'), 'utf8').trim().split('\n');
+    const [meta, msg = ''] = linhas[linhas.length - 1].split('\t');
+    const m = meta.match(/^\w+ (\w+) .* (\d+) [+-]\d{4}$/);
+    return { hash: m[1].slice(0, 7), date: new Date(m[2] * 1000).toISOString(), message: msg.replace(/^[^:]+: ?/, ''), dirty: false };
+  }
+}
+app.get('/api/version', (req, res) => {
+  try { res.json(gitInfo()); } catch { res.json({ error: 'pasta .git não encontrada' }); }
 });
 app.get('/api/auth/me', auth, (req, res) => res.json(pub(req.user)));
 
@@ -218,7 +227,7 @@ app.post('/api/shop/hearts', auth, (req, res) => {
 });
 app.get('/api/ranking', auth, (req, res) => {
   const rows = db.prepare(`SELECT u.id,u.name,u.streak,u.last_day,COALESCE(SUM(p.xp),0) xp FROM users u
-    LEFT JOIN progress p ON p.user_id=u.id GROUP BY u.id ORDER BY xp DESC,u.name LIMIT 20`).all();
+    LEFT JOIN progress p ON p.user_id=u.id WHERE u.role='comum' GROUP BY u.id ORDER BY xp DESC,u.name LIMIT 20`).all();
   res.json(rows.map(r => ({ name: r.name, xp: r.xp, level: LEVEL(r.xp), streak: streakOf(r), me: r.id === req.user.id })));
 });
 

@@ -11,14 +11,14 @@ const refresh = () => api('/tracks').then(setStats);
 
 async function home() {
   const d = await api('/tracks'); setStats(d); window.TRACKS = d.tracks;
-  main.innerHTML = d.tracks.length ? d.tracks.map(t => { const c = esc(t.color || '#58cc02'), n = t.lessons.filter(l => l.done).length; return `
+  main.innerHTML = d.tracks.length ? d.tracks.map(t => { const c = esc(t.color || '#58cc02'), n = t.lessons.filter(l => l.done).length, pct = t.lessons.length ? Math.round(t.lessons.reduce((x, l) => x + l.pct, 0) / t.lessons.length) : 0; return `
     <div class="card" style="border-color:${c}"><h2>${esc(t.icon)} ${esc(t.title)}</h2><p class="mut">${esc(t.description)}</p>
-    <div class="bar"><div style="width:${t.lessons.length ? n / t.lessons.length * 100 : 0}%;background:${c}"></div></div><small class="mut">${n}/${t.lessons.length} módulos concluídos</small>
+    <div class="row"><small class="mut">${n}/${t.lessons.length} módulos concluídos</small><b style="color:${c}">${pct}% da trilha</b></div><div class="bar"><div style="width:${pct}%;background:${c}"></div></div>
     <div class="path">
       ${t.presentation.length ? `<div style="text-align:center"><button class="node" style="background:${c}" onclick="showTrack(${t.id})">📌</button><div class="mut">Apresentação<br><small>da trilha</small></div></div>` : ''}
       ${t.lessons.map((l, i) => `<div style="text-align:center;opacity:${l.locked ? .5 : 1}"><button class="node ${l.done ? 'done' : ''}" style="${l.done ? '' : 'background:' + c}"
         onclick="${l.locked ? "alert('Conclua o módulo anterior para desbloquear 🔒')" : `openLesson(${l.id})`}">${l.locked ? '🔒' : l.done ? '✓' : i + 1}</button>
-        <div class="mut"><b>Módulo ${i + 1}</b><br>${esc(l.title)}<br><small>+${l.xp} XP</small></div></div>`).join('')}
+        <div class="mut"><b>Módulo ${i + 1}</b><br>${esc(l.title)}<div class="mini"><div style="width:${l.pct}%;background:${c}"></div></div><small><b>${l.pct}%</b> · +${l.xp} XP</small></div></div>`).join('')}
       <div style="text-align:center;opacity:.5"><button class="node" style="background:var(--bd)" onclick="alert('Os desafios chegam em breve! 🏆')">🏆</button><div class="mut">Desafios<br><small>em breve</small></div></div>
     </div></div>`; }).join('') : '<p class="mut">Nenhuma trilha disponível ainda.</p>';
 }
@@ -30,7 +30,7 @@ function showTrack(id) {
 
 async function rank() {
   const r = await api('/ranking');
-  main.innerHTML = '<h2>🏆 Ranking</h2>' + r.map((u, n) => `<div class="card row" ${u.me ? 'style="border-color:var(--g)"' : ''}><span>${n + 1}º ${esc(u.name)} <small class="mut">Nv ${u.level}</small></span><span>⭐ ${u.xp} · 🔥 ${u.streak}</span></div>`).join('');
+  main.innerHTML = '<h2>🏆 Ranking</h2>' + r.map((u, n) => `<div class="card row" ${u.me ? 'style="border-color:var(--g)"' : ''}><span>${n + 1}º ${esc(u.name)} <small class="mut">Nv ${u.level}</small></span><span>⭐ ${u.xp} · 🔥 ${u.streak}</span></div>`).join('') || '<p class="mut">Ainda não há alunos no ranking.</p>';
 }
 
 async function profile() {
@@ -103,7 +103,7 @@ async function openLesson(id) {
   const step = () => {
     if (i >= lesson.questions.length) return finish();
     const q = lesson.questions[i];
-    main.innerHTML = `<button class="link" onclick="home()">✕ Sair</button><div class="bar"><div style="width:${i / lesson.questions.length * 100}%"></div></div>
+    main.innerHTML = `<button class="link" onclick="home()">✕ Sair</button><div class="row"><small class="mut">Pergunta ${i + 1} de ${lesson.questions.length}</small><b>${Math.round(i / lesson.questions.length * 100)}%</b></div><div class="bar"><div style="width:${i / lesson.questions.length * 100}%"></div></div>
       <div class="steps"><span class="pill">📖 Explicação</span><span class="pill on">📝 Pergunta ${i + 1}/${lesson.questions.length}</span></div>${lesson.content.length ? `<details class="card"><summary>📖 Rever explicação</summary>${lesson.content.map(block).join('')}</details>` : ''}<h2>${esc(q.prompt)}</h2><div id="body"></div><div id="fb"></div>`;
     const submit = async answer => {
       const r = await api(`/questions/${q.id}/check`, 'POST', { answer });

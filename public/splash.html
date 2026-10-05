@@ -75,7 +75,7 @@
             white-space: nowrap;
 
             font-size: 12px;
-            color: #6f808a;
+            color: #9fb0b9;
             opacity: .9;
         }
 
@@ -149,12 +149,12 @@
 
         <img
             src="css/images/dranix_icon_white_nobackground.png"
-            alt="Dragnix"
+            alt="Dranix"
             class="logo"
         >
 
         <div class="nome">
-            Dragnix
+            Dranix
         </div>
 
         <div class="saudacao" id="saudacao"></div>
@@ -169,15 +169,22 @@
 
     <script>
         // Canto da tela: último commit do git (vem do servidor)
+        const versaoEl = document.getElementById('versao');
+
         fetch('/api/version')
-            .then(r => r.json())
+            .then(r => (r.ok ? r.json() : Promise.reject()))
             .then(v => {
-                if (!v.hash) return;
+                if (!v.hash) {
+                    versaoEl.textContent = 'versão indisponível (' + (v.error || 'git sem dados') + ')';
+                    return;
+                }
                 const data = new Date(v.date).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
-                document.getElementById('versao').textContent =
-                    'último commit: ' + v.hash + ' · ' + v.message + ' · ' + data + (v.dirty ? ' · alterações não commitadas' : '');
+                versaoEl.textContent =
+                    'última alteração: ' + v.hash + ' · ' + v.message
             })
-            .catch(() => {});
+            .catch(() => {
+                versaoEl.textContent = 'versão indisponível (reinicie o servidor)';
+            });
     </script>
 
     <script>
