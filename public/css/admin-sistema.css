@@ -1,0 +1,390 @@
+/* ============================================================
+   PAINEL SISTEMA
+   ============================================================ */
+
+.admin-system-header {
+    width: 100%;
+    border-bottom: 1px solid var(--bd);
+    background: var(--bg);
+}
+
+.admin-system-top {
+    width: min(1400px, 94%);
+    margin: 0 auto;
+    min-height: 74px;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+}
+
+.admin-system-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+
+/* ============================================================
+   CONTAINER
+   ============================================================ */
+
+.admin-system-container {
+    width: min(1400px, 94%);
+    margin: 30px auto 60px;
+}
+
+
+/* ============================================================
+   SEÇÕES
+   ============================================================ */
+
+.system-section {
+    margin-bottom: 30px;
+    padding: 24px;
+
+    background: var(--bg);
+    border: 1px solid var(--bd);
+    border-radius: 18px;
+}
+
+.system-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.system-section-header h1,
+.system-section-header h2,
+.system-section-header h3 {
+    margin: 0 0 6px;
+}
+
+.system-section-header p {
+    margin: 0;
+    color: var(--mut);
+}
+
+.system-refresh-btn {
+    border: 1px solid var(--bd);
+    background: transparent;
+    color: var(--fg);
+
+    padding: 10px 16px;
+    border-radius: 10px;
+
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.system-refresh-btn:hover {
+    transform: translateY(-1px);
+}
+
+
+/* ============================================================
+   STATUS
+   ============================================================ */
+
+.system-status {
+    margin-bottom: 20px;
+    padding: 12px 15px;
+
+    border: 1px solid var(--bd);
+    border-radius: 10px;
+
+    font-weight: 600;
+}
+
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+
+.system-cards {
+    display: grid;
+
+    grid-template-columns:
+        repeat(
+            auto-fit,
+            minmax(180px, 1fr)
+        );
+
+    gap: 15px;
+}
+
+.system-card {
+    display: flex;
+    align-items: center;
+
+    gap: 14px;
+
+    padding: 18px;
+
+    border: 1px solid var(--bd);
+    border-radius: 14px;
+
+    background: var(--bg);
+}
+
+.system-card-icon {
+    width: 48px;
+    height: 48px;
+
+    flex: 0 0 48px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border: 1px solid var(--bd);
+    border-radius: 12px;
+
+    font-size: 22px;
+}
+
+.system-card-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.system-card-content span {
+    color: var(--mut);
+    font-size: 13px;
+}
+
+.system-card-content strong {
+    font-size: 24px;
+}
+
+
+/* ============================================================
+   TABELAS DISPONÍVEIS
+   ============================================================ */
+
+.database-tables {
+    display: grid;
+
+    grid-template-columns:
+        repeat(
+            auto-fit,
+            minmax(200px, 1fr)
+        );
+
+    gap: 12px;
+
+    margin-bottom: 22px;
+}
+
+.database-table-btn {
+    display: flex;
+    align-items: center;
+
+    gap: 9px;
+
+    width: 100%;
+
+    padding: 15px;
+
+    text-align: left;
+
+    border: 1px solid var(--bd);
+    border-radius: 12px;
+
+    background: transparent;
+    color: var(--fg);
+
+    cursor: pointer;
+}
+
+.database-table-btn:hover {
+    transform: translateY(-1px);
+    border-color: var(--g);
+}
+
+.database-table-btn strong {
+    flex: 1;
+}
+
+.database-table-btn small {
+    color: var(--mut);
+}
+
+
+/* ============================================================
+   VISUALIZADOR
+   ============================================================ */
+
+.table-viewer {
+    margin-top: 20px;
+
+    border: 1px solid var(--bd);
+    border-radius: 14px;
+
+    overflow: hidden;
+}
+
+.table-viewer-header {
+    padding: 17px 20px;
+
+    border-bottom: 1px solid var(--bd);
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.table-viewer-header h3 {
+    margin: 0 0 4px;
+}
+
+.table-viewer-header span {
+    color: var(--mut);
+    font-size: 13px;
+}
+
+.table-viewer-empty,
+.table-viewer-loading,
+.table-viewer-error {
+    min-height: 180px;
+
+    display: flex;
+    flex-direction: column;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 10px;
+
+    color: var(--mut);
+
+    text-align: center;
+
+    padding: 30px;
+}
+
+.table-viewer-empty span {
+    font-size: 38px;
+}
+
+
+/* ============================================================
+   TABELA DE DADOS
+   ============================================================ */
+
+.system-table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.system-data-table {
+    width: 100%;
+    border-collapse: collapse;
+
+    min-width: 700px;
+}
+
+.system-data-table th,
+.system-data-table td {
+    padding: 11px 13px;
+
+    border-bottom: 1px solid var(--bd);
+
+    text-align: left;
+    vertical-align: top;
+}
+
+.system-data-table th {
+    position: sticky;
+    top: 0;
+
+    background: var(--bg);
+
+    font-size: 13px;
+}
+
+.system-data-table td {
+    white-space: pre-wrap;
+    word-break: break-word;
+
+    max-width: 450px;
+}
+
+
+/* ============================================================
+   BACKUP
+   ============================================================ */
+
+.system-backup-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.protected-info {
+    padding: 12px 15px;
+
+    color: var(--mut);
+
+    font-size: 13px;
+
+    border-top: 1px solid var(--bd);
+}
+
+
+/* ============================================================
+   RESPONSIVO
+   ============================================================ */
+
+@media (
+    max-width: 700px
+) {
+
+    .admin-system-top,
+    .system-section-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .admin-system-actions {
+        justify-content: stretch;
+    }
+
+    .admin-system-actions button {
+        flex: 1;
+    }
+
+    .system-section {
+        padding: 17px;
+        border-radius: 14px;
+    }
+
+    .system-backup-buttons {
+        flex-direction: column;
+    }
+
+    .system-backup-buttons button {
+        width: 100%;
+    }
+
+}
+
+.admin-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.admin-brand img {
+    width: 42px;
+    height: 42px;
+    object-fit: contain;
+    display: block;
+}

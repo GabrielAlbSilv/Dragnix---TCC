@@ -1,0 +1,337 @@
+.admin-backup-panel {
+  width: 100%;
+  margin: 24px 0;
+}
+
+.admin-backup-content {
+  padding: 24px;
+  border: 1px solid #d6d6d6;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.admin-backup-content h2 {
+  margin: 0 0 8px;
+}
+
+.admin-backup-content p {
+  margin: 8px 0 16px;
+}
+
+#btnGerarBackup {
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#btnGerarBackup:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+#backupStatus {
+  min-height: 20px;
+  font-size: 14px;
+}
+
+.admin-backup-panel {
+  width: 100%;
+  margin: 24px 0;
+}
+
+.admin-backup-content {
+  padding: 24px;
+  border: 1px solid #d6d6d6;
+  border-radius: 16px;
+  background: #fff;
+}
+
+.admin-backup-content h2 {
+  margin: 0 0 8px;
+}
+
+.admin-backup-content p {
+  margin: 8px 0 16px;
+}
+
+.backup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.backup-preview {
+  margin-top: 20px;
+}
+
+.backup-preview-box {
+  padding: 18px;
+  border: 1px solid #d6d6d6;
+  border-radius: 14px;
+}
+
+.backup-preview-box h3 {
+  margin-top: 0;
+}
+
+.backup-preview-box p {
+  margin: 6px 0;
+}
+
+#backupStatus {
+  min-height: 20px;
+  margin-top: 16px;
+}
+
+#btnGerarBackup:disabled,
+#btnSelecionarBackup:disabled,
+#btnRestaurarBackup:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   BARRA DO PAINEL ADM
+   ============================================================ */
+
+.admin-header {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.admin-header-inner {
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 24px;
+    padding: 14px 20px;
+
+    box-sizing: border-box;
+}
+
+.admin-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    flex-shrink: 0;
+}
+
+.admin-brand .trilhas-icon {
+    width: 34px;
+    height: 34px;
+    object-fit: contain;
+}
+
+.admin-brand .trilhas-title {
+    white-space: nowrap;
+}
+
+/* ============================================================
+   NAVEGAÇÃO
+   ============================================================ */
+
+.admin-nav {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+
+    gap: 10px;
+
+    flex-wrap: wrap;
+}
+
+.admin-nav-main,
+.admin-backup-actions,
+.admin-nav-exit {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ============================================================
+   LINKS
+   ============================================================ */
+
+.admin-link,
+.admin-nav .link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 38px;
+
+    padding: 8px 12px;
+
+    border-radius: 10px;
+
+    white-space: nowrap;
+
+    text-decoration: none;
+}
+
+/* ============================================================
+   BOTÕES DE BACKUP
+   ============================================================ */
+
+.admin-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    min-height: 40px;
+
+    padding: 9px 13px;
+
+    border: 0;
+    border-radius: 10px;
+
+    cursor: pointer;
+
+    font: inherit;
+    font-weight: 700;
+
+    white-space: nowrap;
+
+    transition:
+        transform 0.15s ease,
+        opacity 0.15s ease;
+}
+
+.admin-action-btn:hover {
+    transform: translateY(-1px);
+}
+
+.admin-action-btn:active {
+    transform: translateY(0);
+}
+
+.admin-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ============================================================
+   BOTÃO SAIR
+   ============================================================ */
+
+.admin-exit-btn {
+    white-space: nowrap;
+}
+
+/* ============================================================
+   STATUS DO BACKUP
+   ============================================================ */
+
+.backup-status {
+    width: 100%;
+    max-width: 1400px;
+
+    margin: 0 auto;
+    padding: 0 20px 10px;
+
+    box-sizing: border-box;
+
+    min-height: 20px;
+
+    font-size: 14px;
+}
+
+/* ============================================================
+   PREVIEW
+   ============================================================ */
+
+.backup-preview {
+    width: 100%;
+    max-width: 1400px;
+
+    margin: 0 auto;
+
+    padding: 0 20px 12px;
+
+    box-sizing: border-box;
+}
+
+.backup-preview-box {
+    padding: 16px;
+
+    border-radius: 12px;
+    border: 1px solid #d6d6d6;
+}
+
+/* ============================================================
+   RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 1100px) {
+
+    .admin-header-inner {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .admin-nav {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+}
+
+@media (max-width: 700px) {
+
+    .admin-nav {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .admin-nav-main,
+    .admin-backup-actions,
+    .admin-nav-exit {
+        width: 100%;
+
+        flex-wrap: wrap;
+        justify-content: flex-start;
+    }
+
+    .admin-action-btn,
+    .admin-link,
+    .admin-nav .link {
+        flex: 1 1 auto;
+    }
+
+}
+
+@media (max-width: 450px) {
+
+    .admin-header-inner {
+        padding: 12px;
+    }
+
+    .admin-brand .trilhas-title {
+        font-size: 15px;
+    }
+
+    .admin-action-btn,
+    .admin-link,
+    .admin-nav .link {
+        width: 100%;
+    }
+
+}
+
+.admin-danger-btn {
+    border: 1px solid #ff4b4b;
+}
+
+.admin-danger-btn:hover {
+    opacity: 0.85;
+}

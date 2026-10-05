@@ -3,44 +3,178 @@
 
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-     <link rel="icon"  href="css/images/dranix_icon_white_nobackground.png" type="image/png">
-    <title></title>
-     <strong class="trilhas-title">
-        <img src="css/images/dranix_icon_white_nobackground.png" alt="Dragão" class="trilhas-icon">
-        Dragnix — Painel ADM
-</strong>
-    <link rel="icon" href="css/images/dranix_icon_white_nobackground.png"image/png">
-    <link rel="stylesheet" href="css/style.css">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <link
+        rel="icon"
+        href="css/images/dranix_icon_white_nobackground.png"
+        type="image/png"
+    >
+
+    <title>Dragnix — Painel ADM</title>
+
+    <link
+        rel="stylesheet"
+        href="css/style.css"
+    >
+
+    <link
+        rel="stylesheet"
+        href="css/admin-backup.css"
+    >
 </head>
 
 <body>
 
-   <header>
-        <span>
-            <button class="link" id="t1">Trilhas</button> ·
-            <button class="link" id="t2">Usuários</button> ·
-            <a href="app.html">Ver como aluno</a> ·
-            <button class="link" onclick="logout()">Sair</button>
-        </span>
+    <!-- ====================================================== -->
+    <!-- CABEÇALHO / BARRA DO ADM -->
+    <!-- ====================================================== -->
+
+    <header class="admin-header">
+
+        <div class="admin-header-inner">
+
+            <!-- Logo / título -->
+            <div class="admin-brand">
+
+                <img
+                    src="css/images/dranix_icon_white_nobackground.png"
+                    alt="Dragão"
+                    class="trilhas-icon"
+                >
+
+                <strong class="trilhas-title">
+                    Dragnix — Painel ADM
+                </strong>
+
+            </div>
+
+            <!-- Navegação -->
+            <nav class="admin-nav">
+
+                <div class="admin-nav-main">
+
+                    <button
+                        type="button"
+                        class="link"
+                        id="t1"
+                    >
+                        Trilhas
+                    </button>
+
+                    <button
+                        type="button"
+                        class="link"
+                        id="t2"
+                    >
+                        Usuários
+                    </button>
+
+                    <a
+                        href="app.html"
+                        class="admin-link"
+                    >
+                        Ver como aluno
+                    </a>
+
+                </div>
+
+          <button
+            type="button"
+            class="admin-action-btn"
+            onclick="window.location.href='admin-sistema.html'"
+        >
+            ⚙️ Sistema / Banco
+</button>
+                <!-- Sair -->
+                <div class="admin-nav-exit">
+
+                    <button
+                        type="button"
+                        class="link admin-exit-btn"
+                        onclick="logout()"
+                    >
+                        Sair
+                    </button>
+
+                </div>
+
+            </nav>
+
+        </div>
+
+        <!-- Status do backup -->
+        <div
+            id="backupStatus"
+            class="backup-status"
+            aria-live="polite"
+        ></div>
+
+        <!-- Preview do backup -->
+        <div
+            id="backupPreview"
+            class="backup-preview"
+        ></div>
+
     </header>
 
-    <div class="wrap wide" id="main"></div>
+    <!-- ====================================================== -->
+    <!-- CONTEÚDO PRINCIPAL -->
+    <!-- ====================================================== -->
+
+    <div
+        class="wrap wide"
+        id="main"
+    ></div>
+
+    <!-- ====================================================== -->
+    <!-- MODAL -->
+    <!-- ====================================================== -->
 
     <dialog id="dlg">
+
         <form id="frm">
+
             <h3 id="dt"></h3>
 
             <div id="fields"></div>
 
-            <div class="err" id="derr"></div>
+            <div
+                class="err"
+                id="derr"
+            ></div>
 
             <div class="row">
-                <button type="button" class="btn sec" id="cx">Cancelar</button>
-                <button class="btn" id="ok">Salvar</button>
+
+                <button
+                    type="button"
+                    class="btn sec"
+                    id="cx"
+                >
+                    Cancelar
+                </button>
+
+                <button
+                    type="submit"
+                    class="btn"
+                    id="ok"
+                >
+                    Salvar
+                </button>
+
             </div>
+
         </form>
+
     </dialog>
+
+    <!-- ====================================================== -->
+    <!-- JAVASCRIPT -->
+    <!-- ====================================================== -->
 
     <script src="js/api.js"></script>
     <script src="js/admin.js"></script>

@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+
+  <meta charset="utf-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <link
+    rel="icon"
+    href="css/images/dranix_icon_white_nobackground.png"
+    type="image/png"
+  >
+
+  <title>Dragnix — Sistema</title>
+
+  <link
+    rel="stylesheet"
+    href="css/style.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="css/admin-backup.css"
+  >
+
+  <link
+    rel="stylesheet"
+    href="css/admin-sistema.css"
+  >
+
+</head>
+
+<body>
+
+  <header class="admin-system-header">
+
+    <div class="admin-system-top">
+
+      <div class="admin-brand">
+
+        <img
+          src="css/images/dranix_icon_white_nobackground.png"
+          alt="Dragnix"
+        >
+
+        <strong>
+          Dragnix — Sistema
+        </strong>
+
+      </div>
+
+      <div class="admin-system-actions">
+
+        <button
+          type="button"
+          class="admin-action-btn"
+          id="btnVoltarAdmin"
+        >
+          ← Painel ADM
+        </button>
+
+        <button
+          type="button"
+          class="admin-action-btn"
+          id="btnSairSistema"
+        >
+          Sair
+        </button>
+
+      </div>
+
+    </div>
+
+  </header>
+
+
+  <main class="admin-system-container">
+
+    <!-- ================================================== -->
+    <!-- VISÃO GERAL -->
+    <!-- ================================================== -->
+
+    <section class="system-section">
+
+      <div class="system-section-header">
+
+        <div>
+
+          <h1>
+            Visão geral
+          </h1>
+
+          <p>
+            Informações atuais do sistema e do banco de dados.
+          </p>
+
+        </div>
+
+        <button
+          type="button"
+          class="system-refresh-btn"
+          id="btnAtualizarSistema"
+        >
+          🔄 Atualizar
+        </button>
+
+      </div>
+
+
+      <div
+        id="systemStatus"
+        class="system-status"
+      >
+        Carregando informações...
+      </div>
+
+
+      <div
+        id="systemCards"
+        class="system-cards"
+      >
+      </div>
+
+    </section>
+
+
+    <!-- ================================================== -->
+    <!-- BANCO -->
+    <!-- ================================================== -->
+
+    <section class="system-section">
+
+      <div class="system-section-header">
+
+        <div>
+
+          <h2>
+            Banco de dados
+          </h2>
+
+          <p>
+            Todas as tabelas disponíveis no banco do Dragnix.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div
+        id="databaseTables"
+        class="database-tables"
+      >
+      </div>
+
+
+      <div
+        id="tableViewer"
+        class="table-viewer"
+      >
+
+        <div class="table-viewer-empty">
+
+          <span>
+            🗄️
+          </span>
+
+          <p>
+            Selecione uma tabela para visualizar os dados.
+          </p>
+
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ================================================== -->
+    <!-- BACKUP -->
+    <!-- ================================================== -->
+
+    <section class="system-section backup-system-section">
+
+      <div class="system-section-header">
+
+        <div>
+
+          <h2>
+            Backup e manutenção
+          </h2>
+
+          <p>
+            Operações administrativas do banco de dados.
+          </p>
+
+        </div>
+
+      </div>
+
+
+      <div class="system-backup-buttons">
+
+        <button
+          type="button"
+          class="admin-action-btn"
+          id="btnGerarBackup"
+        >
+          📥 Gerar backup
+        </button>
+
+
+        <button
+          type="button"
+          class="admin-action-btn"
+          id="btnSelecionarBackup"
+        >
+          📤 Ler backup
+        </button>
+
+
+        <input
+          type="file"
+          id="backupFileInput"
+          accept=".dragnix"
+          hidden
+        >
+
+
+        <button
+          type="button"
+          class="admin-action-btn"
+          id="btnRestaurarBackup"
+          disabled
+        >
+          ♻️ Restaurar backup
+        </button>
+
+
+        <button
+          type="button"
+          class="admin-action-btn admin-danger-btn"
+          id="btnLimparBanco"
+        >
+          🗑️ Limpar banco
+        </button>
+
+      </div>
+
+
+      <div
+        id="backupStatus"
+        class="backup-status"
+        aria-live="polite"
+      >
+      </div>
+
+
+      <div
+        id="backupPreview"
+        class="backup-preview"
+      >
+      </div>
+
+    </section>
+
+  </main>
+
+
+  <script
+    src="js/admin-sistema.js"
+  ></script>
+
+  <script
+    src="js/admin-backup.js"
+  ></script>
+
+</body>
+
+</html>

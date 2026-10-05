@@ -7,6 +7,12 @@ const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const db = require('./db');
 
+const {registerBackupRoutes} = require('./backup');
+
+// ============================================================
+// CONFIGURAÇÕES
+// ============================================================
+
 const parsedPort = Number.parseInt(process.env.PORT || '', 10);
 
 const PORT =
@@ -36,10 +42,20 @@ fs.mkdirSync(UPLOAD_DIR, {
   recursive: true
 });
 
-const json = express.json();
+// ============================================================
+// MIDDLEWARES
+// ============================================================
+
+const json = express.json({
+  limit: '2mb'
+});
 
 const jsonBig = express.json({
   limit: '40mb'
+});
+
+const jsonBackup = express.json({
+  limit: '70mb'
 });
 
 // Upload pode receber arquivos grandes.
@@ -52,9 +68,18 @@ app.use((req, res, next) => {
     return jsonBig(req, res, next);
   }
 
+  if (
+    (
+      req.path === '/api/admin/backup/inspect' ||
+      req.path === '/api/admin/backup/restore'
+    ) &&
+    req.headers.authorization
+  ) {
+    return jsonBackup(req, res, next);
+  }
+
   return json(req, res, next);
 });
-
 // Arquivos estáticos do frontend.
 app.use(
   express.static(PUBLIC_DIR)
@@ -71,8 +96,13 @@ app.use(
 // HEALTH CHECK
 // ============================================================
 
+// IMPORTANTE:
+// Essa rota precisa ficar ANTES do middleware 404 de /api.
+// O Render usa essa rota para verificar se o serviço está saudável.
+
 app.get('/api/health', (req, res) => {
   try {
+    // Também verifica se o SQLite está funcionando.
     db.prepare('SELECT 1').get();
 
     return res.status(200).json({
@@ -185,6 +215,17 @@ const adm = (req, res, next) => {
 
   next();
 };
+
+// ============================================================
+// BACKUP DO BANCO
+// ============================================================
+
+registerBackupRoutes(
+  app,
+  db,
+  auth,
+  adm
+);
 
 // ============================================================
 // AUTENTICAÇÃO
@@ -1427,6 +1468,7 @@ app.get(
         });
       }
 
+      // Reinicia a tentativa atual.
       db.prepare(
         `DELETE FROM answers
          WHERE user_id=?
@@ -3494,6 +3536,10 @@ app.use(
 // 404 DAS APIs
 // ============================================================
 
+// IMPORTANTE:
+// Fica DEPOIS de todas as rotas /api,
+// inclusive /api/health.
+
 app.use(
   '/api',
   (req, res) => {
@@ -3609,4 +3655,3 @@ process.on(
   'SIGINT',
   () => shutdown('SIGINT')
 );
-

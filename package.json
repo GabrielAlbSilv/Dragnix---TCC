@@ -1,10 +1,12 @@
 {
   "name": "dragnix",
   "version": "1.0.0",
-  "description": "Projeto Dragnix",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
+  },
+  "engines": {
+    "node": "24.x"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
