@@ -151,44 +151,126 @@ async function openLesson(id) {
 }
 home();
 
-// ---------- Simulador financeiro (roda no navegador, sem backend) ----------
-const brl = n => n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-function addRow(id) {
-  $(id).insertAdjacentHTML('beforeend', `<div class="row" style="flex-wrap:nowrap"><input placeholder="Descrição"><input type="number" min="0" step="0.01" placeholder="R$ por mês"><button class="btn sm red" onclick="this.parentNode.remove()">✕</button></div>`);
+// ---------- Gestão financeira: gastos do mês, simulador e calculadoras ----------
+const brl = n => Number(n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const pad2 = n => String(n).padStart(2, '0');
+const hojeStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+const shiftMes = (m, n) => { const [y, mo] = m.split('-').map(Number), d = new Date(y, mo - 1 + n, 1); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`; };
+const num = v => Math.max(0, parseFloat(String(v).replace(',', '.')) || 0);
+const CATS = { gasto: ['Moradia', 'Alimentação', 'Transporte', 'Saúde', 'Educação', 'Lazer', 'Contas', 'Dívidas', 'Outros'], receita: ['Salário', 'Renda extra', 'Investimentos', 'Outros'] };
+const NEC = ['Moradia', 'Alimentação', 'Transporte', 'Saúde', 'Educação', 'Contas'], DES = ['Lazer', 'Outros'];
+const voltar = '<button class="link" onclick="gestao()">← Gestão financeira</button>';
+async function mesAtual() {
+  const es = (await api('/finance?month=' + hojeStr().slice(0, 7))).entries, s = k => es.filter(e => e.kind === k).reduce((t, e) => t + e.amount, 0);
+  return { es, rec: s('receita'), gas: s('gasto') };
+}
+
+function gestao() {
+  const tools = [
+    ['🧾', 'Gastos do mês', 'Registre receitas e gastos e veja para onde vai seu dinheiro', 'gastos()'],
+    ['💹', 'Simulador', 'Veja seu dinheiro crescer com rendimento, receitas e gastos', 'sim()'],
+    ['🛟', 'Reserva de emergência', 'Descubra quanto guardar para os imprevistos', 'reserva()'],
+    ['📐', 'Regra 50/30/20', 'Divida sua renda entre necessidades, desejos e poupança', 'regra()'],
+  ];
+  main.innerHTML = `<h2>💼 Gestão financeira</h2><p class="mut">Ferramentas para organizar e planejar o seu dinheiro.</p>
+    <div class="tools">${tools.map(([i, t, d, f]) => `<button class="tool" onclick="${f}"><span>${i}</span><b>${t}</b><small class="mut">${d}</small></button>`).join('')}</div>`;
+}
+
+// ---- 1) Gastos do mês ----
+let GM = hojeStr().slice(0, 7);
+async function gastos(m) {
+  if (typeof m === 'string' && m) GM = m;
+  const { entries: es } = await api('/finance?month=' + GM);
+  const soma = k => es.filter(e => e.kind === k).reduce((t, e) => t + e.amount, 0), rec = soma('receita'), gas = soma('gasto'), saldo = rec - gas;
+  const por = {}; es.filter(e => e.kind === 'gasto').forEach(e => por[e.category] = (por[e.category] || 0) + e.amount);
+  const cats = Object.entries(por).sort((a, b) => b[1] - a[1]), dia = GM === hojeStr().slice(0, 7) ? hojeStr() : GM + '-01';
+  main.innerHTML = `${voltar}<h2>🧾 Gastos do mês</h2>
+    <div class="row"><button class="btn sm sec" onclick="gastos('${shiftMes(GM, -1)}')">←</button><input type="month" value="${GM}" style="width:auto" onchange="gastos(this.value)"><button class="btn sm sec" onclick="gastos('${shiftMes(GM, 1)}')">→</button></div>
+    <div class="fin3"><div class="card"><small class="mut">Receitas</small><h3 style="color:var(--g)">${brl(rec)}</h3></div><div class="card"><small class="mut">Gastos</small><h3 style="color:var(--red)">${brl(gas)}</h3></div>
+      <div class="card"><small class="mut">Saldo</small><h3 style="color:${saldo >= 0 ? 'var(--g)' : 'var(--red)'}">${brl(saldo)}</h3></div></div>
+    ${rec ? `<p class="mut">Você usou ${Math.round(gas / rec * 100)}% da sua renda neste mês.</p>` : ''}
+    <div class="card"><h3>➕ Novo lançamento</h3>
+      <select id="lk" onchange="catsLanc()"><option value="gasto">🔻 Gasto</option><option value="receita">🔺 Receita</option></select><select id="lc"></select>
+      <input id="ld" placeholder="Descrição (opcional)"><input id="lv" inputmode="decimal" placeholder="Valor (R$)"><input id="ldia" type="date" value="${dia}">
+      <div class="err" id="lerr"></div><button class="btn" onclick="addLanc()">Adicionar</button></div>
+    ${cats.length ? `<h3>Para onde foi o dinheiro</h3><div class="card">${cats.map(([c, v]) => `<div class="row"><span>${esc(c)}</span><span>${brl(v)} · ${Math.round(v / gas * 100)}%</span></div><div class="bar"><div style="width:${v / gas * 100}%"></div></div>`).join('')}</div>` : ''}
+    <h3>Lançamentos</h3>${es.map(e => `<div class="card row"><span>${e.kind === 'gasto' ? '🔻' : '🔺'} <b>${esc(e.category)}</b> ${esc(e.description)}<br><small class="mut">${e.day.split('-').reverse().join('/')}</small></span>
+      <span><b style="color:${e.kind === 'gasto' ? 'var(--red)' : 'var(--g)'}">${brl(e.amount)}</b> <button class="btn sm red" onclick="delLanc(${e.id})">✕</button></span></div>`).join('') || '<p class="mut">Nenhum lançamento neste mês.</p>'}`;
+  catsLanc();
+}
+function catsLanc() { $('lc').innerHTML = CATS[$('lk').value].map(c => `<option>${c}</option>`).join(''); }
+async function addLanc() {
+  const v = num($('lv').value); if (!v) { $('lerr').textContent = 'Informe um valor maior que zero'; return; }
+  try { const dia = $('ldia').value; await api('/finance', 'POST', { kind: $('lk').value, category: $('lc').value, description: $('ld').value.trim(), amount: v, day: dia }); gastos(dia.slice(0, 7)); }
+  catch (e) { $('lerr').textContent = e.message; }
+}
+const delLanc = async id => { await api('/finance/' + id, 'DELETE'); gastos(); };
+
+// ---- 2) Simulador (agora dentro da Gestão financeira) ----
+function addRow(id, nome = '', valor = '') {
+  $(id).insertAdjacentHTML('beforeend', `<div class="row" style="flex-wrap:nowrap"><input placeholder="Descrição" value="${esc(nome)}"><input type="number" min="0" step="0.01" placeholder="R$ por mês" value="${esc(valor)}"><button class="btn sm red" onclick="this.parentNode.remove()">✕</button></div>`);
 }
 function sim() {
-  main.innerHTML = `<h2>💹 Simulador financeiro</h2><p class="mut">Veja como seu dinheiro evolui com receitas, gastos e rendimento.</p>
+  main.innerHTML = `${voltar}<h2>💹 Simulador financeiro</h2><p class="mut">Veja como seu dinheiro evolui com receitas, gastos e rendimento, e quando você chega à sua meta.</p>
   <div class="card"><label>Saldo inicial (R$)<input id="s0" type="number" min="0" step="0.01" value="1000"></label>
-  <label>Rendimento (% ao ano)<input id="rate" type="number" min="0" step="0.1" value="10"></label>
-  <label>Inflação (% ao ano)<input id="inf" type="number" min="0" step="0.1" value="4"></label>
-  <label>Prazo (anos, até 60)<input id="yrs" type="number" min="1" max="60" value="5"></label></div>
+  <label>Rendimento (% ao ano)<input id="rate" type="number" min="0" step="0.1" value="10"></label><label>Inflação (% ao ano)<input id="inf" type="number" min="0" step="0.1" value="4"></label>
+  <label>Prazo (anos, até 60)<input id="yrs" type="number" min="1" max="60" value="5"></label><label>Meta (R$, opcional)<input id="meta" type="number" min="0" step="0.01" placeholder="Ex.: 20000"></label></div>
   <div class="card"><strong>💵 Receitas mensais</strong><div id="inc"></div><button class="btn sm sec" onclick="addRow('inc')">+ Receita</button></div>
   <div class="card"><strong>🧾 Gastos mensais</strong><div id="exp"></div><button class="btn sm sec" onclick="addRow('exp')">+ Gasto</button></div>
+  <button class="btn sec" style="width:100%;margin-bottom:8px" onclick="importarMes()">📥 Importar do meu mês atual (Gastos do mês)</button>
   <button class="btn" style="width:100%" onclick="calcSim()">Simular</button><div id="res"></div>`;
   addRow('inc'); addRow('exp');
 }
+async function importarMes() {
+  const { rec, gas } = await mesAtual();
+  if (!rec && !gas) return alert('Você ainda não tem lançamentos neste mês em "Gastos do mês".');
+  $('inc').innerHTML = $('exp').innerHTML = ''; addRow('inc', 'Receitas do mês', rec.toFixed(2)); addRow('exp', 'Gastos do mês', gas.toFixed(2));
+}
 function calcSim() {
-  const num = id => Math.max(0, parseFloat($(id).value) || 0);
-  const sum = id => [...document.querySelectorAll(`#${id} input[type=number]`)].reduce((t, i) => t + (parseFloat(i.value) || 0), 0);
-  const s0 = num('s0'), yrs = Math.min(60, Math.max(1, Math.round(num('yrs')) || 1));
-  const rate = (1 + num('rate') / 100) ** (1 / 12) - 1, infl = (1 + num('inf') / 100) ** (1 / 12);
-  const net = sum('inc') - sum('exp');
-  let a = s0, b = s0; const pts = [{ m: 0, a, b }];
-  for (let m = 1; m <= yrs * 12; m++) { a = a * (1 + rate) + net; b += net; pts.push({ m, a, b }); }
-  const neg = pts.find(p => p.a < 0);
-  const W = 600, H = 220, all = pts.flatMap(p => [p.a, p.b]), mx = Math.max(...all, 1), mn = Math.min(...all, 0);
-  const X = m => m / (yrs * 12) * W, Y = v => H - (v - mn) / (mx - mn || 1) * H;
+  const n = id => num($(id).value), soma = id => [...document.querySelectorAll(`#${id} input[type=number]`)].reduce((t, i) => t + num(i.value), 0);
+  const s0 = n('s0'), anos = Math.min(60, Math.max(1, Math.round(n('yrs')) || 1)), meta = n('meta');
+  const r = (1 + n('rate') / 100) ** (1 / 12) - 1, infl = (1 + n('inf') / 100) ** (1 / 12), net = soma('inc') - soma('exp');
+  let a = s0, b = s0, mesMeta = meta && s0 >= meta ? 0 : null; const pts = [{ m: 0, a, b }];
+  for (let m = 1; m <= anos * 12; m++) { a = a * (1 + r) + net; b += net; pts.push({ m, a, b }); if (meta && mesMeta === null && a >= meta) mesMeta = m; }
+  const neg = pts.find(p => p.a < 0), W = 600, H = 220, all = pts.flatMap(p => [p.a, p.b]), mx = Math.max(...all, 1), mn = Math.min(...all, 0);
+  const X = m => m / (anos * 12) * W, Y = v => H - (v - mn) / (mx - mn || 1) * H;
   const line = (k, c) => `<polyline fill="none" stroke="${c}" stroke-width="3" points="${pts.map(p => X(p.m).toFixed(1) + ',' + Y(p[k]).toFixed(1)).join(' ')}"/>`;
-  $('res').innerHTML = `<div class="card"><h3>Resultado em ${yrs} ano(s)</h3>
-    <p>Sobra (ou falta) por mês: <strong>${brl(net)}</strong></p>
-    <p>Saldo final com rendimento: <strong>${brl(a)}</strong></p>
-    <p>Saldo final sem rendimento: ${brl(b)}</p>
-    <p>Rendimento acumulado: <strong>${brl(a - b)}</strong></p>
-    <p>Valor em poder de compra de hoje (descontada a inflação): ${brl(a / infl ** (yrs * 12))}</p>
+  const metaTxt = !meta ? '' : mesMeta === null ? `<p class="err">🎯 Com esses números, você não chega a ${brl(meta)} em ${anos} ano(s).</p>`
+    : `<p style="color:var(--g)"><b>🎯 Meta de ${brl(meta)} atingida em ${Math.floor(mesMeta / 12)} ano(s) e ${mesMeta % 12} mês(es)!</b></p>`;
+  $('res').innerHTML = `<div class="card"><h3>Resultado em ${anos} ano(s)</h3><p>Sobra (ou falta) por mês: <strong>${brl(net)}</strong></p>
+    <p>Saldo final com rendimento: <strong>${brl(a)}</strong></p><p>Saldo final sem rendimento: ${brl(b)}</p><p>Rendimento acumulado: <strong>${brl(a - b)}</strong></p>
+    <p>Valor em poder de compra de hoje (descontada a inflação): ${brl(a / infl ** (anos * 12))}</p>${metaTxt}
     ${neg ? `<p class="err">⚠️ Com esses gastos, o saldo fica negativo no mês ${neg.m}.</p>` : ''}</div>
     <div class="card"><svg viewBox="0 0 ${W} ${H}" width="100%"><line x1="0" x2="${W}" y1="${Y(0)}" y2="${Y(0)}" style="stroke:var(--bd)"/>${line('b', '#1cb0f6')}${line('a', '#58cc02')}</svg>
     <p><span style="color:#58cc02">■</span> com rendimento &nbsp; <span style="color:#1cb0f6">■</span> sem rendimento</p></div>
     <div class="card" style="overflow-x:auto"><table style="width:100%;text-align:right"><tr><th style="text-align:left">Ano</th><th>Com rendimento</th><th>Sem rendimento</th></tr>
-    ${Array.from({ length: yrs }, (_, y) => `<tr><td style="text-align:left">${y + 1}</td><td>${brl(pts[(y + 1) * 12].a)}</td><td>${brl(pts[(y + 1) * 12].b)}</td></tr>`).join('')}</table></div>
+    ${Array.from({ length: anos }, (_, y) => `<tr><td style="text-align:left">${y + 1}</td><td>${brl(pts[(y + 1) * 12].a)}</td><td>${brl(pts[(y + 1) * 12].b)}</td></tr>`).join('')}</table></div>
     <p class="mut">Simulação educativa: taxa constante, sem impostos e sem tarifas. Não é recomendação de investimento.</p>`;
+}
+
+// ---- 3) Reserva de emergência ----
+async function reserva() {
+  main.innerHTML = `${voltar}<h2>🛟 Reserva de emergência</h2><p class="mut">A reserva cobre imprevistos, como perda de renda ou problemas de saúde. O comum é guardar de 3 a 12 meses dos seus gastos.</p>
+  <div class="card"><label>Gasto mensal (R$)<input id="rg" type="number" min="0" step="0.01"></label><label>Meses de cobertura<select id="rm"><option>3</option><option selected>6</option><option>9</option><option>12</option></select></label>
+  <label>Quanto você já tem guardado (R$)<input id="rj" type="number" min="0" step="0.01" value="0"></label><label>Quanto consegue guardar por mês (R$)<input id="rp" type="number" min="0" step="0.01"></label>
+  <button class="btn" style="width:100%" onclick="calcReserva()">Calcular</button></div><div id="res"></div>`;
+  try { const { gas } = await mesAtual(); if (gas) $('rg').value = gas.toFixed(2); } catch (e) {}
+}
+function calcReserva() {
+  const g = num($('rg').value), meses = +$('rm').value, tem = num($('rj').value), mes = num($('rp').value), alvo = g * meses, falta = Math.max(0, alvo - tem), pct = alvo ? Math.min(100, Math.round(tem / alvo * 100)) : 0;
+  const prazo = !alvo ? 'Informe seu gasto mensal.' : falta === 0 ? 'Você já atingiu a reserva! 🎉' : mes ? `Guardando ${brl(mes)} por mês, você completa em ${Math.ceil(falta / mes)} mês(es).` : 'Informe quanto consegue guardar por mês para ver o prazo.';
+  $('res').innerHTML = `<div class="card"><h3>Sua meta: ${brl(alvo)}</h3><div class="bar"><div style="width:${pct}%"></div></div><p>Você tem ${brl(tem)} (${pct}%). Falta ${brl(falta)}.</p><p>${prazo}</p></div>`;
+}
+
+// ---- 4) Regra 50/30/20 ----
+async function regra() {
+  main.innerHTML = `${voltar}<h2>📐 Regra 50/30/20</h2><p class="mut">Uma divisão simples da renda: 50% para necessidades, 30% para desejos e 20% para poupança e dívidas.</p>
+  <div class="card"><label>Renda líquida mensal (R$)<input id="rr" type="number" min="0" step="0.01"></label><button class="btn" style="width:100%" onclick="calcRegra()">Calcular</button></div><div id="res"></div>`;
+  try { const m = await mesAtual(); window.REGRA = m.es; if (m.rec) $('rr').value = m.rec.toFixed(2); } catch (e) {}
+}
+function calcRegra() {
+  const r = num($('rr').value), es = (window.REGRA || []).filter(e => e.kind === 'gasto'), tem = es.length > 0;
+  const s = L => es.filter(e => L.includes(e.category)).reduce((t, e) => t + e.amount, 0), nec = s(NEC), des = s(DES), poup = r - nec - des;
+  const linha = (nome, p, real) => `<div class="card"><div class="row"><b>${nome}</b><span>ideal: ${p}% · ${brl(r * p / 100)}</span></div>${tem ? `<div class="bar"><div style="width:${r ? Math.min(100, Math.max(0, real) / r * 100) : 0}%"></div></div><small class="mut">No seu mês: ${brl(real)} (${r ? Math.round(real / r * 100) : 0}%)</small>` : ''}</div>`;
+  $('res').innerHTML = linha('🏠 Necessidades', 50, nec) + linha('🎉 Desejos', 30, des) + linha('🐖 Poupança e dívidas', 20, poup) + (tem ? '' : '<p class="mut">Registre seus lançamentos em "Gastos do mês" para comparar com o seu mês real.</p>');
 }

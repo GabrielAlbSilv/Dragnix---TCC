@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS answers(user_id INTEGER, question_id INTEGER, correct
 CREATE TABLE IF NOT EXISTS activity(user_id INTEGER, day TEXT, xp INTEGER DEFAULT 0, lessons INTEGER DEFAULT 0, correct INTEGER DEFAULT 0, PRIMARY KEY(user_id,day));
 CREATE TABLE IF NOT EXISTS badges(user_id INTEGER, code TEXT, PRIMARY KEY(user_id,code));
 CREATE TABLE IF NOT EXISTS claims(user_id INTEGER, day TEXT, code TEXT, PRIMARY KEY(user_id,day,code));
+CREATE TABLE IF NOT EXISTS finance(id INTEGER PRIMARY KEY, user_id INTEGER NOT NULL, kind TEXT NOT NULL CHECK(kind IN ('gasto','receita')), category TEXT, description TEXT, amount REAL NOT NULL, day TEXT NOT NULL);
 `);
 
 const email = process.env.ADMIN_EMAIL || 'admin@exemplo.com';

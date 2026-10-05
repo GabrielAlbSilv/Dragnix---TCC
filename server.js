@@ -225,6 +225,24 @@ app.post('/api/shop/hearts', auth, (req, res) => {
   db.prepare('UPDATE users SET coins=coins-?,hearts=?,hearts_at=? WHERE id=?').run(COST, MAX_HEARTS, Date.now(), req.user.id);
   res.json({ ok: true });
 });
+// ---------- Gestão financeira: receitas e gastos de cada usuário (cada um só vê os próprios) ----------
+app.get('/api/finance', auth, (req, res) => {
+  const m = /^\d{4}-\d{2}$/.test(req.query.month || '') ? req.query.month : today().slice(0, 7);
+  res.json({ month: m, entries: db.prepare('SELECT id,kind,category,description,amount,day FROM finance WHERE user_id=? AND substr(day,1,7)=? ORDER BY day DESC,id DESC').all(req.user.id, m) });
+});
+app.post('/api/finance', auth, (req, res) => {
+  const { kind, category, description, amount, day } = req.body, v = Number(amount);
+  if (!['gasto', 'receita'].includes(kind)) return res.status(400).json({ error: 'Tipo inválido' });
+  if (!(v > 0) || v > 1e9) return res.status(400).json({ error: 'Informe um valor maior que zero' });
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day || '')) return res.status(400).json({ error: 'Data inválida' });
+  const r = db.prepare('INSERT INTO finance(user_id,kind,category,description,amount,day) VALUES(?,?,?,?,?,?)')
+    .run(req.user.id, kind, String(category || 'Outros').slice(0, 40), String(description || '').slice(0, 100), Math.round(v * 100) / 100, day);
+  res.json({ id: Number(r.lastInsertRowid) });
+});
+app.delete('/api/finance/:id', auth, (req, res) => {
+  db.prepare('DELETE FROM finance WHERE id=? AND user_id=?').run(req.params.id, req.user.id);
+  res.json({ ok: true });
+});
 app.get('/api/ranking', auth, (req, res) => {
   const rows = db.prepare(`SELECT u.id,u.name,u.streak,u.last_day,COALESCE(SUM(p.xp),0) xp FROM users u
     LEFT JOIN progress p ON p.user_id=u.id WHERE u.role='comum' GROUP BY u.id ORDER BY xp DESC,u.name LIMIT 20`).all();
@@ -301,7 +319,7 @@ app.delete('/api/admin/users/:id', auth, adm, (req, res) => {
   const id = Number(req.params.id);
   if (id === req.user.id) return res.status(400).json({ error: 'Você não pode excluir a própria conta' });
   if (!db.prepare('SELECT 1 FROM users WHERE id=?').get(id)) return res.status(404).json({ error: 'Usuário não encontrado' });
-  for (const t of ['progress', 'answers', 'activity', 'badges', 'claims']) db.prepare(`DELETE FROM ${t} WHERE user_id=?`).run(id);
+  for (const t of ['progress', 'answers', 'activity', 'badges', 'claims', 'finance']) db.prepare(`DELETE FROM ${t} WHERE user_id=?`).run(id);
   db.prepare('DELETE FROM users WHERE id=?').run(id);
   res.json({ ok: true });
 });

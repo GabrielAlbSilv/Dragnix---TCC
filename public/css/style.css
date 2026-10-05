@@ -802,3 +802,12 @@ dialog {
 
     opacity: 0.8;
 }
+
+/* ---- Gestão financeira ---- */
+.tools { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; }
+.tool { display: flex; flex-direction: column; gap: 6px; text-align: left; padding: 16px; border: 2px solid var(--bd); border-bottom-width: 4px; border-radius: 16px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.tool:hover { border-color: var(--g); }
+.tool span { font-size: 28px; }
+.fin3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.fin3 h3 { margin: 4px 0 0; }
+@media (max-width: 560px) { .fin3 { grid-template-columns: 1fr; } }
