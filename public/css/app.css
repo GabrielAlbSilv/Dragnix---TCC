@@ -1,0 +1,319 @@
+
+/* ============================================================
+   DRAGNIX — APP
+   Navegação e cards da página Minhas Trilhas
+   ============================================================ */
+
+.app-navigation {
+    width: 100%;
+    max-width: 900px;
+
+    margin: 0 auto 22px;
+    padding: 0 12px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    gap: 8px;
+}
+
+.app-navigation-main {
+    width: 100%;
+
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+
+    gap: 8px;
+}
+
+.app-navigation-account {
+    width: 100%;
+
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+
+    gap: 8px;
+}
+
+
+/* ============================================================
+   BOTÕES
+   ============================================================ */
+
+.app-nav-button {
+    width: 100%;
+    min-height: 70px;
+
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 10px 12px;
+
+    background: var(--theme-surface);
+    color: var(--theme-text);
+
+    border: 1px solid var(--theme-border);
+    border-radius: 12px;
+
+    text-decoration: none;
+
+    cursor: pointer;
+
+    transition:
+        background-color 0.2s ease,
+        border-color 0.2s ease,
+        color 0.2s ease,
+        transform 0.15s ease,
+        box-shadow 0.2s ease;
+}
+
+.app-nav-button:hover {
+    background: var(--theme-surface-2);
+
+    border-color: var(--g);
+
+    transform: translateY(-1px);
+
+    box-shadow:
+        0 4px 10px rgba(0, 0, 0, 0.10);
+}
+
+.app-nav-button:active {
+    transform: translateY(0);
+}
+
+
+/* ============================================================
+   ÍCONE
+   ============================================================ */
+
+.app-nav-icon {
+    width: 40px;
+    height: 40px;
+
+    min-width: 40px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 10px;
+
+    background: var(--theme-surface-2);
+
+    font-size: 21px;
+
+    transition:
+        background-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.app-nav-button:hover .app-nav-icon {
+    background: var(--g);
+    transform: scale(1.04);
+}
+
+
+/* ============================================================
+   TEXTO
+   ============================================================ */
+
+.app-nav-content {
+    min-width: 0;
+
+    display: flex;
+    flex-direction: column;
+
+    align-items: flex-start;
+
+    gap: 2px;
+}
+
+.app-nav-content strong {
+    color: var(--theme-text);
+
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.app-nav-content small {
+    color: var(--theme-text-secondary);
+
+    font-size: 10px;
+    line-height: 1.3;
+
+    text-align: left;
+}
+
+
+/* ============================================================
+   BOTÃO ATIVO
+   ============================================================ */
+
+.app-nav-button.active {
+    background: var(--theme-active-bg);
+
+    border-color: var(--g);
+
+    box-shadow:
+        0 0 0 1px rgba(88, 204, 2, 0.08);
+}
+
+.app-nav-button.active .app-nav-icon {
+    background: var(--g);
+}
+
+
+/* ============================================================
+   ADMIN
+   ============================================================ */
+
+.app-nav-admin {
+    color: var(--theme-text);
+}
+
+
+/* ============================================================
+   SAIR
+   ============================================================ */
+
+.app-nav-logout:hover {
+    border-color: #ff4b4b;
+}
+
+.app-nav-logout:hover .app-nav-icon {
+    background: #ff4b4b;
+}
+
+
+/* ============================================================
+   TEMA
+   ============================================================ */
+
+.app-theme-button:hover {
+    border-color: #1cb0f6;
+}
+
+.app-theme-button:hover .app-nav-icon {
+    background: #1cb0f6;
+}
+
+
+/* ============================================================
+   CARDS DAS TRILHAS
+   ============================================================ */
+
+#main {
+    width: 100%;
+}
+
+#main > .card {
+    width: 100%;
+    display: block;
+    overflow: hidden;
+}
+
+#main > .card h2 {
+    margin-top: 0;
+}
+
+#main > .card .row {
+    margin-top: 10px;
+}
+
+
+/* ============================================================
+   ÁREA DOS MÓDULOS
+   ============================================================ */
+
+#main .path {
+    width: 100%;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    gap: 11px;
+
+    margin: 14px 0;
+}
+
+#main .path > div {
+    width: 100%;
+    max-width: 480px;
+}
+
+#main .path .node {
+    flex-shrink: 0;
+}
+
+
+/* ============================================================
+   RESPONSIVO
+   ============================================================ */
+
+@media (max-width: 700px) {
+
+    .app-navigation-main {
+        grid-template-columns: 1fr;
+    }
+
+    .app-navigation-account {
+        grid-template-columns: 1fr;
+    }
+
+    .app-navigation {
+        margin-bottom: 18px;
+    }
+
+    .wrap {
+        padding: 11px;
+    }
+
+    #main > .card {
+        padding: 12px;
+    }
+
+}
+
+
+@media (max-width: 520px) {
+
+    .app-navigation {
+        padding: 0 8px;
+    }
+
+    .app-nav-button {
+        min-height: 62px;
+        padding: 9px 10px;
+    }
+
+    .app-nav-icon {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+
+        font-size: 19px;
+    }
+
+    .app-nav-content strong {
+        font-size: 12px;
+    }
+
+    .app-nav-content small {
+        font-size: 9px;
+    }
+
+    .wrap {
+        padding: 8px;
+    }
+
+    #main > .card {
+        border-radius: 12px;
+        padding: 10px;
+    }
+}
+

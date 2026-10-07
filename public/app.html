@@ -1,3 +1,4 @@
+
 <!doctype html>
 
 <html lang="pt-BR">
@@ -6,9 +7,10 @@
 
     <meta charset="utf-8">
 
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <link rel="icon" href="css/images/dranix_icon_white_nobackground.png" type="image/png">
-    <title>Dragnix —Minhas trilhas</title>
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
 
     <link
         rel="icon"
@@ -16,7 +18,19 @@
         type="image/png"
     >
 
-    <link rel="stylesheet" href="css/style.css">
+    <title>Dragnix — Minhas trilhas</title>
+
+    <!-- CSS global -->
+    <link
+        rel="stylesheet"
+        href="css/style.css"
+    >
+
+    <!-- CSS exclusivo desta página -->
+    <link
+        rel="stylesheet"
+        href="css/app.css"
+    >
 
 </head>
 
@@ -53,86 +67,212 @@
     </header>
 
 
-    <header>
+    <!-- ============================================================
+         NAVEGAÇÃO PRINCIPAL
+         ============================================================ -->
 
-        <span>
+    <nav
+        class="app-navigation"
+        aria-label="Navegação principal"
+    >
+
+        <!-- ========================================================
+             NAVEGAÇÃO PRINCIPAL
+             ======================================================== -->
+
+        <div class="app-navigation-main">
 
             <button
-                class="link"
+                class="app-nav-button active"
+                type="button"
                 onclick="home()"
             >
-                🗺️ Trilhas
+
+                <span class="app-nav-icon">🗺️</span>
+
+                <span class="app-nav-content">
+
+                    <strong>Trilhas</strong>
+
+                    <small>
+                        Continue seus estudos e aprenda novos conteúdos.
+                    </small>
+
+                </span>
+
             </button>
 
-            ·
 
             <button
-                class="link"
+                class="app-nav-button"
+                type="button"
                 onclick="badges()"
             >
-                🏅 Conquistas
+
+                <span class="app-nav-icon">🏅</span>
+
+                <span class="app-nav-content">
+
+                    <strong>Conquistas</strong>
+
+                    <small>
+                        Veja suas conquistas e tudo que já desbloqueou.
+                    </small>
+
+                </span>
+
             </button>
 
-            ·
 
             <button
-                class="link"
+                class="app-nav-button"
+                type="button"
                 onclick="profile()"
             >
-                👤 Perfil
+
+                <span class="app-nav-icon">👤</span>
+
+                <span class="app-nav-content">
+
+                    <strong>Perfil</strong>
+
+                    <small>
+                        Consulte suas informações e seu progresso.
+                    </small>
+
+                </span>
+
             </button>
 
-            ·
 
             <button
-                class="link"
+                class="app-nav-button"
+                type="button"
                 onclick="rank()"
             >
-                🏆 Ranking
+
+                <span class="app-nav-icon">🏆</span>
+
+                <span class="app-nav-content">
+
+                    <strong>Ranking</strong>
+
+                    <small>
+                        Compare seu desempenho com outros usuários.
+                    </small>
+
+                </span>
+
             </button>
 
-            ·
 
             <button
-                class="link"
+                class="app-nav-button"
+                type="button"
                 onclick="gestao()"
             >
-                💼 Gestão financeira
+
+                <span class="app-nav-icon">💼</span>
+
+                <span class="app-nav-content">
+
+                    <strong>Gestão financeira</strong>
+
+                    <small>
+                        Aprenda a organizar e cuidar melhor do seu dinheiro.
+                    </small>
+
+                </span>
+
             </button>
 
-        </span>
+        </div>
 
 
-        <span>
+        <!-- ========================================================
+             CONTA / ADMINISTRAÇÃO
+             ======================================================== -->
+
+        <div class="app-navigation-account">
 
             <a
                 id="adm"
-                class="hide"
+                class="app-nav-button app-nav-admin hide"
                 href="admin.html"
             >
-                🛡️ Painel ADM
+
+                <span class="app-nav-icon">🛡️</span>
+
+                <span class="app-nav-content">
+
+                    <strong>Painel ADM</strong>
+
+                    <small>
+                        Gerencie os recursos da plataforma.
+                    </small>
+
+                </span>
+
             </a>
 
+
             <button
-                class="link"
-                onclick="logout()"
+                class="app-nav-button app-theme-button"
+                type="button"
+                data-theme-toggle
+                onclick="toggleTheme()"
             >
-                🚪 Sair
+
+                <span class="app-nav-icon theme-button-icon">🌙</span>
+
+                <span class="app-nav-content">
+
+                    <strong class="theme-button-text">
+                        Modo escuro
+                    </strong>
+
+                    <small>
+                        Alterar aparência do Dragnix.
+                    </small>
+
+                </span>
+
             </button>
 
-        </span>
 
-    </header>
+            <button
+                class="app-nav-button app-nav-logout"
+                type="button"
+                onclick="logout()"
+            >
+
+                <span class="app-nav-icon">🚪</span>
+
+                <span class="app-nav-content">
+
+                    <strong>Sair</strong>
+
+                    <small>
+                        Encerrar sua sessão.
+                    </small>
+
+                </span>
+
+            </button>
+
+        </div>
+
+    </nav>
 
 
-    <div
+    <main
         class="wrap"
         id="main"
-    ></div>
+    ></main>
 
 
     <script src="js/api.js"></script>
-
+    <script src="js/theme.js"></script>
     <script src="js/app.js"></script>
 
 </body>
