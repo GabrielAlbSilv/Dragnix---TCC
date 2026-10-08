@@ -2,8 +2,13 @@ const logout = () => {
     const user = JSON.parse(localStorage.getItem('user') || 'null');
     const nome = user?.name ? user.name.split(' ')[0] : '';
 
+    if (!confirm(`Deseja sair, ${nome}?`)) {
+        return;
+    }
+
     localStorage.clear();
 
+    // Redireciona para a splash page com a flag de logout e username
     location.replace(
         'splash.html?logout=1&nome=' + encodeURIComponent(nome)
     );
