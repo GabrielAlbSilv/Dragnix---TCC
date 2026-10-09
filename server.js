@@ -6,8 +6,50 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const db = require('./db');
-
 const {registerBackupRoutes} = require('./backup');
+
+// ============================================================
+// AVALIAÇÕES DOS ALUNOS
+// ============================================================
+
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS lesson_evaluations (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  lesson_id INTEGER NOT NULL,
+  rating INTEGER NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(user_id, lesson_id)
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS track_evaluations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    track_id INTEGER NOT NULL,
+    rating INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(user_id, track_id)
+  )
+`);
+
+// Garante que a tabela de avaliações exista.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS evaluations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    lesson_id INTEGER,
+    track_id INTEGER,
+    answer TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(user_id, lesson_id),
+    UNIQUE(user_id, track_id)
+  )
+`);
 
 // ============================================================
 // CONFIGURAÇÕES
@@ -216,6 +258,22 @@ const adm = (req, res, next) => {
   next();
 };
 
+// Administradores e professores.
+const isStaff = user =>
+  !!user &&
+  (user.role === 'adm' || user.role === 'professor');
+
+const staff = (req, res, next) => {
+  if (!isStaff(req.user)) {
+    return res.status(403).json({
+      error:
+        'Acesso restrito a professores e administradores'
+    });
+  }
+
+  next();
+};
+
 // ============================================================
 // BACKUP DO BANCO
 // ============================================================
@@ -231,109 +289,85 @@ registerBackupRoutes(
 // AUTENTICAÇÃO
 // ============================================================
 
-app.post(
-  '/api/auth/register',
-  (req, res) => {
-    try {
-      const {
-        name,
-        email,
-        password,
-        confirm
-      } = req.body || {};
+app.post('/api/auth/register', (req, res) => {
+  try {
+    const {
+      name,
+      email,
+      password,
+      confirm
+    } = req.body || {};
 
-      const cleanName =
-        String(name || '').trim();
+    const cleanName = String(name || '').trim();
+    const cleanEmail = String(email || '').trim().toLowerCase();
 
-      const cleanEmail =
-        String(email || '')
-          .trim()
-          .toLowerCase();
-
-      if (
-        !cleanName ||
-        !cleanEmail ||
-        !password ||
-        password.length < 6
-      ) {
-        return res.status(400).json({
-          error:
-            'Preencha nome, e-mail e senha (mín. 6 caracteres)'
-        });
-      }
-
-      if (
-        password !== confirm
-      ) {
-        return res.status(400).json({
-          error:
-            'As senhas não coincidem'
-        });
-      }
-
-      const existing =
-        db
-          .prepare(
-            'SELECT 1 FROM users WHERE email=?'
-          )
-          .get(cleanEmail);
-
-      if (existing) {
-        return res.status(409).json({
-          error:
-            'E-mail já cadastrado'
-        });
-      }
-
-      const hash =
-        bcrypt.hashSync(
-          password,
-          10
-        );
-
-      const id =
-        db
-          .prepare(
-            `INSERT INTO users(
-              name,
-              email,
-              password,
-              role
-            )
-            VALUES(?,?,?,?)`
-          )
-          .run(
-            cleanName,
-            cleanEmail,
-            hash,
-            'comum'
-          )
-          .lastInsertRowid;
-
-      const user =
-        db
-          .prepare(
-            'SELECT * FROM users WHERE id=?'
-          )
-          .get(id);
-
-      return res.json({
-        token: sign(user),
-        user: pub(user)
-      });
-    } catch (error) {
-      console.error(
-        'Erro no cadastro:',
-        error
-      );
-
-      return res.status(500).json({
-        error:
-          'Erro interno ao realizar cadastro'
+    if (
+      !cleanName ||
+      !cleanEmail ||
+      typeof password !== 'string' ||
+      password.length < 6
+    ) {
+      return res.status(400).json({
+        error: 'Preencha nome, e-mail e senha (mín. 6 caracteres)'
       });
     }
+
+    if (password !== confirm) {
+      return res.status(400).json({
+        error: 'As senhas não coincidem'
+      });
+    }
+
+    // Lista de e-mails autorizados como administradores.
+    const adminEmails = [
+      process.env.ADMIN_EMAIL || '',
+      ...(process.env.ADMIN_EMAILS || '').split(',')
+    ]
+      .map(email => email.trim().toLowerCase())
+      .filter(Boolean);
+
+    const role = adminEmails.includes(cleanEmail)
+      ? 'adm'
+      : 'comum';
+
+    const existing = db
+      .prepare('SELECT 1 FROM users WHERE email = ?')
+      .get(cleanEmail);
+
+    if (existing) {
+      return res.status(409).json({
+        error: 'E-mail já cadastrado'
+      });
+    }
+
+    // Cada pessoa define sua própria senha.
+    const hash = bcrypt.hashSync(password, 10);
+
+    const id = db
+      .prepare(`
+        INSERT INTO users (name, email, password, role)
+        VALUES (?, ?, ?, ?)
+      `)
+      .run(cleanName, cleanEmail, hash, role)
+      .lastInsertRowid;
+
+    const user = db
+      .prepare('SELECT * FROM users WHERE id = ?')
+      .get(id);
+
+    return res.json({
+      token: sign(user),
+      user: pub(user)
+    });
+
+  } catch (error) {
+    console.error('Erro no cadastro:', error);
+
+    return res.status(500).json({
+      error: 'Erro interno ao realizar cadastro'
+    });
   }
-);
+}); //   '/api/auth/register',
 
 app.post(
   '/api/auth/login',
@@ -1271,6 +1305,22 @@ app.get(
                   }
                 })(),
 
+                conclusion:
+                (() => {
+                  try {
+                    return JSON.parse(
+                      track.conclusion ||
+                        '[]'
+                    );
+                  } catch {
+                    return [];
+                  }
+                })(),
+
+              evaluation_question:
+                track.evaluation_question ||
+                'Como você avalia esta trilha?',
+
               lessons:
                 lessons
                   .filter(
@@ -1328,8 +1378,7 @@ app.get(
                             : 0,
 
                       locked:
-                        req.user.role !==
-                          'adm' &&
+                        !isStaff(req.user) &&
                         index > 0 &&
                         !done.has(
                           array[
@@ -1340,6 +1389,26 @@ app.get(
                   )
             })
           );
+
+      // Trilha bloqueada enquanto faltar concluir alguma trilha exigida.
+      const porId = Object.fromEntries(tracks.map(t => [t.id, t]));
+
+      for (const t of tracks) {
+        t.prerequisites = lerPre(t.prerequisites).filter(id => porId[id]);
+
+        t.missing =
+          isStaff(req.user)
+            ? []
+            : t.prerequisites
+                .filter(id => !(porId[id].lessons.length && porId[id].lessons.every(l => l.done)))
+                .map(id => porId[id].title);
+
+        t.locked = t.missing.length > 0;
+
+        if (t.locked) {
+          t.lessons.forEach(l => { l.locked = true; });
+        }
+      }
 
       const heartState =
         hearts(
@@ -1380,6 +1449,47 @@ app.get(
 // LIÇÕES
 // ============================================================
 
+// ============================================================
+// MÉDIA DAS AVALIAÇÕES DOS MÓDULOS
+// ============================================================
+
+app.get(
+  '/api/lessons/ratings',
+  auth,
+  (req, res) => {
+
+    try {
+
+      const ratings =
+        db.prepare(`
+          SELECT
+            lesson_id,
+            ROUND(AVG(rating), 1) AS average_rating,
+            COUNT(*) AS rating_count
+          FROM lesson_evaluations
+          GROUP BY lesson_id
+        `).all();
+
+      res.json({
+        ok: true,
+        ratings
+      });
+
+    } catch (error) {
+
+      console.error(
+        'Erro ao buscar avaliações dos módulos:',
+        error
+      );
+
+      res.status(500).json({
+        error:
+          'Erro ao buscar avaliações dos módulos'
+      });
+    }
+  }
+);
+
 app.get(
   '/api/lessons/:id',
   auth,
@@ -1414,9 +1524,16 @@ app.get(
           req.user.id
         );
 
+      const falta = trilhasFaltando(req.user, lesson.track_id);
+
+      if (falta.length) {
+        return res.status(403).json({
+          error: 'Trilha bloqueada. Conclua antes: ' + falta.join(', ') + ' 🔒'
+        });
+      }
+
       if (
-        req.user.role !==
-        'adm'
+        !isStaff(req.user)
       ) {
         const previous =
           one(
@@ -1457,8 +1574,7 @@ app.get(
       if (
         heartState.hearts === 0 &&
         !done &&
-        req.user.role !==
-          'adm'
+        !isStaff(req.user)
       ) {
         return res.status(403).json({
           error:
@@ -1603,6 +1719,18 @@ app.get(
         presentation = [];
       }
 
+      let conclusion = [];
+
+      try {
+        conclusion =
+          JSON.parse(
+            lesson.conclusion ||
+              '[]'
+          );
+      } catch {
+        conclusion = [];
+      }
+
       let content = [];
 
       try {
@@ -1630,16 +1758,30 @@ app.get(
 
       res.json({
         id: lesson.id,
+
         title:
           lesson.title,
+
         presentation,
+
         content,
-        xp: lesson.xp,
+
+        conclusion,
+
+        evaluation_question:
+          lesson.evaluation_question ||
+          'Como você avalia este módulo?',
+
+        xp:
+          lesson.xp,
+
         questions,
+
         hearts:
           heartState.hearts,
+
         done
-      });
+});
     } catch (error) {
       console.error(
         'Erro ao carregar lição:',
@@ -1808,6 +1950,201 @@ app.post(
   }
 );
 
+
+// ============================================================
+// AVALIAÇÃO DE MÓDULO
+// ============================================================
+
+app.post(
+  '/api/lessons/:id/evaluate',
+  auth,
+  (req, res) => {
+    try {
+      const lesson =
+        db
+          .prepare(
+            `SELECT
+               id,
+               track_id
+             FROM lessons
+             WHERE id=?`
+          )
+          .get(
+            req.params.id
+          );
+
+      if (!lesson) {
+        return res.status(404).json({
+          error:
+            'Módulo não encontrado'
+        });
+      }
+
+      const rating =
+        Number(
+          req.body?.rating
+        );
+
+      if (
+        !Number.isInteger(rating) ||
+        rating < 1 ||
+        rating > 5
+      ) {
+        return res.status(400).json({
+          error:
+            'A avaliação deve ser de 1 a 5.'
+        });
+      }
+
+      if (
+        !isStaff(req.user) &&
+        !isDone(
+          req.user.id,
+          lesson.id
+        )
+      ) {
+        return res.status(403).json({
+          error:
+            'Conclua o módulo antes de avaliá-lo.'
+        });
+      }
+
+      db.prepare(`
+        INSERT INTO lesson_evaluations (
+          user_id,
+          lesson_id,
+          rating,
+          created_at
+        )
+        VALUES (?, ?, ?, ?)
+
+        ON CONFLICT(user_id, lesson_id)
+        DO UPDATE SET
+          rating = excluded.rating,
+          created_at = excluded.created_at
+      `).run(
+        req.user.id,
+        lesson.id,
+        rating,
+        new Date().toISOString()
+      );
+
+      return res.json({
+        ok: true,
+        rating
+      });
+
+    } catch (error) {
+      console.error(
+        'Erro ao salvar avaliação do módulo:',
+        error
+      );
+
+      return res.status(500).json({
+        error:
+          'Erro ao salvar avaliação do módulo'
+      });
+    }
+  }
+);
+
+
+// ============================================================
+// AVALIAÇÃO DE TRILHA
+// ============================================================
+
+app.post(
+  '/api/tracks/:id/evaluate',
+  auth,
+  (req, res) => {
+    try {
+      const track =
+        db
+          .prepare(
+            `SELECT id
+             FROM tracks
+             WHERE id=?`
+          )
+          .get(
+            req.params.id
+          );
+
+      if (!track) {
+        return res.status(404).json({
+          error:
+            'Trilha não encontrada'
+        });
+      }
+
+      const rating =
+        Number(
+          req.body?.rating
+        );
+
+      if (
+        !Number.isInteger(rating) ||
+        rating < 1 ||
+        rating > 5
+      ) {
+        return res.status(400).json({
+          error:
+            'A avaliação deve ser de 1 a 5.'
+        });
+      }
+
+      if (
+        !isStaff(req.user) &&
+        !trilhaConcluida(
+          req.user.id,
+          track.id
+        )
+      ) {
+        return res.status(403).json({
+          error:
+            'Conclua todos os módulos antes de avaliar a trilha.'
+        });
+      }
+
+      db.prepare(`
+        INSERT INTO track_evaluations (
+          user_id,
+          track_id,
+          rating,
+          created_at
+        )
+        VALUES (?, ?, ?, ?)
+
+        ON CONFLICT(user_id, track_id)
+        DO UPDATE SET
+          rating = excluded.rating,
+          created_at = excluded.created_at
+      `).run(
+        req.user.id,
+        track.id,
+        rating,
+        new Date().toISOString()
+      );
+
+      return res.json({
+        ok: true,
+        rating
+      });
+
+    } catch (error) {
+      console.error(
+        'Erro ao salvar avaliação da trilha:',
+        error
+      );
+
+      return res.status(500).json({
+        error:
+          'Erro ao salvar avaliação da trilha'
+      });
+    }
+  }
+);
+
+
 // ============================================================
 // CONCLUSÃO DA LIÇÃO
 // ============================================================
@@ -1833,6 +2170,12 @@ app.post(
         return res.status(404).json({
           error:
             'Lição não encontrada'
+        });
+      }
+
+      if (trilhasFaltando(req.user, lesson.track_id).length) {
+        return res.status(403).json({
+          error: 'Trilha bloqueada: conclua os pré-requisitos antes.'
         });
       }
 
@@ -2021,6 +2364,142 @@ app.post(
   }
 );
 
+// ============================================================
+// AVALIAÇÃO DO MÓDULO
+// ============================================================
+
+app.post(
+  '/api/lessons/:id/evaluation',
+  auth,
+  (req, res) => {
+
+    try {
+
+      const lessonId =
+        Number(req.params.id);
+
+      const rating =
+        Number(req.body?.rating);
+
+      // ------------------------------------------------------
+      // VALIDA ID
+      // ------------------------------------------------------
+
+      if (
+        !Number.isInteger(lessonId) ||
+        lessonId <= 0
+      ) {
+        return res.status(400).json({
+          error:
+            'Módulo inválido'
+        });
+      }
+
+      // ------------------------------------------------------
+      // VALIDA NOTA
+      // ------------------------------------------------------
+
+      if (
+        !Number.isInteger(rating) ||
+        rating < 1 ||
+        rating > 5
+      ) {
+        return res.status(400).json({
+          error:
+            'A avaliação deve ser uma nota de 1 a 5'
+        });
+      }
+
+      // ------------------------------------------------------
+      // PROCURA O MÓDULO
+      // ------------------------------------------------------
+
+      const lesson =
+        db
+          .prepare(
+            `SELECT
+               id,
+               title,
+               track_id
+             FROM lessons
+             WHERE id = ?`
+          )
+          .get(lessonId);
+
+      if (!lesson) {
+        return res.status(404).json({
+          error:
+            'Módulo não encontrado'
+        });
+      }
+
+      // ------------------------------------------------------
+      // VERIFICA SE O ALUNO CONCLUIU O MÓDULO
+      // ------------------------------------------------------
+
+      if (
+        !isDone(
+          req.user.id,
+          lessonId
+        )
+      ) {
+        return res.status(403).json({
+          error:
+            'Conclua o módulo antes de avaliá-lo'
+        });
+      }
+
+      // ------------------------------------------------------
+      // SALVA / ATUALIZA A AVALIAÇÃO
+      // ------------------------------------------------------
+
+      db.prepare(
+        `INSERT INTO lesson_evaluations (
+          user_id,
+          lesson_id,
+          rating,
+          created_at
+        )
+        VALUES (?, ?, ?, ?)
+
+        ON CONFLICT(user_id, lesson_id)
+        DO UPDATE SET
+          rating = excluded.rating,
+          created_at = excluded.created_at`
+      ).run(
+        req.user.id,
+        lessonId,
+        rating,
+        new Date().toISOString()
+      );
+
+      // ------------------------------------------------------
+      // RESPOSTA
+      // ------------------------------------------------------
+
+      res.json({
+        ok: true,
+
+        message:
+          'Avaliação do módulo enviada com sucesso',
+
+        rating
+      });
+
+    } catch (error) {
+
+      console.error(
+        'Erro ao salvar avaliação do módulo:',
+        error
+      );
+
+      res.status(500).json({
+        error:
+          'Erro ao salvar avaliação do módulo'
+      });
+    }
+  }
+);
 // ============================================================
 // PERFIL
 // ============================================================
@@ -2573,7 +3052,6 @@ app.get(
 // ============================================================
 // ADMINISTRAÇÃO
 // ============================================================
-
 const FIELDS = {
   tracks: [
     'title',
@@ -2581,6 +3059,9 @@ const FIELDS = {
     'icon',
     'color',
     'presentation',
+    'conclusion',
+    'evaluation_question',
+    'prerequisites',
     'position'
   ],
 
@@ -2589,6 +3070,8 @@ const FIELDS = {
     'title',
     'intro',
     'presentation',
+    'conclusion',
+    'evaluation_question',
     'content',
     'xp',
     'position'
@@ -2618,11 +3101,11 @@ const clean = (
         body[field] !==
         undefined
       ) {
-        if (
-          field ===
-            'content' ||
-          field ===
-            'presentation'
+       if (
+          field === 'content' ||
+          field === 'presentation' ||
+          field === 'conclusion' ||
+          field === 'prerequisites'
         ) {
           result[field] =
             JSON.stringify(
@@ -2654,13 +3137,74 @@ const clean = (
   );
 
 // ============================================================
+// TRILHAS DEPENDENTES (PRÉ-REQUISITOS)
+// ============================================================
+
+// Uma trilha pode exigir a conclusão de outras trilhas.
+// Trilha concluída = todos os módulos concluídos pelo aluno.
+
+function trilhaConcluida(uid, trackId) {
+  const ls = db
+    .prepare('SELECT id FROM lessons WHERE track_id=?')
+    .all(trackId);
+
+  return ls.length > 0 && ls.every(l => isDone(uid, l.id));
+}
+
+function lerPre(valor) {
+  try {
+    const lista = JSON.parse(valor || '[]');
+    return Array.isArray(lista) ? lista.map(Number) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Títulos das trilhas exigidas que o aluno ainda não concluiu (ADM é liberado).
+function trilhasFaltando(user, trackId) {
+  if (isStaff(user)) return [];
+
+  const t = one('SELECT prerequisites p FROM tracks WHERE id=?', trackId);
+
+  return lerPre(t && t.p)
+    .filter(id => one('SELECT 1 FROM tracks WHERE id=?', id))
+    .filter(id => !trilhaConcluida(user.id, id))
+    .map(id => one('SELECT title FROM tracks WHERE id=?', id).title);
+}
+
+// Valida a lista de pré-requisitos e impede dependência circular.
+function validarPre(trackId, lista) {
+  const ids = [...new Set((Array.isArray(lista) ? lista : []).map(Number))]
+    .filter(id => id && id !== trackId && one('SELECT 1 FROM tracks WHERE id=?', id));
+
+  const exige = id => lerPre((one('SELECT prerequisites p FROM tracks WHERE id=?', id) || {}).p);
+  const visto = new Set();
+  const pilha = [...ids];
+
+  while (pilha.length) {
+    const x = pilha.pop();
+
+    if (x === trackId) {
+      throw new Error('Dependência circular: uma trilha não pode exigir outra que já depende dela');
+    }
+
+    if (!visto.has(x)) {
+      visto.add(x);
+      pilha.push(...exige(x));
+    }
+  }
+
+  return ids;
+}
+
+// ============================================================
 // ÁRVORE ADMIN
 // ============================================================
 
 app.get(
   '/api/admin/tree',
   auth,
-  adm,
+  staff,
   (req, res) => {
     try {
       const questions =
@@ -2715,6 +3259,21 @@ app.get(
                     return [];
                   }
                 })(),
+                conclusion:
+                (() => {
+                  try {
+                    return JSON.parse(
+                      lesson.conclusion ||
+                        '[]'
+                    );
+                  } catch {
+                    return [];
+                  }
+                })(),
+
+              evaluation_question:
+                lesson.evaluation_question ||
+                'Como você avalia este módulo?',
 
               content:
                 (() => {
@@ -2748,6 +3307,7 @@ app.get(
           .map(
             track => ({
               ...track,
+              prerequisites: lerPre(track.prerequisites),
 
               presentation:
                 (() => {
@@ -2760,6 +3320,22 @@ app.get(
                     return [];
                   }
                 })(),
+
+              conclusion:
+              (() => {
+                try {
+                  return JSON.parse(
+                    track.conclusion ||
+                      '[]'
+                  );
+                } catch {
+                  return [];
+                }
+              })(),
+
+            evaluation_question:
+              track.evaluation_question ||
+              'Como você avalia esta trilha?',
 
               lessons:
                 lessons.filter(
@@ -2788,6 +3364,53 @@ app.get(
 );
 
 // ============================================================
+// PRÉ-REQUISITOS: ROTAS DO ADM
+// ============================================================
+
+// Precisam vir ANTES das rotas genéricas /api/admin/:res.
+
+app.put(
+  '/api/admin/tracks/:id',
+  auth,
+  staff,
+  (req, res, next) => {
+    if (req.body && req.body.prerequisites !== undefined) {
+      try {
+        req.body.prerequisites = validarPre(
+          Number(req.params.id),
+          req.body.prerequisites
+        );
+      } catch (error) {
+        return res.status(400).json({ error: error.message });
+      }
+    }
+
+    next('route');
+  }
+);
+
+// Ao excluir uma trilha, ela sai dos pré-requisitos das outras.
+app.delete(
+  '/api/admin/tracks/:id',
+  auth,
+  adm,
+  (req, res, next) => {
+    const id = Number(req.params.id);
+
+    for (const t of db.prepare('SELECT id,prerequisites FROM tracks').all()) {
+      const lista = lerPre(t.prerequisites);
+
+      if (lista.includes(id)) {
+        db.prepare('UPDATE tracks SET prerequisites=? WHERE id=?')
+          .run(JSON.stringify(lista.filter(x => x !== id)), t.id);
+      }
+    }
+
+    next('route');
+  }
+);
+
+// ============================================================
 // MÓDULOS
 // ============================================================
 
@@ -2796,9 +3419,13 @@ const MAX_MODULES = 10;
 app.post(
   '/api/admin/tracks',
   auth,
-  adm,
+  staff,
   (req, res) => {
     try {
+      if (req.body && req.body.prerequisites !== undefined) {
+        req.body.prerequisites = validarPre(0, req.body.prerequisites);
+      }
+
       const data =
         clean(
           'tracks',
@@ -2865,7 +3492,7 @@ app.post(
 app.post(
   '/api/admin/lessons',
   auth,
-  adm,
+  staff,
   (req, res, next) => {
     try {
       const trackId =
@@ -2936,7 +3563,7 @@ app.post(
 app.delete(
   '/api/admin/lessons/:id',
   auth,
-  adm,
+  staff,
   (req, res, next) => {
     try {
       const lesson =
@@ -2995,7 +3622,7 @@ const ALLOWED_EXTENSIONS =
 app.post(
   '/api/admin/upload',
   auth,
-  adm,
+  staff,
   (req, res) => {
     try {
       const originalName =
@@ -3110,7 +3737,7 @@ app.post(
 app.post(
   '/api/admin/:res',
   auth,
-  adm,
+  staff,
   (req, res) => {
     try {
       const resource =
@@ -3178,7 +3805,7 @@ app.post(
 app.put(
   '/api/admin/:res/:id',
   auth,
-  adm,
+  staff,
   (req, res) => {
     try {
       const resource =
@@ -3288,7 +3915,9 @@ app.delete(
         'activity',
         'badges',
         'claims',
-        'finance'
+        'finance',
+        'lesson_evaluations',
+        'track_evaluations'
       ];
 
       for (
@@ -3330,7 +3959,7 @@ app.delete(
 app.delete(
   '/api/admin/:res/:id',
   auth,
-  adm,
+  staff,
   (req, res) => {
     try {
       const resource =
@@ -3422,6 +4051,7 @@ app.put(
       if (
         ![
           'comum',
+          'professor',
           'adm'
         ].includes(role)
       ) {
@@ -3532,6 +4162,569 @@ app.use(
   }
 );
 
+// ==========================================================
+// AVALIAÇÃO DA TRILHA
+// ==========================================================
+
+app.post(
+  '/api/tracks/:id/evaluation',
+  auth,
+  (req, res) => {
+
+    try {
+
+      const trackId =
+        Number(req.params.id);
+
+      const rating =
+        Number(req.body?.rating);
+
+      // ------------------------------------------------------
+      // VALIDA TRILHA
+      // ------------------------------------------------------
+
+      if (
+        !Number.isInteger(trackId) ||
+        trackId <= 0
+      ) {
+        return res.status(400).json({
+          error: 'Trilha inválida'
+        });
+      }
+
+      // ------------------------------------------------------
+      // VALIDA NOTA
+      // ------------------------------------------------------
+
+      if (
+        !Number.isInteger(rating) ||
+        rating < 1 ||
+        rating > 5
+      ) {
+        return res.status(400).json({
+          error:
+            'A avaliação deve ser uma nota de 1 a 5'
+        });
+      }
+
+      // ------------------------------------------------------
+      // PROCURA A TRILHA
+      // ------------------------------------------------------
+
+      const track =
+        db.prepare(`
+          SELECT
+            id,
+            title
+          FROM tracks
+          WHERE id = ?
+        `).get(trackId);
+
+      if (!track) {
+        return res.status(404).json({
+          error: 'Trilha não encontrada'
+        });
+      }
+
+      // ------------------------------------------------------
+      // PROCURA OS MÓDULOS
+      // ------------------------------------------------------
+
+      const lessons =
+        db.prepare(`
+          SELECT id
+          FROM lessons
+          WHERE track_id = ?
+          ORDER BY position, id
+        `).all(trackId);
+
+      if (!lessons.length) {
+        return res.status(400).json({
+          error:
+            'Esta trilha não possui módulos'
+        });
+      }
+
+      // ------------------------------------------------------
+      // VERIFICA SE TODOS OS MÓDULOS FORAM CONCLUÍDOS
+      // ------------------------------------------------------
+
+      const allDone =
+        lessons.every(
+          lesson =>
+            isDone(
+              req.user.id,
+              lesson.id
+            )
+        );
+
+      if (!allDone) {
+        return res.status(403).json({
+          error:
+            'Conclua todos os módulos da trilha antes de avaliá-la'
+        });
+      }
+
+      // ------------------------------------------------------
+      // SALVA / ATUALIZA A AVALIAÇÃO
+      // ------------------------------------------------------
+
+      db.prepare(`
+        INSERT INTO track_evaluations (
+          user_id,
+          track_id,
+          rating,
+          created_at
+        )
+        VALUES (?, ?, ?, ?)
+
+        ON CONFLICT(user_id, track_id)
+        DO UPDATE SET
+          rating = excluded.rating,
+          created_at = excluded.created_at
+      `).run(
+        req.user.id,
+        track.id,
+        rating,
+        new Date().toISOString()
+      );
+
+      // ------------------------------------------------------
+      // RESPOSTA
+      // ------------------------------------------------------
+
+      res.json({
+        ok: true,
+        message:
+          'Avaliação da trilha enviada com sucesso',
+        rating
+      });
+
+    } catch (error) {
+
+      console.error(
+        'Erro ao salvar avaliação da trilha:',
+        error
+      );
+
+      res.status(500).json({
+        error:
+          'Erro ao salvar avaliação da trilha'
+      });
+    }
+  }
+);
+// ==========================================================
+// AVALIAÇÃO DO MÓDULO
+// ==========================================================
+app.post(
+  '/api/lessons/:id/evaluation',
+  auth,
+  (req, res) => {
+
+    try {
+
+      const lessonId =
+        Number(req.params.id);
+
+      const rating =
+        Number(req.body?.rating);
+
+      // =====================================================
+      // VALIDAR MÓDULO
+      // =====================================================
+
+      if (
+        !Number.isInteger(lessonId) ||
+        lessonId <= 0
+      ) {
+        return res.status(400).json({
+          error: 'Módulo inválido'
+        });
+      }
+
+      // =====================================================
+      // VALIDAR NOTA
+      // =====================================================
+
+      if (
+        !Number.isInteger(rating) ||
+        rating < 1 ||
+        rating > 5
+      ) {
+        return res.status(400).json({
+          error:
+            'A avaliação deve ser uma nota de 1 a 5'
+        });
+      }
+
+      // =====================================================
+      // VERIFICAR SE O MÓDULO EXISTE
+      // =====================================================
+
+      const lesson =
+        db.prepare(`
+          SELECT
+            id,
+            track_id,
+            title
+          FROM lessons
+          WHERE id = ?
+        `).get(lessonId);
+
+      if (!lesson) {
+        return res.status(404).json({
+          error:
+            'Módulo não encontrado'
+        });
+      }
+
+      // =====================================================
+      // VERIFICAR SE O ALUNO CONCLUIU O MÓDULO
+      // =====================================================
+
+      if (
+        !isDone(
+          req.user.id,
+          lessonId
+        )
+      ) {
+        return res.status(403).json({
+          error:
+            'Conclua o módulo antes de avaliá-lo'
+        });
+      }
+
+      // =====================================================
+      // SALVAR AVALIAÇÃO
+      // APENAS UMA AVALIAÇÃO POR ALUNO/MÓDULO
+      // =====================================================
+
+      try {
+
+        db.prepare(`
+          INSERT INTO lesson_evaluations (
+            user_id,
+            lesson_id,
+            rating,
+            created_at
+          )
+          VALUES (?, ?, ?, ?)
+        `).run(
+          req.user.id,
+          lessonId,
+          rating,
+          new Date().toISOString()
+        );
+
+      } catch (error) {
+
+        // O UNIQUE(user_id, lesson_id)
+        // impede uma segunda avaliação.
+
+        if (
+          String(error.message)
+            .toLowerCase()
+            .includes('unique')
+        ) {
+
+          return res.status(409).json({
+            error:
+              'Você já avaliou este módulo.'
+          });
+
+        }
+
+        throw error;
+      }
+
+      // =====================================================
+      // SUCESSO
+      // =====================================================
+
+      res.json({
+        ok: true,
+        message:
+          'Avaliação do módulo enviada com sucesso',
+        rating
+      });
+
+    } catch (error) {
+
+      console.error(
+        'Erro ao salvar avaliação do módulo:',
+        error
+      );
+
+      res.status(500).json({
+        error:
+          'Erro ao salvar avaliação do módulo'
+      });
+    }
+  }
+);
+
+// ============================================================
+// PAINEL DE DÚVIDAS (CHAT)
+// ============================================================
+// - Qualquer usuário logado cria dúvidas.
+// - Professores/ADM respondem qualquer dúvida e podem excluir
+//   qualquer mensagem.
+// - Aluno só responde na própria dúvida e só apaga o que ele
+//   mesmo escreveu (nunca mensagens de outras pessoas).
+
+const DOUBT_MAX = 1000;
+const DOUBT_LIMIT_PER_MINUTE = 5;
+
+const doubtText = req =>
+  String(req.body?.body ?? '').trim();
+
+const doubtRows = `
+  SELECT
+    d.id,
+    d.user_id,
+    d.parent_id,
+    d.track_id,
+    d.body,
+    d.created_at,
+    u.name AS author_name,
+    u.role AS author_role,
+    t.title AS track_title
+  FROM doubts d
+  JOIN users u ON u.id = d.user_id
+  LEFT JOIN tracks t ON t.id = d.track_id
+`;
+
+const shapeDoubt = (row, viewer, hasReplies) => ({
+  id: row.id,
+  parent_id: row.parent_id,
+  track_id: row.track_id,
+  track_title: row.track_title,
+  body: row.body,
+  created_at: row.created_at,
+  author: {
+    id: row.user_id,
+    name: row.author_name,
+    role: row.author_role
+  },
+  mine: row.user_id === viewer.id,
+  can_delete:
+    isStaff(viewer) ||
+    (row.user_id === viewer.id && !hasReplies)
+});
+
+const tooFast = user => {
+  if (isStaff(user)) return false;
+
+  const since = new Date(Date.now() - 60000).toISOString();
+
+  const { n } = db
+    .prepare(
+      `SELECT COUNT(*) AS n
+       FROM doubts
+       WHERE user_id = ? AND created_at > ?`
+    )
+    .get(user.id, since);
+
+  return n >= DOUBT_LIMIT_PER_MINUTE;
+};
+
+app.get('/api/doubts', auth, (req, res) => {
+  try {
+    const trackId = Number(req.query.track_id);
+    const filtered = Number.isInteger(trackId) && trackId > 0;
+
+    const threads = db
+      .prepare(
+        `${doubtRows}
+         WHERE d.parent_id IS NULL
+         ${filtered ? 'AND d.track_id = ?' : ''}
+         ORDER BY d.id DESC
+         LIMIT 100`
+      )
+      .all(...(filtered ? [trackId] : []));
+
+    const repliesStmt = db.prepare(
+      `${doubtRows}
+       WHERE d.parent_id = ?
+       ORDER BY d.id ASC`
+    );
+
+    const doubts = threads.map(row => {
+      const replies = repliesStmt.all(row.id);
+
+      return {
+        ...shapeDoubt(row, req.user, replies.length > 0),
+        replies: replies.map(r => shapeDoubt(r, req.user, false)),
+        answered: replies.some(
+          r => r.author_role !== 'comum'
+        )
+      };
+    });
+
+    const tracks = db
+      .prepare('SELECT id, title FROM tracks ORDER BY position, id')
+      .all();
+
+    res.json({ ok: true, doubts, tracks });
+  } catch (error) {
+    console.error('Erro ao listar dúvidas:', error);
+    res.status(500).json({ error: 'Erro ao carregar as dúvidas' });
+  }
+});
+
+app.post('/api/doubts', auth, (req, res) => {
+  try {
+    const body = doubtText(req);
+
+    if (!body || body.length > DOUBT_MAX) {
+      return res.status(400).json({
+        error: `Escreva uma mensagem de até ${DOUBT_MAX} caracteres.`
+      });
+    }
+
+    let trackId = null;
+
+    if (req.body?.track_id) {
+      trackId = Number(req.body.track_id);
+
+      const track = Number.isInteger(trackId)
+        ? db.prepare('SELECT id FROM tracks WHERE id = ?').get(trackId)
+        : null;
+
+      if (!track) {
+        return res.status(400).json({ error: 'Trilha inválida' });
+      }
+    }
+
+    if (tooFast(req.user)) {
+      return res.status(429).json({
+        error: 'Você está enviando mensagens rápido demais. Aguarde um instante.'
+      });
+    }
+
+    const id = db
+      .prepare(
+        `INSERT INTO doubts (user_id, parent_id, track_id, body, created_at)
+         VALUES (?, NULL, ?, ?, ?)`
+      )
+      .run(req.user.id, trackId, body, new Date().toISOString())
+      .lastInsertRowid;
+
+    res.json({ ok: true, id: Number(id) });
+  } catch (error) {
+    console.error('Erro ao criar dúvida:', error);
+    res.status(500).json({ error: 'Erro ao enviar a dúvida' });
+  }
+});
+
+app.post('/api/doubts/:id/replies', auth, (req, res) => {
+  try {
+    const parentId = Number(req.params.id);
+    const body = doubtText(req);
+
+    if (!body || body.length > DOUBT_MAX) {
+      return res.status(400).json({
+        error: `Escreva uma mensagem de até ${DOUBT_MAX} caracteres.`
+      });
+    }
+
+    const parent = Number.isInteger(parentId)
+      ? db
+          .prepare(
+            'SELECT id, user_id, track_id FROM doubts WHERE id = ? AND parent_id IS NULL'
+          )
+          .get(parentId)
+      : null;
+
+    if (!parent) {
+      return res.status(404).json({ error: 'Dúvida não encontrada' });
+    }
+
+    if (!isStaff(req.user) && parent.user_id !== req.user.id) {
+      return res.status(403).json({
+        error: 'Apenas professores respondem dúvidas de outros alunos.'
+      });
+    }
+
+    if (tooFast(req.user)) {
+      return res.status(429).json({
+        error: 'Você está enviando mensagens rápido demais. Aguarde um instante.'
+      });
+    }
+
+    const id = db
+      .prepare(
+        `INSERT INTO doubts (user_id, parent_id, track_id, body, created_at)
+         VALUES (?, ?, ?, ?, ?)`
+      )
+      .run(
+        req.user.id,
+        parent.id,
+        parent.track_id,
+        body,
+        new Date().toISOString()
+      )
+      .lastInsertRowid;
+
+    res.json({ ok: true, id: Number(id) });
+  } catch (error) {
+    console.error('Erro ao responder dúvida:', error);
+    res.status(500).json({ error: 'Erro ao enviar a resposta' });
+  }
+});
+
+app.delete('/api/doubts/:id', auth, (req, res) => {
+  try {
+    const id = Number(req.params.id);
+
+    const row = Number.isInteger(id)
+      ? db
+          .prepare('SELECT id, user_id, parent_id FROM doubts WHERE id = ?')
+          .get(id)
+      : null;
+
+    if (!row) {
+      return res.status(404).json({ error: 'Mensagem não encontrada' });
+    }
+
+    if (!isStaff(req.user)) {
+      const replies = db
+        .prepare('SELECT COUNT(*) AS n FROM doubts WHERE parent_id = ?')
+        .get(row.id).n;
+
+      if (row.user_id !== req.user.id || replies > 0) {
+        return res.status(403).json({
+          error: 'Você não pode excluir esta mensagem.'
+        });
+      }
+    }
+
+    // As respostas de uma dúvida excluída saem junto (ON DELETE CASCADE).
+    db.prepare('DELETE FROM doubts WHERE id = ?').run(row.id);
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Erro ao excluir mensagem:', error);
+    res.status(500).json({ error: 'Erro ao excluir a mensagem' });
+  }
+});
+
+// ==========================================================
+// 404 DA API
+// ==========================================================
+
+app.use(
+  '/api',
+  (req, res) => {
+
+    res.status(404).json({
+      error:
+        'Endpoint não encontrado'
+    });
+
+  }
+);
 // ============================================================
 // 404 DAS APIs
 // ============================================================

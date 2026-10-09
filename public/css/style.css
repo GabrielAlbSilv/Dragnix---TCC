@@ -489,7 +489,7 @@ dialog {
 }
 
 .hero img {
-    width: 75%;
+    width: 45%;
     max-width: 850px;
 
     border: none;
@@ -1472,3 +1472,130 @@ details summary {
     }
 }
 
+
+/* ============================================================
+   TELA DE LOGIN / CADASTRO
+   Ajustes exclusivos da index.html
+   ============================================================ */
+
+.login-wrap {
+    max-width: 830px;
+    padding: 12px 16px;
+}
+
+/* Logo */
+.login-hero {
+    padding: 12px 0 8px;
+}
+
+.login-hero img {
+    max-width: 600px;
+    max-height: 400px;
+    object-fit: contain;
+}
+
+/* Abas */
+.login-tabs {
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.login-tabs .btn {
+    padding: 9px 14px;
+    min-height: 40px;
+    font-size: 14px;
+}
+
+/* Card */
+.login-card {
+    padding: 16px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Campos */
+.login-card input {
+    min-height: 40px;
+    height: 40px;
+    padding: 8px 10px;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+/* Campos de senha */
+.login-card .senha-box {
+    margin-bottom: 8px;
+}
+
+.login-card .senha-box input {
+    margin-bottom: 0;
+}
+
+/* Botão de mostrar senha */
+.login-card .senha-btn {
+    min-width: 38px;
+    width: 38px;
+    height: 38px;
+    padding: 0;
+}
+
+/* Mensagem de erro */
+.login-card .err {
+    min-height: 0;
+    margin: 3px 0 7px;
+    font-size: 13px;
+}
+
+/* Botão principal */
+.login-card #go {
+    min-height: 40px;
+    height: 40px;
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+/* Rodapé */
+.login-page .site-footer {
+    margin-top: 8px;
+}
+
+.login-page .site-footer-inner {
+    gap: 6px;
+    font-size: 12px;
+}
+
+.login-page .footer-link {
+    font-size: 12px;
+}
+
+/* ============================================================
+   CELULAR
+   ============================================================ */
+
+@media (max-width: 600px) {
+
+    .login-wrap {
+        max-width: 390px;
+        padding: 8px 12px;
+    }
+
+    .login-hero {
+        padding: 8px 0 5px;
+    }
+
+    .login-hero img {
+        max-width: 190px;
+        max-height: 75px;
+    }
+
+    .login-card {
+        padding: 14px;
+    }
+
+    .login-tabs .btn {
+        min-height: 38px;
+        padding: 8px 10px;
+        font-size: 13px;
+    }
+
+}

@@ -23,7 +23,7 @@ db.exec(`
         email TEXT UNIQUE NOT NULL,
         password TEXT NOT NULL,
         role TEXT NOT NULL DEFAULT 'comum'
-            CHECK(role IN ('comum', 'adm'))
+            CHECK(role IN ('comum', 'professor', 'adm'))
     );
 
     CREATE TABLE IF NOT EXISTS tracks (
@@ -80,9 +80,14 @@ const migrations = [
 
     // TRACKS
     "ALTER TABLE tracks ADD COLUMN presentation TEXT DEFAULT '[]'",
+    "ALTER TABLE tracks ADD COLUMN conclusion TEXT DEFAULT '[]'",
+"ALTER TABLE tracks ADD COLUMN evaluation_question TEXT DEFAULT ''",
+    "ALTER TABLE tracks ADD COLUMN prerequisites TEXT DEFAULT '[]'",
     "ALTER TABLE tracks ADD COLUMN color TEXT DEFAULT '#58cc02'",
 
     // LESSONS
+    "ALTER TABLE lessons ADD COLUMN conclusion TEXT DEFAULT '[]'",
+    "ALTER TABLE lessons ADD COLUMN evaluation_question TEXT DEFAULT ''",
     "ALTER TABLE lessons ADD COLUMN intro TEXT DEFAULT ''",
     "ALTER TABLE lessons ADD COLUMN presentation TEXT DEFAULT '[]'",
     "ALTER TABLE lessons ADD COLUMN content TEXT DEFAULT '[]'",
@@ -106,6 +111,50 @@ for (const sql of migrations) {
 }
 
 // ============================================================
+// MIGRAÇÃO: PERMITIR O CARGO 'professor'
+// ============================================================
+
+// Bancos antigos têm CHECK(role IN ('comum','adm')) e o SQLite não
+// permite alterar essa regra. Recriamos a tabela users mantendo todos
+// os dados. As chaves estrangeiras ficam desligadas durante a troca
+// para que o DROP TABLE não apague progresso, respostas etc.
+
+const usersSql = (
+    db.prepare(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='users'"
+    ).get() || {}
+).sql || '';
+
+if (usersSql && !usersSql.includes("'professor'")) {
+    const newSql = usersSql
+        .replace(
+            /CREATE TABLE\s+(IF NOT EXISTS\s+)?["`]?users["`]?/i,
+            'CREATE TABLE users_new'
+        )
+        .replace(
+            /CHECK\s*\(\s*role\s+IN\s*\([^)]*\)\s*\)/i,
+            "CHECK(role IN ('comum', 'professor', 'adm'))"
+        );
+
+    db.exec('PRAGMA foreign_keys = OFF');
+
+    try {
+        db.exec('BEGIN');
+        db.exec('DROP TABLE IF EXISTS users_new');
+        db.exec(newSql);
+        db.exec('INSERT INTO users_new SELECT * FROM users');
+        db.exec('DROP TABLE users');
+        db.exec('ALTER TABLE users_new RENAME TO users');
+        db.exec('COMMIT');
+    } catch (error) {
+        try { db.exec('ROLLBACK'); } catch {}
+        throw error;
+    } finally {
+        db.exec('PRAGMA foreign_keys = ON');
+    }
+}
+
+// ============================================================
 // TABELAS COMPLEMENTARES
 // ============================================================
 
@@ -125,6 +174,37 @@ db.exec(`
         correct INTEGER DEFAULT 0,
         PRIMARY KEY(user_id, day)
     );
+
+    CREATE TABLE IF NOT EXISTS lesson_evaluations (
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    lesson_id INTEGER NOT NULL REFERENCES lessons(id) ON DELETE CASCADE,
+    rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(user_id, lesson_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS track_evaluations (
+        user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+        rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 5),
+        created_at TEXT NOT NULL,
+        PRIMARY KEY(user_id, track_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS doubts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL
+            REFERENCES users(id) ON DELETE CASCADE,
+        parent_id INTEGER
+            REFERENCES doubts(id) ON DELETE CASCADE,
+        track_id INTEGER
+            REFERENCES tracks(id) ON DELETE SET NULL,
+        body TEXT NOT NULL,
+        created_at TEXT NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_doubts_parent
+        ON doubts(parent_id);
 
     CREATE TABLE IF NOT EXISTS badges (
         user_id INTEGER,
@@ -187,6 +267,14 @@ db.exec(`
     SET color = '#58cc02'
     WHERE color IS NULL;
 
+    UPDATE tracks
+    SET conclusion = '[]'
+    WHERE conclusion IS NULL;
+
+    UPDATE tracks
+    SET evaluation_question = ''
+    WHERE evaluation_question IS NULL;
+
     UPDATE lessons
     SET intro = ''
     WHERE intro IS NULL;
@@ -203,6 +291,14 @@ db.exec(`
     SET xp = 10
     WHERE xp IS NULL;
 
+    UPDATE lessons
+    SET conclusion = '[]'
+    WHERE conclusion IS NULL;
+
+    UPDATE lessons
+    SET evaluation_question = ''
+    WHERE evaluation_question IS NULL;
+
     UPDATE questions
     SET type = 'multipla'
     WHERE type IS NULL;
@@ -216,12 +312,14 @@ db.exec(`
     WHERE perfect IS NULL;
 `);
 
-// ============================================================
-// ADMINISTRADOR PADRÃO
-// ============================================================
 
-const adminEmail =
-    process.env.ADMIN_EMAIL || 'admin@exemplo.com';
+/* ============================================================
+   ADMINISTRADOR PRINCIPAL
+   ============================================================ */
+
+const adminEmail = (
+    process.env.ADMIN_EMAIL || 'admin@exemplo.com'
+).trim().toLowerCase();
 
 const adminName =
     process.env.ADMIN_NAME || 'Administrador';
@@ -229,21 +327,45 @@ const adminName =
 const adminPassword =
     process.env.ADMIN_PASSWORD || 'admin123';
 
+// Cria somente o administrador principal.
+// Os demais administradores devem se cadastrar
+// com seus próprios e-mails e senhas.
+
 const adminExists = db
-    .prepare('SELECT 1 FROM users WHERE email=?')
+    .prepare('SELECT id FROM users WHERE email = ?')
     .get(adminEmail);
 
 if (!adminExists) {
     const hash = bcrypt.hashSync(adminPassword, 10);
 
     db.prepare(`
-        INSERT INTO users(name, email, password, role)
-        VALUES(?,?,?,'adm')
+        INSERT INTO users (name, email, password, role)
+        VALUES (?, ?, ?, 'adm')
     `).run(
         adminName,
         adminEmail,
         hash
     );
+}
+
+// Promove contas adicionais autorizadas que já existem.
+// Não cria contas e não modifica suas senhas.
+
+const additionalAdminEmails = (
+    process.env.ADMIN_EMAILS || ''
+)
+    .split(',')
+    .map(email => email.trim().toLowerCase())
+    .filter(Boolean);
+
+const promoteAdmin = db.prepare(`
+    UPDATE users
+    SET role = 'adm'
+    WHERE email = ?
+`);
+
+for (const email of additionalAdminEmails) {
+    promoteAdmin.run(email);
 }
 
 // ============================================================

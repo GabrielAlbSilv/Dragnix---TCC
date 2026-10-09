@@ -12,25 +12,45 @@ const $ = id => document.getElementById(id);
 const admButton = document.getElementById('adm');
 
 if (admButton) {
-  // Começa sempre oculto
   admButton.style.display = 'none';
 
   try {
     const currentUser = me();
 
-    console.log('USUÁRIO ATUAL:', currentUser);
-    console.log('ROLE ATUAL:', currentUser?.role);
-
-    if (currentUser && currentUser.role === 'adm') {
+    if (currentUser && ['adm', 'professor'].includes(currentUser.role)) {
       admButton.style.display = '';
     }
   } catch (error) {
     console.error('Erro ao verificar usuário:', error);
-
-    // Em caso de erro, permanece oculto
     admButton.style.display = 'none';
   }
 }
+
+// ============================================================
+// HELPERS
+// ============================================================
+
+const arr = value => Array.isArray(value) ? value : [];
+
+const normalizeTrack = t => ({
+  ...t,
+  presentation: arr(t.presentation),
+  conclusion: arr(t.conclusion),
+  prerequisites: arr(t.prerequisites),
+  missing: arr(t.missing),
+  lessons: arr(t.lessons)
+});
+
+const normalizeLesson = lesson => ({
+  ...lesson,
+  presentation: arr(lesson.presentation),
+  content: arr(lesson.content),
+  conclusion: arr(lesson.conclusion),
+  questions: arr(lesson.questions),
+  evaluation_question:
+    lesson.evaluation_question ||
+    ''
+});
 
 // ============================================================
 // STATUS
@@ -93,180 +113,1212 @@ const refresh = () => {
 // ============================================================
 
 async function home() {
-  const d = await api('/tracks');
 
-  console.log('TRILHAS RECEBIDAS:', d.tracks);
-  console.log('QUANTIDADE:', d.tracks.length);
+  // ==========================================================
+  // CARREGAR TRILHAS
+  // ==========================================================
+
+  const d =
+    await api('/tracks');
 
   setStats(d);
 
-  window.TRACKS = d.tracks;
+  const tracks =
+    arr(d.tracks).map(normalizeTrack);
 
-  main.innerHTML = d.tracks.length
-    ? d.tracks
-        .map(t => {
-          const c = esc(t.color || '#58cc02');
+  console.log(
+    'TRILHAS RECEBIDAS:',
+    tracks
+  );
 
-          const n = t.lessons.filter(
-            l => l.done
-          ).length;
+  console.log(
+    'QUANTIDADE:',
+    tracks.length
+  );
 
-          const pct = t.lessons.length
-            ? Math.round(
-                t.lessons.reduce(
-                  (x, l) => x + l.pct,
+  window.TRACKS =
+    tracks;
+
+
+  // ==========================================================
+  // CARREGAR MÉDIAS DAS AVALIAÇÕES DOS MÓDULOS
+  // ==========================================================
+
+  let lessonRatings = [];
+
+  try {
+
+    const ratingData =
+      await api('/lessons/ratings');
+
+    lessonRatings =
+      arr(ratingData.ratings);
+
+  } catch (e) {
+
+    console.warn(
+      'Não foi possível carregar as avaliações dos módulos:',
+      e
+    );
+
+  }
+
+
+  // ==========================================================
+  // CRIAR MAPA DE AVALIAÇÕES
+  //
+  // lesson_id -> {
+  //   average_rating,
+  //   rating_count
+  // }
+  // ==========================================================
+
+  const ratingMap =
+    Object.fromEntries(
+
+      lessonRatings.map(
+        r => [
+          Number(r.lesson_id),
+          r
+        ]
+      )
+
+    );
+
+
+  // ==========================================================
+  // ADICIONAR AVALIAÇÃO A CADA MÓDULO
+  // ==========================================================
+
+  tracks.forEach(
+    t => {
+
+      t.lessons.forEach(
+        l => {
+
+          const rating =
+            ratingMap[
+              Number(l.id)
+            ];
+
+          l.average_rating =
+            rating
+              ? Number(
+                  rating.average_rating
+                )
+              : null;
+
+          l.rating_count =
+            rating
+              ? Number(
+                  rating.rating_count
+                )
+              : 0;
+
+        }
+      );
+
+    }
+  );
+
+
+  // ==========================================================
+  // RENDERIZAR TRILHAS
+  // ==========================================================
+
+  main.innerHTML =
+    tracks.length
+
+      ? tracks
+          .map(
+            t => {
+
+              // ==================================================
+              // COR DA TRILHA
+              // ==================================================
+
+              const c =
+                esc(
+                  t.color ||
+                  '#58cc02'
+                );
+
+
+              // ==================================================
+              // MÓDULOS CONCLUÍDOS
+              // ==================================================
+
+              const n =
+                t.lessons.filter(
+                  l => l.done
+                ).length;
+
+
+              // ==================================================
+              // PORCENTAGEM DA TRILHA
+              // ==================================================
+
+              const pct =
+                t.lessons.length
+
+                  ? Math.round(
+
+                      t.lessons.reduce(
+                        (
+                          x,
+                          l
+                        ) =>
+
+                          x +
+                          (
+                            Number(l.pct) ||
+                            0
+                          ),
+
+                        0
+                      )
+
+                      /
+
+                      t.lessons.length
+
+                    )
+
+                  : 0;
+
+
+              // ==================================================
+              // VERIFICAR SE TODOS OS MÓDULOS FORAM CONCLUÍDOS
+              // ==================================================
+
+              const allLessonsDone =
+                t.lessons.length > 0 &&
+                t.lessons.every(
+                  l => l.done
+                );
+
+
+              // ==================================================
+              // CALCULAR MÉDIA GERAL DA TRILHA
+              //
+              // A média considera todas as avaliações recebidas
+              // pelos módulos da trilha.
+              // ==================================================
+
+              const ratedLessons =
+                t.lessons.filter(
+                  l =>
+                    l.average_rating !== null &&
+                    Number(l.rating_count) > 0
+                );
+
+
+              // ==================================================
+              // QUANTIDADE TOTAL DE AVALIAÇÕES DA TRILHA
+              // ==================================================
+
+              const trackRatingCount =
+                ratedLessons.reduce(
+                  (
+                    total,
+                    l
+                  ) =>
+
+                    total +
+                    Number(
+                      l.rating_count || 0
+                    ),
+
                   0
-                ) / t.lessons.length
-              )
-            : 0;
+                );
 
-          return `
-            <div
-              class="card"
-              style="border-color:${c}"
-            >
 
-              <h2>
-                ${esc(t.icon)} ${esc(t.title)}
-              </h2>
+              // ==================================================
+              // MÉDIA PONDERADA DA TRILHA
+              //
+              // Exemplo:
+              //
+              // Módulo 1 = 5.0 com 10 avaliações
+              // Módulo 2 = 4.0 com 2 avaliações
+              //
+              // Média:
+              // (5*10 + 4*2) / 12 = 4.83
+              // ==================================================
 
-              <p class="mut">
-                ${esc(t.description)}
-              </p>
+              const trackAverageRating =
+                trackRatingCount > 0
 
-              <div class="row">
-                <small class="mut">
-                  ${n}/${t.lessons.length} módulos concluídos
-                </small>
+                  ? (
 
-                <b style="color:${c}">
-                  ${pct}% da trilha
-                </b>
-              </div>
+                      ratedLessons.reduce(
+                        (
+                          total,
+                          l
+                        ) =>
 
-              <div class="bar">
-                <div
-                  style="
-                    width:${pct}%;
-                    background:${c}
-                  "
-                ></div>
-              </div>
+                          total +
+                          (
+                            Number(
+                              l.average_rating
+                            ) *
+                            Number(
+                              l.rating_count
+                            )
+                          ),
 
-              <div class="path">
+                        0
+                      )
 
-                ${
-                  t.presentation.length
-                    ? `
-                      <div style="text-align:center">
+                      /
 
-                        <button
-                          class="node"
-                          style="background:${c}"
-                          onclick="showTrack(${t.id})"
-                        >
-                          📌
-                        </button>
+                      trackRatingCount
 
-                        <div class="mut">
-                          Apresentação<br>
-                          <small>da trilha</small>
-                        </div>
+                    ).toFixed(1)
 
-                      </div>
-                    `
-                    : ''
-                }
+                  : null;
 
-                ${t.lessons
-                  .map(
-                    (l, i) => `
-                      <div
-                        style="
-                          text-align:center;
-                          opacity:${l.locked ? 0.5 : 1}
-                        "
-                      >
 
-                        <button
-                          class="node ${l.done ? 'done' : ''}"
-                          style="${
-                            l.done
-                              ? ''
-                              : 'background:' + c
-                          }"
-                          onclick="${
-                            l.locked
-                              ? "alert('Conclua o módulo anterior para desbloquear 🔒')"
-                              : `openLesson(${l.id})`
-                          }"
-                        >
-                          ${
-                            l.locked
-                              ? '🔒'
-                              : l.done
-                              ? '✓'
-                              : i + 1
-                          }
-                        </button>
+              // ==================================================
+              // CARD DA TRILHA
+              // ==================================================
 
-                        <div class="mut">
-                          <b>Módulo ${i + 1}</b><br>
-
-                          ${esc(l.title)}
-
-                          <div class="mini">
-                            <div
-                              style="
-                                width:${l.pct}%;
-                                background:${c}
-                              "
-                            ></div>
-                          </div>
-
-                          <small>
-                            <b>${l.pct}%</b>
-                            · +${l.xp} XP
-                          </small>
-                        </div>
-
-                      </div>
-                    `
-                  )
-                  .join('')}
+              return `
 
                 <div
+                  class="card"
                   style="
-                    text-align:center;
-                    opacity:.5
+                    border-color:${c};
+                    opacity:${t.locked ? 0.65 : 1}
                   "
                 >
 
-                  <button
-                    class="node"
-                    style="background:var(--bd)"
-                    onclick="alert('Os desafios chegam em breve! 🏆')"
-                  >
-                    🏆
-                  </button>
+                  <!-- ==========================================
+                       TÍTULO DA TRILHA
+                  =========================================== -->
 
-                  <div class="mut">
-                    Desafios<br>
-                    <small>em breve</small>
+                  <h2>
+
+                    ${esc(
+                      t.icon ||
+                      '📚'
+                    )}
+
+                    ${esc(
+                      t.title
+                    )}
+
+                  </h2>
+
+
+                  <!-- ==========================================
+                       AVALIAÇÃO GERAL DA TRILHA
+                       FICA NO TOPO, ABAIXO DO NOME
+                  =========================================== -->
+
+                  ${
+                    trackAverageRating !== null
+
+                      ? `
+
+                        <div
+                          class="mut"
+                          style="
+                            margin-top:-8px;
+                            margin-bottom:12px;
+                            font-size:14px;
+                          "
+                        >
+
+                          ⭐
+
+                          <b>
+                            ${trackAverageRating}
+                          </b>
+
+                          / 5
+
+                          ·
+
+                          ${trackRatingCount}
+
+                          ${
+                            trackRatingCount === 1
+                              ? 'avaliação'
+                              : 'avaliações'
+                          }
+
+                        </div>
+
+                      `
+
+                      : `
+
+                        <div
+                          class="mut"
+                          style="
+                            margin-top:-8px;
+                            margin-bottom:12px;
+                            font-size:14px;
+                          "
+                        >
+
+                          ⭐
+                          Sem avaliações ainda
+
+                        </div>
+
+                      `
+                  }
+
+
+                  <!-- ==========================================
+                       DESCRIÇÃO
+                  =========================================== -->
+
+                  <p class="mut">
+
+                    ${esc(
+                      t.description ||
+                      ''
+                    )}
+
+                  </p>
+
+
+                  <!-- ==========================================
+                       TRILHA BLOQUEADA
+                  =========================================== -->
+
+                  ${
+                    t.locked
+
+                      ? `
+
+                        <p class="err">
+
+                          🔒 Para liberar esta trilha,
+                          conclua antes:
+
+                          ${t.missing
+                            .map(esc)
+                            .join(', ')}
+
+                        </p>
+
+                      `
+
+                      : ''
+                  }
+
+
+                  <!-- ==========================================
+                       PROGRESSO DA TRILHA
+                  =========================================== -->
+
+                  <div class="row">
+
+                    <small class="mut">
+
+                      ${n}/${t.lessons.length}
+
+                      módulos concluídos
+
+                    </small>
+
+
+                    <b
+                      style="
+                        color:${c}
+                      "
+                    >
+
+                      ${pct}%
+                      da trilha
+
+                    </b>
+
+                  </div>
+
+
+                  <!-- ==========================================
+                       BARRA DE PROGRESSO
+                  =========================================== -->
+
+                  <div class="bar">
+
+                    <div
+                      style="
+                        width:${pct}%;
+                        background:${c}
+                      "
+                    ></div>
+
+                  </div>
+
+
+                  <!-- ==========================================
+                       CAMINHO DA TRILHA
+                  =========================================== -->
+
+                  <div class="path">
+
+
+                    <!-- ========================================
+                         APRESENTAÇÃO DA TRILHA
+                    ========================================= -->
+
+                    ${
+                      t.presentation.length
+
+                        ? `
+
+                          <div
+                            style="
+                              text-align:center
+                            "
+                          >
+
+                            <button
+                              class="node"
+                              style="
+                                background:${c}
+                              "
+                              onclick="${
+                                t.locked
+
+                                  ? `aviso(${t.id})`
+
+                                  : `showTrack(${t.id})`
+                              }"
+                            >
+
+                              📌
+
+                            </button>
+
+
+                            <div class="mut">
+
+                              Apresentação
+
+                              <br>
+
+                              <small>
+                                da trilha
+                              </small>
+
+                            </div>
+
+                          </div>
+
+                        `
+
+                        : ''
+                    }
+
+
+                    <!-- ========================================
+                         MÓDULOS
+                    ========================================= -->
+
+                    ${
+                      t.lessons
+                        .map(
+                          (
+                            l,
+                            i
+                          ) => `
+
+                            <div
+                              style="
+                                text-align:center;
+                                opacity:${
+                                  l.locked
+                                    ? 0.5
+                                    : 1
+                                }
+                              "
+                            >
+
+
+                              <!-- ==================================
+                                   BOTÃO DO MÓDULO
+                              =================================== -->
+
+                              <button
+                                class="node ${
+                                  l.done
+                                    ? 'done'
+                                    : ''
+                                }"
+                                style="${
+                                  l.done
+                                    ? ''
+                                    : 'background:' +
+                                      c
+                                }"
+                                onclick="${
+                                  l.locked
+
+                                    ? `aviso(${t.id})`
+
+                                    : `openLesson(${l.id})`
+                                }"
+                              >
+
+                                ${
+                                  l.locked
+
+                                    ? '🔒'
+
+                                    : l.done
+
+                                      ? '✓'
+
+                                      : i + 1
+                                }
+
+                              </button>
+
+
+                              <!-- ==================================
+                                   INFORMAÇÕES DO MÓDULO
+                              =================================== -->
+
+                              <div class="mut">
+
+                                <b>
+                                  Módulo ${i + 1}
+                                </b>
+
+                                <br>
+
+
+                                ${esc(
+                                  l.title ||
+                                  ''
+                                )}
+
+
+                                <!-- ==================================
+                                     PROGRESSO DO MÓDULO
+                                =================================== -->
+
+                                <div class="mini">
+
+                                  <div
+                                    style="
+                                      width:${
+                                        Number(
+                                          l.pct
+                                        ) || 0
+                                      }%;
+                                      background:${c}
+                                    "
+                                  ></div>
+
+                                </div>
+
+
+                                <small>
+
+                                  <b>
+                                    ${
+                                      Number(
+                                        l.pct
+                                      ) || 0
+                                    }%
+                                  </b>
+
+                                  ·
+
+                                  +${
+                                    Number(
+                                      l.xp
+                                    ) || 0
+                                  }
+
+                                  XP
+
+                                </small>
+
+                              </div>
+
+                            </div>
+
+                          `
+                        )
+                        .join('')
+                    }
+
+
+                    <!-- ========================================
+                         DESAFIOS
+                    ========================================= -->
+
+                    <div
+                      style="
+                        text-align:center;
+                        opacity:.5
+                      "
+                    >
+
+                      <button
+                        class="node"
+                        style="
+                          background:var(--bd)
+                        "
+                        onclick="
+                          alert(
+                            'Os desafios chegam em breve! 🏆'
+                          )
+                        "
+                      >
+
+                        🏆
+
+                      </button>
+
+
+                      <div class="mut">
+
+                        Desafios
+
+                        <br>
+
+                        <small>
+                          em breve
+                        </small>
+
+                      </div>
+
+                    </div>
+
+
+                    <!-- ========================================
+                         CONCLUSÃO DA TRILHA
+                         APARECE SOMENTE EM 100%
+                    ========================================= -->
+
+                    ${
+                      allLessonsDone &&
+                      t.conclusion.length
+
+                        ? `
+
+                          <div
+                            style="
+                              text-align:center
+                            "
+                          >
+
+                            <button
+                              class="node"
+                              style="
+                                background:${c}
+                              "
+                              onclick="
+                                showTrackConclusion(
+                                  ${t.id}
+                                )
+                              "
+                            >
+
+                              🏁
+
+                            </button>
+
+
+                            <div class="mut">
+
+                              Conclusão
+
+                              <br>
+
+                              <small>
+                                da trilha
+                              </small>
+
+                            </div>
+
+                          </div>
+
+                        `
+
+                        : ''
+                    }
+
+
+                    <!-- ========================================
+                         AVALIAÇÃO DA TRILHA
+                         APARECE SOMENTE EM 100%
+                    ========================================= -->
+
+                    ${
+                      allLessonsDone &&
+                      t.evaluation_question
+
+                        ? `
+
+                          <div
+                            style="
+                              text-align:center
+                            "
+                          >
+
+                            <button
+                              class="node"
+                              style="
+                                background:${c}
+                              "
+                              onclick="
+                                showTrackEvaluation(
+                                  ${t.id}
+                                )
+                              "
+                            >
+
+                              📝
+
+                            </button>
+
+
+                            <div class="mut">
+
+                              Avaliação
+
+                              <br>
+
+                              <small>
+                                da trilha
+                              </small>
+
+                            </div>
+
+                          </div>
+
+                        `
+
+                        : ''
+                    }
+
+
                   </div>
 
                 </div>
 
-              </div>
-            </div>
-          `;
-        })
-        .join('')
-    : `
-      <p class="mut">
-        Nenhuma trilha disponível ainda.
-      </p>
-    `;
+              `;
+
+            }
+          )
+          .join('')
+
+      : `
+
+          <p class="mut">
+
+            Nenhuma trilha disponível ainda.
+
+          </p>
+
+        `;
+}
+
+
+
+// ============================================================
+// CONCLUSÃO DA TRILHA
+// ============================================================
+
+function showTrackConclusion(id) {
+  const track = arr(window.TRACKS).find(
+    t => Number(t.id) === Number(id)
+  );
+
+  if (!track) {
+    return alert('Trilha não encontrada.');
+  }
+
+  const allLessonsDone =
+    track.lessons.length > 0 &&
+    track.lessons.every(l => l.done);
+
+  if (!allLessonsDone) {
+    return alert(
+      'Conclua todos os módulos da trilha primeiro.'
+    );
+  }
+
+  if (
+    !Array.isArray(track.conclusion) ||
+    !track.conclusion.length
+  ) {
+    return alert(
+      'Esta trilha ainda não possui uma conclusão definida.'
+    );
+  }
+
+  const c = esc(
+    track.color || '#58cc02'
+  );
+
+  main.innerHTML = `
+    <div class="card">
+
+      <button
+        class="btn"
+        onclick="home()"
+      >
+        ← Voltar às trilhas
+      </button>
+
+      <h2 style="margin-top:20px">
+        ${esc(track.icon || '📚')}
+        ${esc(track.title)}
+      </h2>
+
+      <div
+        class="card"
+        style="
+          margin-top:16px;
+          border-color:${c}
+        "
+      >
+
+        <h3>
+          🏁 Conclusão da trilha
+        </h3>
+
+        <div class="lesson-content">
+          ${track.conclusion
+            .map(block)
+            .join('')}
+        </div>
+
+      </div>
+
+      ${
+        track.evaluation_question
+          ? `
+            <button
+              class="btn"
+              style="
+                width:100%;
+                margin-top:12px;
+              "
+              onclick="showTrackEvaluation(${track.id})"
+            >
+              📝 Avaliar trilha
+            </button>
+          `
+          : ''
+      }
+
+    </div>
+  `;
+}
+
+// ============================================================
+// AVALIAÇÃO DA TRILHA
+// ============================================================
+
+function showTrackEvaluation(id) {
+
+  const track =
+    arr(window.TRACKS).find(
+      t => Number(t.id) === Number(id)
+    );
+
+  if (!track) {
+    return alert(
+      'Trilha não encontrada.'
+    );
+  }
+
+  const allLessonsDone =
+    track.lessons.length > 0 &&
+    track.lessons.every(
+      l => l.done
+    );
+
+  if (!allLessonsDone) {
+    return alert(
+      'Conclua todos os módulos da trilha primeiro.'
+    );
+  }
+
+  if (!track.evaluation_question) {
+    return alert(
+      'Esta trilha ainda não possui uma avaliação.'
+    );
+  }
+
+  const c =
+    esc(track.color || '#58cc02');
+
+  main.innerHTML = `
+    <div class="card">
+
+      <button
+        class="btn"
+        onclick="home()"
+      >
+        ← Voltar às trilhas
+      </button>
+
+      <h2 style="margin-top:20px">
+        ${esc(track.icon || '📚')}
+        ${esc(track.title)}
+      </h2>
+
+      <div
+        class="card"
+        style="
+          margin-top:16px;
+          border-color:${c};
+          text-align:center;
+        "
+      >
+
+        <h3>
+          📝 Avaliação da trilha
+        </h3>
+
+        <p>
+          ${esc(track.evaluation_question)}
+        </p>
+
+        <p
+          class="mut"
+          style="margin-top:20px"
+        >
+          Escolha uma nota de 1 a 5:
+        </p>
+
+        <div
+          id="trackRating"
+          style="
+            display:flex;
+            justify-content:center;
+            gap:8px;
+            margin:20px 0;
+            flex-wrap:wrap;
+          "
+        >
+
+          ${[1,2,3,4,5]
+            .map(
+              n => `
+                <button
+                  type="button"
+                  class="rating-btn"
+                  data-rating="${n}"
+                  style="
+                    font-size:28px;
+                    padding:10px 14px;
+                    border:2px solid var(--bd);
+                    border-radius:12px;
+                    background:transparent;
+                    cursor:pointer;
+                  "
+                >
+                  ⭐
+                  <span
+                    style="
+                      display:block;
+                      font-size:14px;
+                      margin-top:3px;
+                    "
+                  >
+                    ${n}
+                  </span>
+                </button>
+              `
+            )
+            .join('')}
+
+        </div>
+
+        <div
+          id="trackEvaluationSelected"
+          class="mut"
+          style="margin-bottom:10px"
+        >
+          Nenhuma nota selecionada.
+        </div>
+
+        <button
+          class="btn"
+          id="sendTrackEvaluation"
+          style="width:100%;"
+          disabled
+        >
+          📤 Enviar avaliação
+        </button>
+
+        <div
+          id="trackEvaluationMsg"
+          class="mut"
+          style="margin-top:8px"
+        ></div>
+
+      </div>
+
+    </div>
+  `;
+
+  let selectedRating = 0;
+
+  const ratingButtons =
+    document.querySelectorAll(
+      '.rating-btn'
+    );
+
+  const selected =
+    document.getElementById(
+      'trackEvaluationSelected'
+    );
+
+  const button =
+    document.getElementById(
+      'sendTrackEvaluation'
+    );
+
+  const msg =
+    document.getElementById(
+      'trackEvaluationMsg'
+    );
+
+  // ----------------------------------------------------------
+  // SELEÇÃO DA NOTA
+  // ----------------------------------------------------------
+
+  ratingButtons.forEach(
+    btn => {
+
+      btn.onclick = () => {
+
+        selectedRating =
+          Number(
+            btn.dataset.rating
+          );
+
+        ratingButtons.forEach(
+          b => {
+            b.style.background =
+              'transparent';
+
+            b.style.borderColor =
+              'var(--bd)';
+          }
+        );
+
+        btn.style.background =
+          c;
+
+        btn.style.borderColor =
+          c;
+
+        selected.textContent =
+          `Nota selecionada: ${selectedRating} ⭐`;
+
+        button.disabled = false;
+      };
+    }
+  );
+
+  // ----------------------------------------------------------
+  // ENVIO
+  // ----------------------------------------------------------
+
+  button.onclick =
+    async () => {
+
+      if (
+        !Number.isInteger(
+          selectedRating
+        ) ||
+        selectedRating < 1 ||
+        selectedRating > 5
+      ) {
+        msg.textContent =
+          '⚠️ Selecione uma nota de 1 a 5.';
+
+        return;
+      }
+
+      button.disabled = true;
+
+      button.textContent =
+        '⏳ Enviando...';
+
+      msg.textContent = '';
+
+      try {
+
+        await api(
+          `/tracks/${id}/evaluation`,
+          'POST',
+          {
+            rating:
+              selectedRating
+          }
+        );
+
+        msg.textContent =
+          '✅ Avaliação enviada com sucesso!';
+
+        ratingButtons.forEach(
+          b => {
+            b.disabled = true;
+            b.style.cursor =
+              'default';
+          }
+        );
+
+        button.textContent =
+          '✅ Avaliação enviada';
+
+      } catch (e) {
+
+        msg.textContent =
+          '❌ ' +
+          (
+            e.message ||
+            'Não foi possível enviar a avaliação.'
+          );
+
+        button.disabled =
+          false;
+
+        button.textContent =
+          '📤 Enviar avaliação';
+      }
+    };
+}
+// ============================================================
+// AVISO DE BLOQUEIO
+// ============================================================
+
+function aviso(id) {
+  const tracks = window.TRACKS || [];
+
+  const t = tracks.find(
+    x => x.id === id
+  );
+
+  if (!t) {
+    return;
+  }
+
+  alert(
+    t.locked
+      ? 'Esta trilha está bloqueada.\n\n' +
+        'Conclua antes: ' +
+        t.missing.join(', ') +
+        ' 🔒'
+      : 'Conclua o módulo anterior para desbloquear 🔒'
+  );
 }
 
 // ============================================================
@@ -284,6 +1336,10 @@ function showTrack(id) {
     return home();
   }
 
+  const allLessonsDone =
+    t.lessons.length > 0 &&
+    t.lessons.every(l => l.done);
+
   main.innerHTML = `
     <button
       class="link"
@@ -293,26 +1349,178 @@ function showTrack(id) {
     </button>
 
     <h2>
-      ${esc(t.icon)} ${esc(t.title)}
+      ${esc(t.icon || '📚')}
+      ${esc(t.title)}
     </h2>
 
     <div class="steps">
       <span class="pill on">
         📌 Apresentação
       </span>
+
+      ${
+        allLessonsDone && t.conclusion.length
+          ? `
+            <span class="pill">
+              🏁 Conclusão
+            </span>
+          `
+          : ''
+      }
     </div>
 
-    <div class="card lesson-content">
-      ${t.presentation.map(block).join('')}
-    </div>
+    ${
+      t.presentation.length
+        ? `
+          <div class="card lesson-content">
+            ${t.presentation.map(block).join('')}
+          </div>
+        `
+        : `
+          <div class="card">
+            <p class="mut">
+              Esta trilha ainda não possui
+              uma apresentação.
+            </p>
+          </div>
+        `
+    }
+
+    ${
+      allLessonsDone && t.conclusion.length
+        ? `
+          <div class="card lesson-content">
+            <h3>
+              🏁 Conclusão da trilha
+            </h3>
+
+            ${t.conclusion.map(block).join('')}
+
+            ${
+              t.evaluation_question
+                ? `
+                  <div
+                    class="card"
+                    style="margin-top:16px"
+                  >
+                    <h3>
+                      💭 Avaliação
+                    </h3>
+
+                    <p>
+                      ${esc(
+                        t.evaluation_question
+                      )}
+                    </p>
+
+                    <textarea
+                        id="trackEvaluation"
+                        rows="5"
+                        placeholder="Digite sua avaliação..."
+                      ></textarea>
+
+                      <button
+                        class="btn"
+                        id="sendTrackEvaluation"
+                        style="margin-top:10px"
+                      >
+                        📤 Enviar avaliação
+                      </button>
+
+                      <div
+                        id="trackEvaluationMsg"
+                        class="mut"
+                        style="margin-top:8px"
+                      ></div>
+                  </div>
+                `
+                : ''
+            }
+          </div>
+        `
+        : ''
+    }
 
     <button
       class="btn"
       onclick="home()"
     >
-      Ir para os módulos
+      ${
+        allLessonsDone
+          ? 'Voltar às trilhas'
+          : 'Ir para os módulos'
+      }
     </button>
   `;
+
+const sendTrackEvaluation =
+  document.getElementById(
+    'sendTrackEvaluation'
+  );
+
+if (sendTrackEvaluation) {
+
+  sendTrackEvaluation.onclick =
+    async () => {
+
+      const field =
+        document.getElementById(
+          'trackEvaluation'
+        );
+
+      const msg =
+        document.getElementById(
+          'trackEvaluationMsg'
+        );
+
+      const answer =
+        field.value.trim();
+
+      if (!answer) {
+        msg.textContent =
+          '⚠️ Escreva sua avaliação antes de enviar.';
+        return;
+      }
+
+      sendTrackEvaluation.disabled =
+        true;
+
+      sendTrackEvaluation.textContent =
+        'Enviando...';
+
+      try {
+
+        await api(
+          `/tracks/${id}/evaluation`,
+          'POST',
+          {
+            answer
+          }
+        );
+
+        msg.textContent =
+          '✅ Avaliação da trilha enviada com sucesso!';
+
+        field.disabled = true;
+
+        sendTrackEvaluation.textContent =
+          '✅ Avaliação enviada';
+
+      } catch (e) {
+
+        msg.textContent =
+          '❌ ' +
+          (e.message ||
+            'Não foi possível enviar a avaliação.');
+
+        sendTrackEvaluation.disabled =
+          false;
+
+        sendTrackEvaluation.textContent =
+          '📤 Enviar avaliação';
+      }
+    };
+}
 }
 
 // ============================================================
@@ -324,35 +1532,37 @@ async function rank() {
 
   main.innerHTML =
     '<h2>🏆 Ranking</h2>' +
+
     (
-      r
-        .map(
-          (u, n) => `
-            <div
-              class="card row"
-              ${
-                u.me
-                  ? 'style="border-color:var(--g)"'
-                  : ''
-              }
-            >
+      r.map(
+        (u, n) => `
+          <div
+            class="card row"
+            ${
+              u.me
+                ? 'style="border-color:var(--g)"'
+                : ''
+            }
+          >
 
-              <span>
-                ${n + 1}º ${esc(u.name)}
+            <span>
+              ${n + 1}º
+              ${esc(u.name)}
 
-                <small class="mut">
-                  Nv ${u.level}
-                </small>
-              </span>
+              <small class="mut">
+                Nv ${u.level}
+              </small>
+            </span>
 
-              <span>
-                ⭐ ${u.xp} · 🔥 ${u.streak}
-              </span>
+            <span>
+              ⭐ ${u.xp}
+              · 🔥 ${u.streak}
+            </span>
 
-            </div>
-          `
-        )
-        .join('') ||
+          </div>
+        `
+      ).join('') ||
+
       `
         <p class="mut">
           Ainda não há alunos no ranking.
@@ -370,8 +1580,10 @@ async function profile() {
 
   refresh();
 
+  const week = arr(p.week);
+
   const top = Math.max(
-    ...p.week.map(x => x.xp),
+    ...week.map(x => x.xp),
     1
   );
 
@@ -427,7 +1639,7 @@ async function profile() {
       🎯 Missões de hoje
     </h3>
 
-    ${p.missions
+    ${arr(p.missions)
       .map(
         m => `
           <div class="card row">
@@ -445,15 +1657,15 @@ async function profile() {
               m.claimed
                 ? '✅'
                 : m.done
-                ? `
-                  <button
-                    class="btn sm"
-                    onclick="claim('${m.code}')"
-                  >
-                    Resgatar +10 🪙
-                  </button>
-                `
-                : ''
+                  ? `
+                    <button
+                      class="btn sm"
+                      onclick="claim('${m.code}')"
+                    >
+                      Resgatar +10 🪙
+                    </button>
+                  `
+                  : ''
             }
 
           </div>
@@ -466,14 +1678,13 @@ async function profile() {
     </h3>
 
     <div class="badges">
-      ${p.badges
+      ${arr(p.badges)
         .map(
           b => `
             <div
               class="bdg ${b.got ? '' : 'off'}"
               title="${esc(b.desc)}"
             >
-
               <span>
                 ${b.icon}
               </span>
@@ -485,7 +1696,6 @@ async function profile() {
               <small class="mut">
                 ${esc(b.desc)}
               </small>
-
             </div>
           `
         )
@@ -498,29 +1708,28 @@ async function profile() {
 
     <div class="week">
       ${
-        p.week
-          .map(
-            w => `
-              <div>
+        week.map(
+          w => `
+            <div>
 
-                <div
-                  class="wb"
-                  style="
-                    height:${Math.max(
-                      4,
-                      (w.xp / top) * 80
-                    )}px
-                  "
-                ></div>
+              <div
+                class="wb"
+                style="
+                  height:${Math.max(
+                    4,
+                    (w.xp / top) * 80
+                  )}px
+                "
+              ></div>
 
-                <small>
-                  ${w.day.slice(8)}/${w.day.slice(5, 7)}
-                </small>
+              <small>
+                ${w.day.slice(8)}/${w.day.slice(5, 7)}
+              </small>
 
-              </div>
-            `
-          )
-          .join('') ||
+            </div>
+          `
+        ).join('') ||
+
         `
           <p class="mut">
             Sem atividade ainda.
@@ -538,11 +1747,13 @@ async function profile() {
 async function badges() {
   const p = await api('/me/profile');
 
-  const n = p.badges.filter(
+  const badgesList = arr(p.badges);
+
+  const n = badgesList.filter(
     b => b.got
   ).length;
 
-  const total = p.badges.length;
+  const total = badgesList.length;
 
   const pct = total
     ? (n / total) * 100
@@ -566,7 +1777,7 @@ async function badges() {
     <br>
 
     <div class="badges">
-      ${p.badges
+      ${badgesList
         .map(
           b => `
             <div
@@ -650,35 +1861,38 @@ function ordenar(q, onCheck) {
         class="card"
         style="min-height:60px"
       >
-        ${sel
+        ${
+          sel
+            .map(
+              (x, n) => `
+                <button
+                  class="opt"
+                  data-r="${n}"
+                >
+                  ${n + 1}.
+                  ${esc(x.t)}
+                </button>
+              `
+            )
+            .join('')
+        }
+      </div>
+
+      ${
+        q.items
+          .filter(x => !sel.includes(x))
           .map(
-            (x, n) => `
+            x => `
               <button
                 class="opt"
-                data-r="${n}"
+                data-a="${x.i}"
               >
-                ${n + 1}. ${esc(x.t)}
+                ${esc(x.t)}
               </button>
             `
           )
-          .join('')}
-      </div>
-
-      ${q.items
-        .filter(
-          x => !sel.includes(x)
-        )
-        .map(
-          x => `
-            <button
-              class="opt"
-              data-a="${x.i}"
-            >
-              ${esc(x.t)}
-            </button>
-          `
-        )
-        .join('')}
+          .join('')
+      }
 
       ${
         sel.length === q.items.length
@@ -763,8 +1977,9 @@ function associar(q, onCheck) {
 
     box.innerHTML = `
       <p class="mut">
-        Toque em um item e depois no seu par
-        (toque no item de novo para desfazer):
+        Toque em um item e depois no
+        seu par (toque no item de novo
+        para desfazer):
       </p>
 
       ${q.left
@@ -772,21 +1987,26 @@ function associar(q, onCheck) {
           l => `
             <button
               class="opt ${
-                cur === l.i ? 'ok' : ''
+                cur === l.i
+                  ? 'ok'
+                  : ''
               }"
               data-l="${l.i}"
             >
-
               ${esc(l.t)}
 
               ${
                 map[l.i]
-                  ? ` → <b>${esc(
-                      map[l.i].t
-                    )}</b>`
+                  ? `
+                    →
+                    <b>
+                      ${esc(
+                        map[l.i].t
+                      )}
+                    </b>
+                  `
                   : ''
               }
-
             </button>
           `
         )
@@ -907,9 +2127,8 @@ function preencher(q, onCheck) {
   `;
 
   const go = () => {
-    const v = box.querySelector(
-      '#fa'
-    ).value;
+    const v =
+      box.querySelector('#fa').value;
 
     if (!v.trim()) {
       return;
@@ -926,12 +2145,11 @@ function preencher(q, onCheck) {
 
   box.querySelector('#vf').onclick = go;
 
-  box.querySelector('#fa').onkeydown =
-    e => {
-      if (e.key === 'Enter') {
-        go();
-      }
-    };
+  box.querySelector('#fa').onkeydown = e => {
+    if (e.key === 'Enter') {
+      go();
+    }
+  };
 
   return box;
 }
@@ -949,11 +2167,7 @@ const SOL = {
     'Pares: ' +
     s
       .map(
-        x =>
-          x.replace(
-            '|',
-            ' ↔ '
-          )
+        x => x.replace('|', ' ↔ ')
       )
       .join(' · '),
 
@@ -963,7 +2177,7 @@ const SOL = {
 };
 
 // ============================================================
-// CONTEÚDO DA LIÇÃO
+// CONTEÚDO DAS LIÇÕES
 // ============================================================
 
 const ytId = u => {
@@ -977,9 +2191,10 @@ const ytId = u => {
 };
 
 const safeUrl = u => {
-  const value = String(u || '');
+  const value =
+    String(u || '').trim();
 
-  return /^(https?:\/\/|\/uploads\/)/.test(
+  return /^(https?:\/\/|\/uploads\/)/i.test(
     value
   )
     ? esc(value)
@@ -987,10 +2202,14 @@ const safeUrl = u => {
 };
 
 function block(b) {
+  if (!b || typeof b !== 'object') {
+    return '';
+  }
+
   if (b.type === 'texto') {
     return `
       <div class="intro">
-        ${esc(b.value)}
+        ${esc(b.value || '')}
       </div>
     `;
   }
@@ -1031,62 +2250,294 @@ function block(b) {
     `;
   }
 
-  return `
-    <figure>
+  if (b.type === 'video') {
+    const src = safeUrl(
+      b.value
+    );
 
-      ${
-        y
-          ? `
-            <iframe
-              src="https://www.youtube-nocookie.com/embed/${y}"
-              allowfullscreen
-              loading="lazy"
-            ></iframe>
-          `
-          : `
-            <video
-              src="${safeUrl(b.value)}"
-              controls
-            ></video>
-          `
-      }
+    if (y) {
+      return `
+        <figure>
 
-      ${cap}
+          <iframe
+            src="https://www.youtube-nocookie.com/embed/${y}"
+            allowfullscreen
+            loading="lazy"
+          ></iframe>
 
-    </figure>
-  `;
+          ${cap}
+
+        </figure>
+      `;
+    }
+
+    if (!src) {
+      return `
+        <div class="card badc">
+          ⚠️ Vídeo inválido.
+        </div>
+      `;
+    }
+
+    return `
+      <figure>
+
+        <video
+          src="${src}"
+          controls
+        ></video>
+
+        ${cap}
+
+      </figure>
+    `;
+  }
+
+  return '';
 }
 
-// ============================================================
+// ==========================================================
 // ABRIR LIÇÃO
-// ============================================================
+// ==========================================================
 
 async function openLesson(id) {
+
   let lesson;
 
   try {
-    lesson = await api(
-      '/lessons/' + id
+
+    lesson = normalizeLesson(
+      await api('/lessons/' + id)
     );
+
   } catch (e) {
-    return alert(e.message);
+
+    return alert(
+      e.message ||
+      'Não foi possível abrir o módulo.'
+    );
+
   }
 
   let i = 0;
   let hits = 0;
   let combo = 0;
 
+
+  // ========================================================
+  // APRESENTAÇÃO DO MÓDULO
+  // ========================================================
+
+  const presentation = () => {
+
+    main.innerHTML = `
+
+      <button
+        class="link"
+        onclick="home()"
+      >
+        ✕ Sair
+      </button>
+
+      <div class="card">
+
+        <div class="steps">
+
+          <span class="pill on">
+            📖 Apresentação
+          </span>
+
+          <span class="pill">
+            💡 Explicação
+          </span>
+
+          <span class="pill">
+            📝 Questões
+          </span>
+
+        </div>
+
+        <h1>
+          ${esc(lesson.title || 'Módulo')}
+        </h1>
+
+        ${
+          lesson.description
+            ? `
+              <p>
+                ${esc(lesson.description)}
+              </p>
+            `
+            : `
+              <p class="mut">
+                Prepare-se para iniciar este módulo.
+              </p>
+            `
+        }
+
+        ${
+          lesson.questions.length
+            ? `
+              <p class="mut">
+                📝 Este módulo possui
+                <b>${lesson.questions.length}</b>
+                questão(ões).
+              </p>
+            `
+            : `
+              <p class="mut">
+                Este módulo não possui questões.
+              </p>
+            `
+        }
+
+        <button
+          id="go0"
+          class="btn"
+        >
+          ${
+            lesson.content.length
+              ? 'Começar explicação →'
+              : 'Começar módulo →'
+          }
+        </button>
+
+      </div>
+
+    `;
+
+    $('go0').onclick = () => {
+
+      if (lesson.content.length) {
+
+        explain();
+
+      } else if (lesson.questions.length) {
+
+        step();
+
+      } else {
+
+        finish(id, lesson);
+
+      }
+
+    };
+
+  };
+
+
+  // ========================================================
+  // EXPLICAÇÃO / CONTEÚDO
+  // ========================================================
+
+  const explain = () => {
+
+    if (!lesson.content.length) {
+
+      if (lesson.questions.length) {
+
+        return step();
+
+      }
+
+      return finish(id, lesson);
+
+    }
+
+    main.innerHTML = `
+
+      <button
+        class="link"
+        onclick="home()"
+      >
+        ✕ Sair
+      </button>
+
+      <div class="steps">
+
+        <span class="pill">
+          📖 Apresentação
+        </span>
+
+        <span class="pill on">
+          💡 Explicação
+        </span>
+
+        <span class="pill">
+          📝 Questões
+        </span>
+
+      </div>
+
+      <div class="card">
+
+        <h2>
+          💡 Explicação
+        </h2>
+
+        ${
+          lesson.content
+            .map(block)
+            .join('')
+        }
+
+      </div>
+
+      <button
+        id="go"
+        class="btn"
+      >
+        ${
+          lesson.questions.length
+            ? 'Ir para as questões →'
+            : 'Concluir módulo →'
+        }
+      </button>
+
+    `;
+
+    $('go').onclick = () => {
+
+      if (lesson.questions.length) {
+
+        step();
+
+      } else {
+
+        finish(id, lesson);
+
+      }
+
+    };
+
+  };
+
+
+  // ========================================================
+  // PASSO / PERGUNTA
+  // ========================================================
+
   const step = () => {
+
+    // Todas as perguntas foram respondidas
     if (
       i >= lesson.questions.length
     ) {
-      return finish();
+
+      return finish(
+        id,
+        lesson
+      );
+
     }
 
     const q =
       lesson.questions[i];
 
+
     main.innerHTML = `
+
       <button
         class="link"
         onclick="home()"
@@ -1097,30 +2548,46 @@ async function openLesson(id) {
       <div class="row">
 
         <small class="mut">
-          Pergunta ${i + 1} de
+
+          Pergunta
+          ${i + 1}
+          de
           ${lesson.questions.length}
+
         </small>
 
         <b>
-          ${Math.round(
-            (i /
-              lesson.questions.length) *
-              100
-          )}%
+
+          ${
+            lesson.questions.length
+              ? Math.round(
+                  (
+                    i /
+                    lesson.questions.length
+                  ) * 100
+                )
+              : 0
+          }%
+
         </b>
 
       </div>
 
       <div class="bar">
+
         <div
           style="
             width:${
-              (i /
-                lesson.questions.length) *
-              100
+              lesson.questions.length
+                ? (
+                    i /
+                    lesson.questions.length
+                  ) * 100
+                : 0
             }%
           "
         ></div>
+
       </div>
 
       <div class="steps">
@@ -1139,413 +2606,843 @@ async function openLesson(id) {
       ${
         lesson.content.length
           ? `
+
             <details class="card">
 
               <summary>
                 📖 Rever explicação
               </summary>
 
-              ${lesson.content
-                .map(block)
-                .join('')}
+              ${
+                lesson.content
+                  .map(block)
+                  .join('')
+              }
 
             </details>
+
           `
           : ''
       }
 
       <h2>
-        ${esc(q.prompt)}
+        ${esc(q.prompt || '')}
       </h2>
 
       <div id="body"></div>
 
       <div id="fb"></div>
+
     `;
 
-    const submit =
-      async answer => {
-        const r = await api(
+
+    // ======================================================
+    // ENVIAR RESPOSTA
+    // ======================================================
+
+    const submit = async answer => {
+
+      let r;
+
+      try {
+
+        r = await api(
           `/questions/${q.id}/check`,
           'POST',
-          { answer }
+          {
+            answer
+          }
         );
 
-        if ($('hearts')) {
-          $('hearts').textContent =
-            '❤️ ' + r.hearts;
-        }
+      } catch (e) {
 
-        if (r.correct) {
-          hits++;
-          combo++;
-        } else {
-          combo = 0;
-        }
+        alert(
+          e.message ||
+          'Não foi possível verificar a resposta.'
+        );
 
-        $('fb').innerHTML = `
-          <div
-            class="card ${
+        return null;
+
+      }
+
+
+      // ====================================================
+      // ATUALIZA VIDAS
+      // ====================================================
+
+      if ($('hearts')) {
+
+        $('hearts').textContent =
+          '❤️ ' + r.hearts;
+
+      }
+
+
+      // ====================================================
+      // ATUALIZA ACERTOS E COMBO
+      // ====================================================
+
+      if (r.correct) {
+
+        hits++;
+        combo++;
+
+      } else {
+
+        combo = 0;
+
+      }
+
+
+      // ====================================================
+      // FEEDBACK
+      // ====================================================
+
+      $('fb').innerHTML = `
+
+        <div
+          class="card ${
+            r.correct
+              ? 'okc'
+              : 'badc'
+          }"
+        >
+
+          <strong>
+
+            ${
               r.correct
-                ? 'okc'
-                : 'badc'
-            }"
-          >
-
-            <strong>
-
-              ${
-                r.correct
-                  ? '✅ Correto!'
-                  : '❌ Incorreto'
-              }
-
-              ${
-                combo >= 3
-                  ? ` · 🔥 combo x${combo}!`
-                  : ''
-              }
-
-            </strong>
-
-            ${
-              !r.correct &&
-              r.solution
-                ? `
-                  <p>
-                    ${
-                      SOL[q.type]
-                        ? SOL[q.type](
-                            r.solution
-                          )
-                        : ''
-                    }
-                  </p>
-                `
-                : ''
+                ? '✅ Correto!'
+                : '❌ Incorreto'
             }
 
             ${
-              r.explanation
-                ? `
-                  <p>
-                    💡 ${esc(
-                      r.explanation
-                    )}
-                  </p>
-                `
+              combo >= 3
+                ? ` · 🔥 combo x${combo}!`
                 : ''
             }
 
-          </div>
-        `;
+          </strong>
 
-        const out =
-          !r.correct &&
-          r.hearts === 0 &&
-          !lesson.done;
+          ${
+            !r.correct &&
+            r.solution
+              ? `
 
-        const nb =
-          document.createElement(
-            'button'
-          );
+                <p>
 
-        nb.className = 'btn';
+                  ${
+                    SOL[q.type]
+                      ? SOL[q.type](
+                          r.solution
+                        )
+                      : ''
+                  }
 
-        nb.textContent = out
+                </p>
+
+              `
+              : ''
+          }
+
+          ${
+            r.explanation
+              ? `
+
+                <p>
+
+                  💡
+
+                  ${esc(
+                    r.explanation
+                  )}
+
+                </p>
+
+              `
+              : ''
+          }
+
+        </div>
+
+      `;
+
+
+      // ====================================================
+      // VERIFICA SE FICOU SEM VIDAS
+      // ====================================================
+
+      const out =
+        !r.correct &&
+        r.hearts === 0 &&
+        !lesson.done;
+
+
+      const nb =
+        document.createElement(
+          'button'
+        );
+
+
+      nb.className =
+        'btn';
+
+
+      nb.textContent =
+        out
           ? 'Sem vidas — voltar'
           : 'Continuar';
 
-        nb.onclick = out
+
+      nb.onclick =
+        out
           ? home
           : () => {
+
               i++;
+
+              // --------------------------------------------
+              // ÚLTIMA PERGUNTA
+              // --------------------------------------------
+
+              if (
+                i >=
+                lesson.questions.length
+              ) {
+
+                return finish(
+                  id,
+                  lesson
+                );
+
+              }
+
+              // --------------------------------------------
+              // PRÓXIMA PERGUNTA
+              // --------------------------------------------
+
               step();
+
             };
 
-        $('fb').appendChild(nb);
 
-        return r;
-      };
-
-    const body = $('body');
-
-    if (q.type === 'ordenar') {
-      body.appendChild(
-        ordenar(q, submit)
+      $('fb').appendChild(
+        nb
       );
+
+
+      return r;
+
+    };
+
+
+    // ======================================================
+    // RENDERIZA O TIPO DE QUESTÃO
+    // ======================================================
+
+    const body =
+      $('body');
+
+
+    if (
+      q.type === 'ordenar'
+    ) {
+
+      body.appendChild(
+        ordenar(
+          q,
+          submit
+        )
+      );
+
+
     } else if (
       q.type === 'associar'
     ) {
+
       body.appendChild(
-        associar(q, submit)
+        associar(
+          q,
+          submit
+        )
       );
+
+
     } else if (
       q.type === 'preencher'
     ) {
+
       body.appendChild(
-        preencher(q, submit)
+        preencher(
+          q,
+          submit
+        )
       );
+
+
     } else {
+
       body.innerHTML =
-        q.options
+        arr(q.options)
           .map(
             (o, n) => `
+
               <button
                 class="opt"
                 data-n="${n}"
               >
                 ${esc(o)}
               </button>
+
             `
           )
           .join('');
 
+
       body
-        .querySelectorAll('.opt')
-        .forEach(b => {
-          b.onclick =
-            async () => {
-              body
-                .querySelectorAll(
-                  '.opt'
-                )
-                .forEach(
-                  x =>
-                    (x.disabled = true)
-                );
+        .querySelectorAll(
+          '.opt'
+        )
+        .forEach(
+          b => {
 
-              const r =
-                await submit(
-                  +b.dataset.n
-                );
+            b.onclick =
+              async () => {
 
-              body
-                .querySelectorAll(
-                  '.opt'
-                )
-                .forEach(x => {
-                  if (
-                    +x.dataset.n ===
-                    r.answer
-                  ) {
-                    x.classList.add(
-                      'ok'
-                    );
-                  }
-                });
+                // Desabilita as opções
+                body
+                  .querySelectorAll(
+                    '.opt'
+                  )
+                  .forEach(
+                    x => {
 
-              if (!r.correct) {
-                b.classList.add(
-                  'bad'
-                );
-              }
-            };
-        });
+                      x.disabled =
+                        true;
+
+                    }
+                  );
+
+
+                const r =
+                  await submit(
+                    Number(
+                      b.dataset.n
+                    )
+                  );
+
+
+                if (!r) {
+
+                  return;
+
+                }
+
+
+                // Marca resposta correta
+                body
+                  .querySelectorAll(
+                    '.opt'
+                  )
+                  .forEach(
+                    x => {
+
+                      if (
+                        Number(
+                          x.dataset.n
+                        ) ===
+                        Number(
+                          r.answer
+                        )
+                      ) {
+
+                        x.classList.add(
+                          'ok'
+                        );
+
+                      }
+
+                    }
+                  );
+
+
+                // Marca resposta errada
+                if (
+                  !r.correct
+                ) {
+
+                  b.classList.add(
+                    'bad'
+                  );
+
+                }
+
+              };
+
+          }
+        );
+
     }
+
   };
 
-  const finish =
-    async () => {
-      let r;
 
-      try {
-        r = await api(
-          `/lessons/${id}/complete`,
-          'POST'
-        );
-      } catch (e) {
-        alert(e.message);
-        return home();
-      }
+  // ========================================================
+  // INICIA PELA APRESENTAÇÃO
+  // ========================================================
 
-      refresh();
+  presentation();
 
-      main.innerHTML = `
-        <div
-          class="card"
-          style="text-align:center"
-        >
+}
 
-          <h2>
-            ${
-              r.perfect
-                ? '💯 Lição perfeita!'
-                : '🎉 Lição concluída!'
-            }
-          </h2>
+// ==========================================================
+// CONCLUSÃO DA LIÇÃO
+// ==========================================================
 
-          <p>
-            Acertos:
-            ${r.hits}/${r.total}
-          </p>
+const finish = async (lessonId, lesson) => {
 
-          ${
-            r.gained
-              ? `
-                <p>
-                  ⭐ +${r.gained} XP
-                  · 🪙 +${r.coins} moedas
-                </p>
-              `
-              : `
-                <p class="mut">
-                  Revisão: sem XP extra.
-                </p>
-              `
-          }
+  let r;
 
-          <p>
-            🔥 Sequência:
-            ${r.streak} dia(s)
-          </p>
+  try {
 
-          ${
-            r.levelUp
-              ? `
-                <h3>
-                  🎖️ Você subiu para o nível
-                  ${r.level}!
-                </h3>
-              `
-              : ''
-          }
+    r = await api(
+      `/lessons/${lessonId}/complete`,
+      'POST'
+    );
 
-          ${r.badges
-            .map(
-              b => `
-                <p>
-                  🏅 Nova conquista:
-                  ${b.icon}
-                  <b>
-                    ${esc(b.name)}
-                  </b>
-                </p>
-              `
-            )
-            .join('')}
+  } catch (e) {
 
-          <button
-            class="btn"
-            onclick="home()"
-          >
-            Voltar às trilhas
-          </button>
+    alert(
+      e.message ||
+      'Não foi possível concluir o módulo.'
+    );
 
-        </div>
-      `;
-    };
+    return home();
+  }
 
-  const explain = () => {
-    if (
-      !lesson.content.length
-    ) {
-      return step();
-    }
+  // Atualiza estatísticas
+  refresh();
 
-    main.innerHTML = `
-      <button
-        class="link"
-        onclick="home()"
-      >
-        ✕ Sair
-      </button>
+  // ========================================================
+  // TELA DE CONCLUSÃO
+  // ========================================================
 
-      <div class="steps">
+  main.innerHTML = `
+
+    <div
+      class="card"
+      style="text-align:center"
+    >
+
+      <h2>
 
         ${
-          lesson.presentation.length
-            ? `
-              <span class="pill">
-                📌 Apresentação
-              </span>
-            `
-            : ''
+          r.perfect
+            ? '💯 Lição perfeita!'
+            : '🎉 Lição concluída!'
         }
 
-        <span class="pill on">
-          📖 Explicação
-        </span>
-
-        <span class="pill">
-          📝 Perguntas
-        </span>
-
-      </div>
-
-      <h2>
-        ${esc(lesson.title)}
       </h2>
 
-      <div class="card lesson-content">
-        ${lesson.content
-          .map(block)
-          .join('')}
-      </div>
+      <p>
+        Acertos:
+        ${r.hits}/${r.total}
+      </p>
 
-      <button
-        class="btn"
-        id="go"
-      >
-        Começar as perguntas
-        (+${lesson.xp} XP)
-      </button>
-    `;
+      ${
+        r.gained
+          ? `
+            <p>
 
-    $('go').onclick = step;
-  };
+              ⭐ +${r.gained} XP
+
+              ·
+
+              🪙 +${r.coins} moedas
+
+            </p>
+          `
+          : `
+            <p class="mut">
+              Revisão:
+              sem XP extra.
+            </p>
+          `
+      }
+
+      <p>
+
+        🔥 Sequência:
+        ${r.streak} dia(s)
+
+      </p>
+
+      ${
+        r.levelUp
+          ? `
+            <h3>
+
+              🎖️ Você subiu para
+              o nível ${r.level}!
+
+            </h3>
+          `
+          : ''
+      }
+
+      ${
+        arr(r.badges)
+          .map(
+            b => `
+              <p>
+
+                🏅 Nova conquista:
+
+                ${b.icon}
+
+                <b>
+                  ${esc(b.name)}
+                </b>
+
+              </p>
+            `
+          )
+          .join('')
+      }
+
+    </div>
+
+
+    <!-- ================================================== -->
+    <!-- CONCLUSÃO DO MÓDULO -->
+    <!-- ================================================== -->
+
+    ${
+      Array.isArray(
+        lesson.conclusion
+      ) &&
+      lesson.conclusion.length
+        ? `
+          <div
+            class="card lesson-content"
+            style="margin-top:16px;"
+          >
+
+            <h3>
+              🏁 Conclusão do módulo
+            </h3>
+
+            ${lesson.conclusion
+              .map(block)
+              .join('')}
+
+          </div>
+        `
+        : ''
+    }
+
+
+    <!-- ================================================== -->
+    <!-- AVALIAÇÃO DO MÓDULO -->
+    <!-- ================================================== -->
+
+    ${
+      lesson.evaluation_question
+        ? `
+          <div
+            class="card"
+            style="margin-top:16px;"
+          >
+
+            <h3>
+              ⭐ Avaliação do módulo
+            </h3>
+
+            <p>
+              ${esc(
+                lesson.evaluation_question
+              )}
+            </p>
+
+            <p
+              class="mut"
+              style="
+                text-align:center;
+                margin-top:20px;
+              "
+            >
+              Escolha uma nota de 1 a 5:
+            </p>
+
+            <div
+              id="lessonRating"
+              style="
+                display:flex;
+                justify-content:center;
+                align-items:center;
+                gap:8px;
+                margin:20px 0;
+                flex-wrap:wrap;
+              "
+            >
+
+              ${
+                [1, 2, 3, 4, 5]
+                  .map(
+                    n => `
+                      <button
+                        type="button"
+                        class="lesson-rating-btn"
+                        data-rating="${n}"
+                        style="
+                          font-size:28px;
+                          padding:10px 14px;
+                          border:2px solid var(--bd);
+                          border-radius:12px;
+                          background:transparent;
+                          cursor:pointer;
+                          transition:0.2s;
+                        "
+                      >
+
+                        ⭐
+
+                        <span
+                          style="
+                            display:block;
+                            font-size:14px;
+                            margin-top:3px;
+                          "
+                        >
+                          ${n}
+                        </span>
+
+                      </button>
+                    `
+                  )
+                  .join('')
+              }
+
+            </div>
+
+            <div
+              id="lessonEvaluationSelected"
+              class="mut"
+              style="
+                text-align:center;
+                margin-bottom:10px;
+              "
+            >
+              Nenhuma nota selecionada.
+            </div>
+
+            <button
+              class="btn"
+              id="sendLessonEvaluation"
+              style="
+                margin-top:10px;
+                width:100%;
+              "
+              disabled
+            >
+              📤 Enviar avaliação
+            </button>
+
+            <div
+              id="lessonEvaluationMsg"
+              class="mut"
+              style="
+                margin-top:8px;
+                text-align:center;
+              "
+            ></div>
+
+          </div>
+        `
+        : ''
+    }
+
+
+    <!-- ================================================== -->
+    <!-- VOLTAR -->
+    <!-- ================================================== -->
+
+    <button
+      class="btn"
+      onclick="home()"
+      style="
+        width:100%;
+        margin-top:16px;
+      "
+    >
+      Voltar às trilhas
+    </button>
+
+  `;
+
+
+  // ========================================================
+  // CONTROLE DAS ESTRELAS
+  // ========================================================
+
+  let selectedRating = 0;
+
+  const ratingButtons =
+    document.querySelectorAll(
+      '.lesson-rating-btn'
+    );
+
+  const selected =
+    document.getElementById(
+      'lessonEvaluationSelected'
+    );
+
+  const sendButton =
+    document.getElementById(
+      'sendLessonEvaluation'
+    );
+
+  const msg =
+    document.getElementById(
+      'lessonEvaluationMsg'
+    );
+
+
+  // Se não existe avaliação configurada,
+  // não há nada para configurar.
 
   if (
-    lesson.presentation.length
+    !ratingButtons.length ||
+    !selected ||
+    !sendButton ||
+    !msg
   ) {
-    main.innerHTML = `
-      <button
-        class="link"
-        onclick="home()"
-      >
-        ✕ Sair
-      </button>
-
-      <div class="steps">
-
-        <span class="pill on">
-          📌 Apresentação
-        </span>
-
-        <span class="pill">
-          📖 Explicação
-        </span>
-
-        <span class="pill">
-          📝 Perguntas
-        </span>
-
-      </div>
-
-      <h2>
-        ${esc(lesson.title)}
-      </h2>
-
-      <div class="card lesson-content">
-        ${lesson.presentation
-          .map(block)
-          .join('')}
-      </div>
-
-      <button
-        class="btn"
-        id="go0"
-      >
-        Continuar
-      </button>
-    `;
-
-    $('go0').onclick =
-      explain;
-  } else {
-    explain();
+    return;
   }
-}
+
+
+  // ========================================================
+  // SELECIONAR NOTA
+  // ========================================================
+
+  ratingButtons.forEach(
+    btn => {
+
+      btn.onclick =
+        () => {
+
+          selectedRating =
+            Number(
+              btn.dataset.rating
+            );
+
+          ratingButtons.forEach(
+            b => {
+
+              b.style.background =
+                'transparent';
+
+              b.style.borderColor =
+                'var(--bd)';
+
+            }
+          );
+
+          btn.style.background =
+            '#58cc02';
+
+          btn.style.borderColor =
+            '#58cc02';
+
+          selected.textContent =
+            `Nota selecionada: ${selectedRating} ⭐`;
+
+          sendButton.disabled =
+            false;
+
+        };
+
+    }
+  );
+
+
+  // ========================================================
+  // ENVIAR AVALIAÇÃO
+  // ========================================================
+
+  sendButton.onclick =
+    async () => {
+
+      if (
+        !Number.isInteger(
+          selectedRating
+        ) ||
+        selectedRating < 1 ||
+        selectedRating > 5
+      ) {
+
+        msg.textContent =
+          '⚠️ Selecione uma nota de 1 a 5.';
+
+        return;
+      }
+
+      sendButton.disabled =
+        true;
+
+      sendButton.textContent =
+        '⏳ Enviando...';
+
+      msg.textContent = '';
+
+      try {
+
+        await api(
+          `/lessons/${lessonId}/evaluation`,
+          'POST',
+          {
+            rating:
+              selectedRating
+          }
+        );
+
+        msg.textContent =
+          '✅ Avaliação enviada com sucesso!';
+
+        ratingButtons.forEach(
+          b => {
+
+            b.disabled =
+              true;
+
+            b.style.cursor =
+              'default';
+
+          }
+        );
+
+        sendButton.textContent =
+          '✅ Avaliação enviada';
+
+      } catch (e) {
+
+        msg.textContent =
+          '❌ ' +
+          (
+            e.message ||
+            'Não foi possível enviar a avaliação.'
+          );
+
+        sendButton.disabled =
+          false;
+
+        sendButton.textContent =
+          '📤 Enviar avaliação';
+      }
+
+    };
+
+};   // <-- FECHA O finish()
 
 // ============================================================
 // GESTÃO FINANCEIRA
@@ -1634,12 +3531,13 @@ const voltar =
   '<button class="link" onclick="gestao()">← Gestão financeira</button>';
 
 async function mesAtual() {
-  const es = (
-    await api(
-      '/finance?month=' +
+  const es =
+    (
+      await api(
+        '/finance?month=' +
         hojeStr().slice(0, 7)
-    )
-  ).entries;
+      )
+    ).entries;
 
   const s = k =>
     es
@@ -1668,18 +3566,21 @@ function gestao() {
       'Registre receitas e gastos e veja para onde vai seu dinheiro',
       'gastos()'
     ],
+
     [
       '💹',
       'Simulador',
       'Veja seu dinheiro crescer com rendimento, receitas e gastos',
       'sim()'
     ],
+
     [
       '🛟',
       'Reserva de emergência',
       'Descubra quanto guardar para os imprevistos',
       'reserva()'
     ],
+
     [
       '📐',
       'Regra 50/30/20',
@@ -1698,6 +3599,7 @@ function gestao() {
     </p>
 
     <div class="tools">
+
       ${tools
         .map(
           ([i, t, d, f]) => `
@@ -1705,7 +3607,6 @@ function gestao() {
               class="tool"
               onclick="${f}"
             >
-
               <span>
                 ${i}
               </span>
@@ -1717,11 +3618,11 @@ function gestao() {
               <small class="mut">
                 ${d}
               </small>
-
             </button>
           `
         )
         .join('')}
+
     </div>
   `;
 }
@@ -1730,7 +3631,8 @@ function gestao() {
 // GASTOS
 // ============================================================
 
-let GM = hojeStr().slice(0, 7);
+let GM =
+  hojeStr().slice(0, 7);
 
 async function gastos(m) {
   if (
@@ -1740,10 +3642,11 @@ async function gastos(m) {
     GM = m;
   }
 
-  const { entries: es } =
-    await api(
-      '/finance?month=' + GM
-    );
+  const {
+    entries: es
+  } = await api(
+    '/finance?month=' + GM
+  );
 
   const soma = k =>
     es
@@ -1753,14 +3656,10 @@ async function gastos(m) {
         0
       );
 
-  const rec =
-    soma('receita');
+  const rec = soma('receita');
+  const gas = soma('gasto');
 
-  const gas =
-    soma('gasto');
-
-  const saldo =
-    rec - gas;
+  const saldo = rec - gas;
 
   const por = {};
 
@@ -1774,11 +3673,10 @@ async function gastos(m) {
         e.amount;
     });
 
-  const cats = Object.entries(
-    por
-  ).sort(
-    (a, b) => b[1] - a[1]
-  );
+  const cats =
+    Object.entries(por).sort(
+      (a, b) => b[1] - a[1]
+    );
 
   const dia =
     GM === hojeStr().slice(0, 7)
@@ -1955,8 +3853,7 @@ async function gastos(m) {
                       ${
                         gas
                           ? Math.round(
-                              (v / gas) *
-                                100
+                              (v / gas) * 100
                             )
                           : 0
                       }%
@@ -1969,8 +3866,7 @@ async function gastos(m) {
                       style="
                         width:${
                           gas
-                            ? (v / gas) *
-                              100
+                            ? (v / gas) * 100
                             : 0
                         }%
                       "
@@ -2055,6 +3951,7 @@ async function gastos(m) {
         </p>
       `
     }
+
   `;
 
   catsLanc();
@@ -2074,9 +3971,8 @@ function catsLanc() {
 }
 
 async function addLanc() {
-  const v = num(
-    $('lv').value
-  );
+  const v =
+    num($('lv').value);
 
   if (!v) {
     $('lerr').textContent =
@@ -2093,11 +3989,17 @@ async function addLanc() {
       '/finance',
       'POST',
       {
-        kind: $('lk').value,
-        category: $('lc').value,
+        kind:
+          $('lk').value,
+
+        category:
+          $('lc').value,
+
         description:
           $('ld').value.trim(),
+
         amount: v,
+
         day: dia
       }
     );
@@ -2105,20 +4007,22 @@ async function addLanc() {
     gastos(
       dia.slice(0, 7)
     );
+
   } catch (e) {
     $('lerr').textContent =
       e.message;
   }
 }
 
-const delLanc = async id => {
-  await api(
-    '/finance/' + id,
-    'DELETE'
-  );
+const delLanc =
+  async id => {
+    await api(
+      '/finance/' + id,
+      'DELETE'
+    );
 
-  gastos();
-};
+    gastos();
+  };
 
 // ============================================================
 // SIMULADOR
@@ -2172,7 +4076,8 @@ function sim() {
 
     <p class="mut">
       Veja como seu dinheiro evolui com receitas,
-      gastos e rendimento, e quando você chega à sua meta.
+      gastos e rendimento, e quando você chega à
+      sua meta.
     </p>
 
     <div class="card">
@@ -2438,54 +4343,57 @@ function calcSim() {
       (mx - mn || 1)) *
       H;
 
-  const line = k => `
-    <polyline
-      fill="none"
-      stroke="${
-        k === 'a'
-          ? '#58cc02'
-          : '#1cb0f6'
-      }"
-      stroke-width="3"
-      points="${
-        pts
-          .map(
-            p =>
-              X(p.m).toFixed(1) +
-              ',' +
-              Y(p[k]).toFixed(1)
-          )
-          .join(' ')
-      }"
-    />
-  `;
+  const line = k =>
+    `
+      <polyline
+        fill="none"
+        stroke="${
+          k === 'a'
+            ? '#58cc02'
+            : '#1cb0f6'
+        }"
+        stroke-width="3"
+        points="
+          ${
+            pts
+              .map(
+                p =>
+                  X(p.m).toFixed(1) +
+                  ',' +
+                  Y(p[k]).toFixed(1)
+              )
+              .join(' ')
+          }
+        "
+      />
+    `;
 
   const metaTxt =
     !meta
       ? ''
       : mesMeta === null
-      ? `
-        <p class="err">
-          🎯 Com esses números,
-          você não chega a
-          ${brl(meta)}
-          em ${anos} ano(s).
-        </p>
-      `
-      : `
-        <p style="color:var(--g)">
-          <b>
-            🎯 Meta de ${brl(meta)}
-            atingida em
-            ${Math.floor(
-              mesMeta / 12
-            )}
-            ano(s) e
-            ${mesMeta % 12}
-            mês(es)!
-          </b>
-        </p>
-      `;
+        ? `
+          <p class="err">
+            🎯 Com esses números,
+            você não chega a
+            ${brl(meta)}
+            em ${anos} ano(s).
+          </p>
+        `
+        : `
+          <p style="color:var(--g)">
+            <b>
+              🎯 Meta de ${brl(meta)}
+              atingida em
+              ${Math.floor(
+                mesMeta / 12
+              )}
+              ano(s) e
+              ${mesMeta % 12}
+              mês(es)!
+            </b>
+          </p>
+        `;
 
   $('res').innerHTML = `
     <div class="card">
@@ -2497,7 +4405,6 @@ function calcSim() {
 
       <p>
         Sobra (ou falta) por mês:
-
         <strong>
           ${brl(net)}
         </strong>
@@ -2505,7 +4412,6 @@ function calcSim() {
 
       <p>
         Saldo final com rendimento:
-
         <strong>
           ${brl(a)}
         </strong>
@@ -2518,22 +4424,21 @@ function calcSim() {
 
       <p>
         Rendimento acumulado:
-
         <strong>
           ${brl(a - b)}
         </strong>
       </p>
 
       <p>
-        Valor em poder de compra de hoje
+        Valor em poder de compra
+        de hoje
         (descontada a inflação):
-
         ${brl(
           a /
-            Math.pow(
-              infl,
-              anos * 12
-            )
+          Math.pow(
+            infl,
+            anos * 12
+          )
         )}
       </p>
 
@@ -2577,7 +4482,6 @@ function calcSim() {
         <span style="color:#58cc02">
           ■
         </span>
-
         com rendimento
 
         &nbsp;
@@ -2585,7 +4489,6 @@ function calcSim() {
         <span style="color:#1cb0f6">
           ■
         </span>
-
         sem rendimento
       </p>
 
@@ -2604,7 +4507,6 @@ function calcSim() {
       >
 
         <tr>
-
           <th style="text-align:left">
             Ano
           </th>
@@ -2616,11 +4518,12 @@ function calcSim() {
           <th>
             Sem rendimento
           </th>
-
         </tr>
 
         ${Array.from(
-          { length: anos },
+          {
+            length: anos
+          },
           (_, y) => `
             <tr>
 
@@ -2654,7 +4557,8 @@ function calcSim() {
 
     <p class="mut">
       Simulação educativa:
-      taxa constante, sem impostos e sem tarifas.
+      taxa constante,
+      sem impostos e sem tarifas.
       Não é recomendação de investimento.
     </p>
   `;
@@ -2674,8 +4578,9 @@ async function reserva() {
 
     <p class="mut">
       A reserva cobre imprevistos,
-      como perda de renda ou problemas de saúde.
-      O comum é guardar de 3 a 12 meses dos seus gastos.
+      como perda de renda ou problemas
+      de saúde. O comum é guardar de
+      3 a 12 meses dos seus gastos.
     </p>
 
     <div class="card">
@@ -2739,8 +4644,9 @@ async function reserva() {
   `;
 
   try {
-    const { gas } =
-      await mesAtual();
+    const {
+      gas
+    } = await mesAtual();
 
     if (gas) {
       $('rg').value =
@@ -2773,33 +4679,36 @@ function calcReserva() {
       alvo - tem
     );
 
-  const pct = alvo
-    ? Math.min(
-        100,
-        Math.round(
-          (tem / alvo) *
-            100
+  const pct =
+    alvo
+      ? Math.min(
+          100,
+          Math.round(
+            (tem / alvo) * 100
+          )
         )
-      )
-    : 0;
+      : 0;
 
   const prazo =
     !alvo
       ? 'Informe seu gasto mensal.'
       : falta === 0
-      ? 'Você já atingiu a reserva! 🎉'
-      : mes
-      ? `
-        Guardando ${brl(mes)}
-        por mês, você completa
-        em ${Math.ceil(
-          falta / mes
-        )} mês(es).
-      `
-      : `
-        Informe quanto consegue
-        guardar por mês para ver o prazo.
-      `;
+        ? 'Você já atingiu a reserva! 🎉'
+        : mes
+          ? `
+            Guardando ${brl(mes)}
+            por mês, você completa
+            em
+            ${Math.ceil(
+              falta / mes
+            )}
+            mês(es).
+          `
+          : `
+            Informe quanto consegue
+            guardar por mês para ver
+            o prazo.
+          `;
 
   $('res').innerHTML = `
     <div class="card">
@@ -2816,9 +4725,12 @@ function calcReserva() {
       </div>
 
       <p>
-        Você tem ${brl(tem)}
+        Você tem
+        ${brl(tem)}
         (${pct}%).
-        Falta ${brl(falta)}.
+
+        Falta
+        ${brl(falta)}.
       </p>
 
       <p>
@@ -2878,7 +4790,8 @@ async function regra() {
     const m =
       await mesAtual();
 
-    window.REGRA = m.es;
+    window.REGRA =
+      m.es;
 
     if (m.rec) {
       $('rr').value =
@@ -2894,18 +4807,22 @@ function calcRegra() {
     num($('rr').value);
 
   const es =
-    (window.REGRA || [])
-      .filter(
-        e => e.kind === 'gasto'
-      );
+    (
+      window.REGRA || []
+    ).filter(
+      e => e.kind === 'gasto'
+    );
 
   const tem =
     es.length > 0;
 
   const s = L =>
     es
-      .filter(e =>
-        L.includes(e.category)
+      .filter(
+        e =>
+          L.includes(
+            e.category
+          )
       )
       .reduce(
         (t, e) =>
@@ -2922,68 +4839,74 @@ function calcRegra() {
   const poup =
     r - nec - des;
 
-  const linha =
-    (nome, p, real) => `
-      <div class="card">
+  const linha = (
+    nome,
+    p,
+    real
+  ) => `
+    <div class="card">
 
-        <div class="row">
+      <div class="row">
 
-          <b>
-            ${nome}
-          </b>
+        <b>
+          ${nome}
+        </b>
 
-          <span>
-            ideal: ${p}%
-            · ${brl(
-              (r * p) / 100
-            )}
-          </span>
-
-        </div>
-
-        ${
-          tem
-            ? `
-              <div class="bar">
-
-                <div
-                  style="
-                    width:${
-                      r
-                        ? Math.min(
-                            100,
-                            Math.max(
-                              0,
-                              real
-                            ) /
-                              r *
-                              100
-                          )
-                        : 0
-                    }%
-                  "
-                ></div>
-
-              </div>
-
-              <small class="mut">
-                No seu mês:
-                ${brl(real)}
-                (${
-                  r
-                    ? Math.round(
-                        (real / r) *
-                          100
-                      )
-                    : 0
-                }%)
-              </small>
-            `
-            : ''
-        }
+        <span>
+          ideal: ${p}%
+          ·
+          ${brl(
+            (r * p) / 100
+          )}
+        </span>
 
       </div>
-    `;
+
+      ${
+        tem
+          ? `
+            <div class="bar">
+
+              <div
+                style="
+                  width:${
+                    r
+                      ? Math.min(
+                          100,
+                          Math.max(
+                            0,
+                            real
+                          ) /
+                            r *
+                            100
+                        )
+                      : 0
+                  }%
+                "
+              ></div>
+
+            </div>
+
+            <small class="mut">
+              No seu mês:
+              ${brl(real)}
+              (
+              ${
+                r
+                  ? Math.round(
+                      (real / r) *
+                      100
+                    )
+                  : 0
+              }%
+              )
+            </small>
+          `
+          : ''
+      }
+
+    </div>
+  `;
 
   $('res').innerHTML =
     linha(
@@ -3015,6 +4938,247 @@ function calcRegra() {
           </p>
         `
     );
+}
+
+// ============================================================
+// PAINEL DE DÚVIDAS (CHAT)
+// ============================================================
+
+const ROLE_LABEL = {
+  adm: 'Administrador',
+  professor: 'Professor',
+  comum: 'Aluno'
+};
+
+const fmtDoubtDate = iso => {
+  const d = new Date(iso);
+
+  return isNaN(d)
+    ? ''
+    : d.toLocaleString('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short'
+      });
+};
+
+let doubtsTrackFilter = '';
+
+function doubtBubble(m, reply) {
+  const staffAuthor = m.author.role !== 'comum';
+
+  return `
+    <div style="
+      margin-top:8px;
+      ${reply ? 'margin-left:18px;' : ''}
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px solid ${staffAuthor ? '#58cc02' : 'var(--bd)'};
+    ">
+      <div style="
+        display:flex;
+        gap:8px;
+        align-items:center;
+        flex-wrap:wrap;
+      ">
+        <b>${esc(m.author.name)}</b>
+        ${
+          staffAuthor
+            ? `<span class="mut" style="font-size:12px">
+                 · ${esc(ROLE_LABEL[m.author.role] || '')}
+               </span>`
+            : ''
+        }
+        <span class="mut" style="font-size:12px">
+          ${esc(fmtDoubtDate(m.created_at))}
+        </span>
+        ${
+          m.can_delete
+            ? `<button
+                 class="btn sm red"
+                 style="margin-left:auto"
+                 onclick="delDoubt(${m.id})"
+               >🗑️</button>`
+            : ''
+        }
+      </div>
+      <div style="
+        margin-top:6px;
+        white-space:pre-wrap;
+        word-break:break-word;
+      ">${esc(m.body)}</div>
+    </div>
+  `;
+}
+
+async function doubts() {
+  main.innerHTML =
+    '<div class="card"><p class="mut">Carregando dúvidas…</p></div>';
+
+  let data;
+
+  try {
+    const q = doubtsTrackFilter
+      ? '?track_id=' + encodeURIComponent(doubtsTrackFilter)
+      : '';
+
+    data = await api('/doubts' + q);
+  } catch (e) {
+    main.innerHTML = `
+      <div class="card">
+        <p>❌ ${esc(e.message || 'Não foi possível carregar as dúvidas.')}</p>
+        <button class="btn" onclick="home()">Voltar</button>
+      </div>`;
+    return;
+  }
+
+  const list = arr(data.doubts);
+  const tracks = arr(data.tracks);
+  const staffUser = ['adm', 'professor'].includes(me()?.role);
+
+  const trackOptions = tracks
+    .map(
+      t => `<option value="${t.id}">${esc(t.title)}</option>`
+    )
+    .join('');
+
+  main.innerHTML = `
+    <div class="card">
+      <h2>💬 Painel de dúvidas</h2>
+      <p class="mut">
+        ${
+          staffUser
+            ? 'Responda as dúvidas dos alunos. Você pode excluir mensagens inadequadas.'
+            : 'Tem alguma dúvida? Escreva aqui e um professor vai responder.'
+        }
+      </p>
+
+      <textarea
+        id="doubtText"
+        maxlength="1000"
+        rows="3"
+        placeholder="Escreva sua dúvida…"
+        style="width:100%;margin-top:8px"
+      ></textarea>
+
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <select id="doubtTrack" style="width:auto">
+          <option value="">Sem trilha específica</option>
+          ${trackOptions}
+        </select>
+        <button class="btn" onclick="sendDoubt()">📤 Enviar dúvida</button>
+      </div>
+      <div id="doubtMsg" class="mut" style="margin-top:6px"></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <label class="mut">Filtrar por trilha:</label>
+      <select id="doubtFilter" style="width:auto" onchange="filterDoubts(this.value)">
+        <option value="">Todas</option>
+        ${trackOptions}
+      </select>
+    </div>
+
+    ${
+      list.length
+        ? list
+            .map(
+              d => `
+        <div class="card" style="margin-top:12px">
+          <div class="mut" style="font-size:12px">
+            ${d.track_title ? '📚 ' + esc(d.track_title) + ' · ' : ''}
+            ${d.answered ? '✅ Respondida' : '⏳ Aguardando resposta'}
+          </div>
+
+          ${doubtBubble(d, false)}
+          ${arr(d.replies).map(r => doubtBubble(r, true)).join('')}
+
+          ${
+            staffUser || d.mine
+              ? `<div style="display:flex;gap:8px;margin-top:10px">
+                   <input
+                     id="reply-${d.id}"
+                     maxlength="1000"
+                     placeholder="${staffUser ? 'Responder…' : 'Adicionar mensagem…'}"
+                     style="flex:1"
+                   >
+                   <button class="btn sm" onclick="sendReply(${d.id})">Enviar</button>
+                 </div>`
+              : ''
+          }
+        </div>`
+            )
+            .join('')
+        : '<div class="card" style="margin-top:12px"><p class="mut">Nenhuma dúvida por aqui ainda.</p></div>'
+    }
+
+    <button class="btn" onclick="home()" style="width:100%;margin-top:16px">
+      Voltar às trilhas
+    </button>
+  `;
+
+  const filter = document.getElementById('doubtFilter');
+
+  if (filter) {
+    filter.value = doubtsTrackFilter;
+  }
+}
+
+function filterDoubts(value) {
+  doubtsTrackFilter = value;
+  doubts();
+}
+
+async function sendDoubt() {
+  const text = document.getElementById('doubtText');
+  const track = document.getElementById('doubtTrack');
+  const msg = document.getElementById('doubtMsg');
+
+  if (!text.value.trim()) {
+    msg.textContent = '⚠️ Escreva sua dúvida.';
+    return;
+  }
+
+  try {
+    await api('/doubts', 'POST', {
+      body: text.value,
+      track_id: track.value || null
+    });
+
+    await doubts();
+  } catch (e) {
+    msg.textContent = '❌ ' + (e.message || 'Não foi possível enviar.');
+  }
+}
+
+async function sendReply(id) {
+  const input = document.getElementById('reply-' + id);
+
+  if (!input || !input.value.trim()) {
+    return;
+  }
+
+  try {
+    await api(`/doubts/${id}/replies`, 'POST', {
+      body: input.value
+    });
+
+    await doubts();
+  } catch (e) {
+    alert(e.message || 'Não foi possível enviar a resposta.');
+  }
+}
+
+async function delDoubt(id) {
+  if (!confirm('Excluir esta mensagem? Se for uma dúvida, as respostas também serão excluídas.')) {
+    return;
+  }
+
+  try {
+    await api(`/doubts/${id}`, 'DELETE');
+    await doubts();
+  } catch (e) {
+    alert(e.message || 'Não foi possível excluir.');
+  }
 }
 
 // ============================================================

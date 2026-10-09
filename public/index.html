@@ -9,25 +9,41 @@
 
     <link rel="stylesheet" href="css/style.css">
 
-    <link rel="icon" href="css/images/dranix_icon_white_nobackground.png" type="image/png">
+    <link
+        rel="icon"
+        href="css/images/dranix_icon_white_nobackground.png"
+        type="image/png"
+    >
 </head>
 
-<body>
-<div class="wrap">
+<body class="login-page">
 
-    <section class="hero">
+<div class="wrap login-wrap">
+
+    <section class="hero login-hero">
         <img
             src="css/images/dranix_logo_white_nobackground.png"
             alt="Logo da marca"
         >
     </section>
 
-    <div class="tabs">
-        <button class="btn" id="tl">Entrar</button>
-        <button class="btn sec" id="tr">Criar conta</button>
+    <div class="tabs login-tabs">
+        <button
+            class="btn"
+            id="tl"
+        >
+            Entrar
+        </button>
+
+        <button
+            class="btn sec"
+            id="tr"
+        >
+            Criar conta
+        </button>
     </div>
 
-    <div class="card">
+    <div class="card login-card">
 
         <!-- Nome -->
         <input
@@ -45,7 +61,7 @@
         >
 
         <!-- Senha -->
-       <div class="senha-box">
+        <div class="senha-box">
             <input
                 id="pass"
                 type="password"
@@ -57,12 +73,16 @@
                 class="senha-btn"
                 onclick="mostrarSenha('pass', this)"
                 aria-label="Mostrar senha"
-            >👁</button>
+            >
+                👁
+            </button>
         </div>
 
         <!-- Confirmar senha -->
-      
-        <div class="senha-box hide" id="passConfirmBox">
+        <div
+            class="senha-box hide"
+            id="passConfirmBox"
+        >
             <input
                 id="passConfirm"
                 type="password"
@@ -74,11 +94,16 @@
                 class="senha-btn"
                 onclick="mostrarSenha('passConfirm', this)"
                 aria-label="Mostrar senha"
-            >👁</button>
+            >
+                👁
+            </button>
         </div>
 
         <!-- Mensagem de erro -->
-        <div class="err" id="err"></div>
+        <div
+            class="err"
+            id="err"
+        ></div>
 
         <!-- Botão -->
         <button
@@ -105,7 +130,9 @@
             ℹ️ Sobre
         </button>
 
-        <span class="footer-separator">•</span>
+        <span class="footer-separator">
+            •
+        </span>
 
         <button
             type="button"
@@ -114,7 +141,9 @@
             👥 Equipe
         </button>
 
-        <span class="footer-separator">•</span>
+        <span class="footer-separator">
+            •
+        </span>
 
         <button
             type="button"
@@ -129,7 +158,7 @@
 
 <script src="js/api.js"></script>
 <script src="js/loginsplash.js"></script>
- <script src="js/theme.js"></script>
+<script src="js/theme.js"></script>
 
 </body>
 </html>

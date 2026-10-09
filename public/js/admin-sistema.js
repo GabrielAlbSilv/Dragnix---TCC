@@ -1,3 +1,16 @@
+// Somente administradores acessam o sistema (professores não).
+(() => {
+  try {
+    const u = JSON.parse(localStorage.getItem('user') || 'null');
+
+    if (!localStorage.getItem('token') || u?.role !== 'adm') {
+      window.location.replace('admin.html');
+    }
+  } catch {
+    window.location.replace('/');
+  }
+})();
+
 document.addEventListener(
   'DOMContentLoaded',
   () => {

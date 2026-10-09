@@ -1683,6 +1683,8 @@ function registerBackupRoutes(
             DELETE FROM badges;
             DELETE FROM claims;
             DELETE FROM finance;
+            DELETE FROM lesson_evaluations;
+            DELETE FROM track_evaluations;
           `);
 
           db.exec(`
