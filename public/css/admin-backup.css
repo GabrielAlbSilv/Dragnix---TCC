@@ -333,27 +333,245 @@
 
 
 /* ============================================================
-   NAVEGAÇÃO
+   MENU DO PAINEL (BOTÃO DE TRÊS TRACINHOS)
    ============================================================ */
 
-.admin-nav {
+.admin-menu {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.admin-menu-toggle {
+    width: 44px;
+    height: 44px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 0;
+
+    border: 2px solid var(--theme-border);
+    border-radius: 12px;
+
+    background: var(--theme-surface);
+    color: var(--theme-text);
+
+    font-size: 22px;
+
+    cursor: pointer;
+
+    transition:
+        background-color .15s ease,
+        border-color .15s ease,
+        color .15s ease;
+}
+
+.admin-menu-toggle:hover {
+    background: var(--theme-hover);
+    border-color: var(--g);
+}
+
+.admin-menu-toggle:focus-visible,
+.admin-menu-item:focus-visible {
+    outline: 2px solid var(--g);
+    outline-offset: 2px;
+}
+
+.admin-menu.open .admin-menu-toggle {
+    border-color: var(--g);
+    color: var(--g);
+}
+
+.admin-menu-toggle .lucide-icon {
+    margin-right: 0;
+}
+
+
+/* Painel que abre ao clicar */
+
+.admin-menu-panel {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+
+    z-index: 1000;
+
+    min-width: 250px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    padding: 8px;
+
+    box-sizing: border-box;
+
+    border: 2px solid var(--theme-border);
+    border-radius: 14px;
+
+    background: var(--theme-surface);
+
+    box-shadow: 0 12px 32px rgba(0, 0, 0, .18);
+
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px) scale(.98);
+    transform-origin: top right;
+
+    transition:
+        opacity .15s ease,
+        transform .15s ease,
+        visibility .15s ease;
+}
+
+.admin-menu.open .admin-menu-panel {
+    opacity: 1;
+    visibility: visible;
+    transform: none;
+}
+
+
+/* Opções */
+
+.admin-menu-item {
+    width: 100%;
+
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-
     gap: 10px;
 
-    flex-wrap: wrap;
+    padding: 11px 14px;
+
+    box-sizing: border-box;
+
+    border: 0;
+    border-radius: 10px;
+
+    background: transparent;
+    color: var(--theme-text);
+
+    font: inherit;
+    font-weight: 700;
+    text-align: left;
+    text-decoration: none;
+
+    cursor: pointer;
+
+    transition:
+        background-color .12s ease,
+        color .12s ease;
 }
 
-.admin-nav-main,
-.admin-nav-exit {
-    display: flex;
-    align-items: center;
+.admin-menu-item .lucide-icon {
+    width: 1.25em;
+    height: 1.25em;
 
-    gap: 8px;
+    margin-right: 0;
+
+    color: var(--theme-text-secondary);
+
+    transition: color .12s ease;
 }
 
+.admin-menu-item:hover {
+    background: var(--theme-hover);
+}
+
+.admin-menu-item:hover .lucide-icon {
+    color: var(--g);
+}
+
+.admin-menu-divider {
+    height: 2px;
+
+    margin: 6px 4px;
+
+    border-radius: 2px;
+
+    background: var(--theme-border);
+}
+
+.admin-menu-danger,
+.admin-menu-danger .lucide-icon {
+    color: var(--red, #ff4b4b);
+}
+
+.admin-menu-danger:hover {
+    background: rgba(255, 75, 75, .12);
+}
+
+.admin-menu-danger:hover .lucide-icon {
+    color: var(--red, #ff4b4b);
+}
+
+
+/* ============================================================
+   STATUS / PREVIEW — ÁREA ANTIGA
+   ============================================================ */
+
+.backup-status {
+    width: 100%;
+    max-width: 1400px;
+
+    margin: 0 auto;
+
+    padding: 0 20px 10px;
+
+    box-sizing: border-box;
+
+    min-height: 20px;
+
+    font-size: 14px;
+}
+
+
+/* ============================================================
+   RESPONSIVO — CELULAR
+   ============================================================ */
+
+@media (max-width: 700px) {
+
+    .admin-header-inner {
+        gap: 10px;
+    }
+
+    .admin-action-btn {
+        flex: 1 1 auto;
+    }
+
+}
+
+
+/* ============================================================
+   RESPONSIVO — CELULAR PEQUENO
+   ============================================================ */
+
+@media (max-width: 450px) {
+
+    .admin-header-inner {
+        padding: 8px 12px;
+    }
+
+    .admin-brand .trilhas-title {
+        font-size: 15px;
+    }
+
+    .admin-brand .trilhas-icon,
+    .admin-brand img {
+        width: 40px;
+        height: 40px;
+    }
+
+    .admin-action-btn {
+        width: 100%;
+    }
+
+    .admin-menu-panel {
+        min-width: min(280px, calc(100vw - 24px));
+    }
+
+}
 
 /* ============================================================
    LINKS DO ADM

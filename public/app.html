@@ -1,4 +1,3 @@
-
 <!doctype html>
 
 <html lang="pt-BR">
@@ -32,6 +31,35 @@
         href="css/app.css"
     >
 
+    <style>
+        /* Logo clicável */
+        .logo-home {
+            background: none;
+            border: 0;
+            padding: 0;
+            margin: 0;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            color: inherit;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+
+        .logo-home img {
+            transition: transform .15s ease;
+        }
+
+        .logo-home:hover img {
+            transform: scale(1.08);
+        }
+
+        .logo-home:focus-visible {
+            outline: 2px solid currentColor;
+            outline-offset: 3px;
+        }
+    </style>
+
 </head>
 
 <body>
@@ -40,11 +68,21 @@
 
         <strong class="trilhas-title">
 
-            <img
-                src="css/images/dranix_icon_white_nobackground.png"
-                alt="Dragão"
-                class="trilhas-icon"
+            <button
+                type="button"
+                class="logo-home"
+                onclick="home()"
+                title="Ir para a página principal"
+                aria-label="Ir para a página principal"
             >
+
+                <img
+                    src="css/images/dranix_icon_white_nobackground.png"
+                    alt="Dragão"
+                    class="trilhas-icon"
+                >
+
+            </button>
 
             Minhas trilhas
 
@@ -88,7 +126,7 @@
                 onclick="home()"
             >
 
-                <span class="app-nav-icon">🗺️</span>
+                <span class="app-nav-icon"><i data-lucide="map"></i></span>
 
                 <span class="app-nav-content">
 
@@ -109,7 +147,7 @@
                 onclick="badges()"
             >
 
-                <span class="app-nav-icon">🏅</span>
+                <span class="app-nav-icon"><i data-lucide="award"></i></span>
 
                 <span class="app-nav-content">
 
@@ -130,7 +168,7 @@
                 onclick="profile()"
             >
 
-                <span class="app-nav-icon">👤</span>
+                <span class="app-nav-icon"><i data-lucide="user-round"></i></span>
 
                 <span class="app-nav-content">
 
@@ -151,7 +189,7 @@
                 onclick="rank()"
             >
 
-                <span class="app-nav-icon">🏆</span>
+                <span class="app-nav-icon"><i data-lucide="trophy"></i></span>
 
                 <span class="app-nav-content">
 
@@ -169,10 +207,31 @@
             <button
                 class="app-nav-button"
                 type="button"
+                onclick="doubts()"
+            >
+
+                <span class="app-nav-icon"><i data-lucide="message-square"></i></span>
+
+                <span class="app-nav-content">
+
+                    <strong>Dúvidas</strong>
+
+                    <small>
+                        Tire suas dúvidas com os professores.
+                    </small>
+
+                </span>
+
+            </button>
+
+
+            <button
+                class="app-nav-button"
+                type="button"
                 onclick="gestao()"
             >
 
-                <span class="app-nav-icon">💼</span>
+                <span class="app-nav-icon"><i data-lucide="briefcase"></i></span>
 
                 <span class="app-nav-content">
 
@@ -201,7 +260,7 @@
                 href="admin.html"
             >
 
-                <span class="app-nav-icon">🛡️</span>
+                <span class="app-nav-icon"><i data-lucide="shield"></i></span>
 
                 <span class="app-nav-content">
 
@@ -223,7 +282,7 @@
                 onclick="toggleTheme()"
             >
 
-                <span class="app-nav-icon theme-button-icon">🌙</span>
+                <span class="app-nav-icon theme-button-icon"><i data-lucide="moon"></i></span>
 
                 <span class="app-nav-content">
 
@@ -246,7 +305,7 @@
                 onclick="logout()"
             >
 
-                <span class="app-nav-icon">🚪</span>
+                <span class="app-nav-icon"><i data-lucide="log-out"></i></span>
 
                 <span class="app-nav-content">
 
@@ -272,6 +331,7 @@
 
 
     <script src="js/api.js"></script>
+    <script src="js/icons.js"></script>
     <script src="js/theme.js"></script>
     <script src="js/app.js"></script>
 

@@ -26,6 +26,35 @@
         rel="stylesheet"
         href="css/admin-backup.css"
     >
+    <style>
+        /* Logo clicável */
+        .logo-home {
+            background: none;
+            border: 0;
+            padding: 0;
+            margin: 0;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            color: inherit;
+            text-decoration: none;
+            border-radius: 8px;
+        }
+
+        .logo-home img {
+            transition: transform .15s ease;
+        }
+
+        .logo-home:hover img {
+            transform: scale(1.08);
+        }
+
+        .logo-home:focus-visible {
+            outline: 2px solid currentColor;
+            outline-offset: 3px;
+        }
+    </style>
+
 </head>
 
 <body>
@@ -40,11 +69,20 @@
         <!-- Logo / título -->
         <div class="admin-brand">
 
-            <img
-                src="css/images/dranix_icon_white_nobackground.png"
-                alt="Dragão"
-                class="trilhas-icon"
+            <a
+                href="admin.html"
+                class="logo-home"
+                title="Ir para a página principal do painel"
+                aria-label="Ir para a página principal do painel"
             >
+
+                <img
+                    src="css/images/dranix_icon_white_nobackground.png"
+                    alt="Dragão"
+                    class="trilhas-icon"
+                >
+
+            </a>
 
             <strong class="trilhas-title">
                 Dragnix — Painel ADM
@@ -53,61 +91,70 @@
         </div>
 
 
-        <!-- Navegação -->
-        <nav class="admin-nav">
+        <!-- Menu (botão de três tracinhos) -->
+        <div class="admin-menu" id="adminMenu">
 
-            <div class="admin-nav-main">
+            <button
+                type="button"
+                class="admin-menu-toggle"
+                id="adminMenuToggle"
+                aria-label="Abrir menu"
+                aria-expanded="false"
+                aria-controls="adminMenuPanel"
+            >
+                <i data-lucide="menu" id="adminMenuIcon"></i>
+            </button>
+
+            <nav
+                class="admin-menu-panel"
+                id="adminMenuPanel"
+                aria-label="Menu do painel"
+            >
 
                 <button
                     type="button"
-                    class="link"
+                    class="admin-menu-item"
                     id="t1"
                 >
-                    Trilhas
+                    <i data-lucide="route"></i> Trilhas
                 </button>
 
                 <button
                     type="button"
-                    class="link"
+                    class="admin-menu-item"
                     id="t2"
                 >
-                    Usuários
+                    <i data-lucide="users"></i> Usuários
                 </button>
 
                 <a
                     href="app.html"
-                    class="admin-link"
+                    class="admin-menu-item"
                 >
-                    Ver como aluno
+                    <i data-lucide="graduation-cap"></i> Ver como aluno
                 </a>
-
-            </div>
-
-
-            <!-- Sistema / Banco -->
-            <button
-                type="button"
-                class="admin-action-btn"
-                onclick="window.location.href='admin-sistema.html'"
-            >
-                ⚙️ Sistema / Banco
-            </button>
-
-
-            <!-- Sair -->
-            <div class="admin-nav-exit">
 
                 <button
                     type="button"
-                    class="link admin-exit-btn"
-                    onclick="logout()"
+                    class="admin-menu-item adm-only"
+                    onclick="window.location.href='admin-sistema.html'"
                 >
-                    Sair
+                    <i data-lucide="settings"></i> Sistema / Banco
                 </button>
 
-            </div>
+                <div class="admin-menu-divider"></div>
 
-        </nav>
+                <button
+                    type="button"
+                    class="admin-menu-item admin-menu-danger"
+                    onclick="logout()"
+                >
+                    <i data-lucide="log-out"></i> Sair
+                </button>
+
+            </nav>
+
+        </div>
 
     </div>
 
@@ -166,9 +213,54 @@
     <!-- JAVASCRIPT -->
     <!-- ====================================================== -->
 
+    <script src="js/icons.js"></script>
     <script src="js/api.js"></script>
     <script src="js/admin.js"></script>
     <script src="js/theme.js"></script>
+
+    <script>
+        /* Menu do painel (três tracinhos) */
+        (function () {
+
+            const menu = document.getElementById('adminMenu');
+            const toggle = document.getElementById('adminMenuToggle');
+            const toggleIcon = document.getElementById('adminMenuIcon');
+
+            function setOpen(open) {
+                menu.classList.toggle('open', open);
+                toggle.setAttribute('aria-expanded', String(open));
+                toggle.setAttribute('aria-label', open ? 'Fechar menu' : 'Abrir menu');
+                toggleIcon.setAttribute('data-lucide', open ? 'x' : 'menu');
+            }
+
+            toggle.addEventListener('click', function () {
+                setOpen(!menu.classList.contains('open'));
+            });
+
+            // Clicar em qualquer opção fecha o menu
+            menu.querySelectorAll('.admin-menu-item').forEach(function (item) {
+                item.addEventListener('click', function () {
+                    setOpen(false);
+                });
+            });
+
+            // Clicar fora fecha
+            document.addEventListener('click', function (event) {
+                if (!menu.contains(event.target)) {
+                    setOpen(false);
+                }
+            });
+
+            // Esc fecha
+            document.addEventListener('keydown', function (event) {
+                if (event.key === 'Escape' && menu.classList.contains('open')) {
+                    setOpen(false);
+                    toggle.focus();
+                }
+            });
+
+        })();
+    </script>
 
 </body>
 

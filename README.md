@@ -9,6 +9,7 @@ Configurar acesso em:
 
 ## Perfis
 - **Comum**: cadastro público; acessa trilhas, faz lições, ganha XP.
+- **Professor**: Tudo do comum + `/admin.html` (criar/editar/excluir trilhas, lições e questões), Não consegue manipular o banco, excluir ou promover contas
 - **ADM**:
     Tudo do comum + `/admin.html` (criar/editar/excluir trilhas, lições e questões; promover/rebaixar usuários, gerar e ler backup do banco de dados).
 ## Estrutura

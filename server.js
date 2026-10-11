@@ -127,6 +127,15 @@ app.use(
   express.static(PUBLIC_DIR)
 );
 
+// Ícones Lucide: se um SVG não estiver em public/icons,
+// busca direto no pacote lucide-static (npm install).
+app.use(
+  '/icons',
+  express.static(
+    path.join(__dirname, 'node_modules', 'lucide-static', 'icons')
+  )
+);
+
 // Se os uploads estiverem em um Persistent Disk,
 // eles continuam acessíveis pela URL /uploads/...
 app.use(

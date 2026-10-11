@@ -15,6 +15,14 @@ if (me()?.role === 'professor') {
     .querySelectorAll('.adm-only')
     .forEach(el => (el.style.display = 'none'));
 
+  document.title = 'Dragnix — Painel Professor';
+
+  const brand = document.querySelector('.admin-brand .trilhas-title');
+
+  if (brand) {
+    brand.textContent = 'Dragnix — Painel Professor';
+  }
+
   const usersTab = $('t2');
 
   if (usersTab) {

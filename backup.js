@@ -80,6 +80,10 @@ const REQUIRED_TABLES = [
   'finance'
 ];
 
+// Tabelas que podem não existir em backups antigos (feitos antes de
+// a tabela ser criada). Ao restaurar um backup sem elas, ficam vazias.
+const OPTIONAL_TABLES = ['doubts'];
+
 // ============================================================
 // UTILITÁRIOS
 // ============================================================
@@ -1281,7 +1285,12 @@ function restoreDatabase(
       .sort();
 
   const currentSorted =
-    [...currentTables]
+    currentTables
+      .filter(
+        name =>
+          !OPTIONAL_TABLES.includes(name) ||
+          backupTables.includes(name)
+      )
       .sort();
 
   if (
@@ -1685,6 +1694,7 @@ function registerBackupRoutes(
             DELETE FROM finance;
             DELETE FROM lesson_evaluations;
             DELETE FROM track_evaluations;
+            DELETE FROM doubts;
           `);
 
           db.exec(`

@@ -18,7 +18,22 @@ if (admButton) {
     const currentUser = me();
 
     if (currentUser && ['adm', 'professor'].includes(currentUser.role)) {
+      admButton.classList.remove('hide');
       admButton.style.display = '';
+
+      // Professores veem "Painel Professor"; ADM continua "Painel ADM".
+      if (currentUser.role === 'professor') {
+        const title = admButton.querySelector('strong');
+        const desc = admButton.querySelector('small');
+
+        if (title) {
+          title.textContent = 'Painel Professor';
+        }
+
+        if (desc) {
+          desc.textContent = 'Crie e edite trilhas, módulos e questões.';
+        }
+      }
     }
   } catch (error) {
     console.error('Erro ao verificar usuário:', error);
@@ -58,24 +73,24 @@ const normalizeLesson = lesson => ({
 
 const setStats = d => {
   if ($('xp')) {
-    $('xp').textContent = '⭐ ' + d.xp;
+    $('xp').innerHTML = icon('star') + ' ' + d.xp;
   }
 
   if ($('streak')) {
-    $('streak').textContent = '🔥 ' + d.streak;
+    $('streak').innerHTML = icon('flame') + ' ' + d.streak;
   }
 
   if ($('coins')) {
-    $('coins').textContent = '🪙 ' + d.coins;
+    $('coins').innerHTML = icon('coins') + ' ' + d.coins;
   }
 
   if ($('lvl')) {
-    $('lvl').textContent = '🎖️ Nv ' + d.level;
+    $('lvl').innerHTML = icon('medal') + ' Nv ' + d.level;
   }
 
   if ($('hearts')) {
-    $('hearts').textContent =
-      '❤️ ' +
+    $('hearts').innerHTML =
+      icon('heart') + ' ' +
       d.hearts +
       (d.next ? ` (+1 em ${Math.ceil(d.next / 60)} min)` : '');
   }
@@ -90,7 +105,7 @@ window.addEventListener('unhandledrejection', e => {
 
   main.innerHTML = `
     <div class="card badc">
-      <strong>⚠️ ${esc(e.reason?.message || e.reason)}</strong>
+      <strong>${icon('triangle-alert')} ${esc(e.reason?.message || e.reason)}</strong>
 
       <p class="mut">
         Se a mensagem for "Erro inesperado" ou 404,
@@ -429,7 +444,7 @@ async function home() {
                           "
                         >
 
-                          ⭐
+                          ${icon('star')}
 
                           <b>
                             ${trackAverageRating}
@@ -462,7 +477,7 @@ async function home() {
                           "
                         >
 
-                          ⭐
+                          ${icon('star')}
                           Sem avaliações ainda
 
                         </div>
@@ -496,7 +511,7 @@ async function home() {
 
                         <p class="err">
 
-                          🔒 Para liberar esta trilha,
+                          ${icon('lock')} Para liberar esta trilha,
                           conclua antes:
 
                           ${t.missing
@@ -592,7 +607,7 @@ async function home() {
                               }"
                             >
 
-                              📌
+                              ${icon('pin')}
 
                             </button>
 
@@ -669,11 +684,11 @@ async function home() {
                                 ${
                                   l.locked
 
-                                    ? '🔒'
+                                    ? icon('lock')
 
                                     : l.done
 
-                                      ? '✓'
+                                      ? icon('check')
 
                                       : i + 1
                                 }
@@ -770,12 +785,12 @@ async function home() {
                         "
                         onclick="
                           alert(
-                            'Os desafios chegam em breve! 🏆'
+                            'Os desafios chegam em breve!'
                           )
                         "
                       >
 
-                        🏆
+                        ${icon('trophy')}
 
                       </button>
 
@@ -824,7 +839,7 @@ async function home() {
                               "
                             >
 
-                              🏁
+                              ${icon('flag')}
 
                             </button>
 
@@ -878,7 +893,7 @@ async function home() {
                               "
                             >
 
-                              📝
+                              ${icon('square-pen')}
 
                             </button>
 
@@ -969,7 +984,7 @@ function showTrackConclusion(id) {
         class="btn"
         onclick="home()"
       >
-        ← Voltar às trilhas
+        ${icon('arrow-left')} Voltar às trilhas
       </button>
 
       <h2 style="margin-top:20px">
@@ -986,7 +1001,7 @@ function showTrackConclusion(id) {
       >
 
         <h3>
-          🏁 Conclusão da trilha
+          ${icon('flag')} Conclusão da trilha
         </h3>
 
         <div class="lesson-content">
@@ -1008,7 +1023,7 @@ function showTrackConclusion(id) {
               "
               onclick="showTrackEvaluation(${track.id})"
             >
-              📝 Avaliar trilha
+              ${icon('square-pen')} Avaliar trilha
             </button>
           `
           : ''
@@ -1063,7 +1078,7 @@ function showTrackEvaluation(id) {
         class="btn"
         onclick="home()"
       >
-        ← Voltar às trilhas
+        ${icon('arrow-left')} Voltar às trilhas
       </button>
 
       <h2 style="margin-top:20px">
@@ -1081,7 +1096,7 @@ function showTrackEvaluation(id) {
       >
 
         <h3>
-          📝 Avaliação da trilha
+          ${icon('square-pen')} Avaliação da trilha
         </h3>
 
         <p>
@@ -1122,7 +1137,7 @@ function showTrackEvaluation(id) {
                     cursor:pointer;
                   "
                 >
-                  ⭐
+                  ${icon('star')}
                   <span
                     style="
                       display:block;
@@ -1153,7 +1168,7 @@ function showTrackEvaluation(id) {
           style="width:100%;"
           disabled
         >
-          📤 Enviar avaliação
+          ${icon('send')} Enviar avaliação
         </button>
 
         <div
@@ -1219,8 +1234,8 @@ function showTrackEvaluation(id) {
         btn.style.borderColor =
           c;
 
-        selected.textContent =
-          `Nota selecionada: ${selectedRating} ⭐`;
+        selected.innerHTML =
+          `Nota selecionada: ${selectedRating} ${icon('star')}`;
 
         button.disabled = false;
       };
@@ -1241,16 +1256,16 @@ function showTrackEvaluation(id) {
         selectedRating < 1 ||
         selectedRating > 5
       ) {
-        msg.textContent =
-          '⚠️ Selecione uma nota de 1 a 5.';
+        msg.innerHTML =
+          icon('triangle-alert') + ' Selecione uma nota de 1 a 5.';
 
         return;
       }
 
       button.disabled = true;
 
-      button.textContent =
-        '⏳ Enviando...';
+      button.innerHTML =
+        icon('hourglass') + ' Enviando...';
 
       msg.textContent = '';
 
@@ -1265,8 +1280,8 @@ function showTrackEvaluation(id) {
           }
         );
 
-        msg.textContent =
-          '✅ Avaliação enviada com sucesso!';
+        msg.innerHTML =
+          icon('circle-check') + ' Avaliação enviada com sucesso!';
 
         ratingButtons.forEach(
           b => {
@@ -1276,14 +1291,14 @@ function showTrackEvaluation(id) {
           }
         );
 
-        button.textContent =
-          '✅ Avaliação enviada';
+        button.innerHTML =
+          icon('circle-check') + ' Avaliação enviada';
 
       } catch (e) {
 
-        msg.textContent =
-          '❌ ' +
-          (
+        msg.innerHTML =
+          icon('circle-x') + ' ' +
+          esc(
             e.message ||
             'Não foi possível enviar a avaliação.'
           );
@@ -1291,8 +1306,8 @@ function showTrackEvaluation(id) {
         button.disabled =
           false;
 
-        button.textContent =
-          '📤 Enviar avaliação';
+        button.innerHTML =
+          icon('send') + ' Enviar avaliação';
       }
     };
 }
@@ -1316,8 +1331,8 @@ function aviso(id) {
       ? 'Esta trilha está bloqueada.\n\n' +
         'Conclua antes: ' +
         t.missing.join(', ') +
-        ' 🔒'
-      : 'Conclua o módulo anterior para desbloquear 🔒'
+        ''
+      : 'Conclua o módulo anterior para desbloquear.'
   );
 }
 
@@ -1345,7 +1360,7 @@ function showTrack(id) {
       class="link"
       onclick="home()"
     >
-      ← Voltar
+      ${icon('arrow-left')} Voltar
     </button>
 
     <h2>
@@ -1355,14 +1370,14 @@ function showTrack(id) {
 
     <div class="steps">
       <span class="pill on">
-        📌 Apresentação
+        ${icon('pin')} Apresentação
       </span>
 
       ${
         allLessonsDone && t.conclusion.length
           ? `
             <span class="pill">
-              🏁 Conclusão
+              ${icon('flag')} Conclusão
             </span>
           `
           : ''
@@ -1391,7 +1406,7 @@ function showTrack(id) {
         ? `
           <div class="card lesson-content">
             <h3>
-              🏁 Conclusão da trilha
+              ${icon('flag')} Conclusão da trilha
             </h3>
 
             ${t.conclusion.map(block).join('')}
@@ -1404,7 +1419,7 @@ function showTrack(id) {
                     style="margin-top:16px"
                   >
                     <h3>
-                      💭 Avaliação
+                      ${icon('message-circle')} Avaliação
                     </h3>
 
                     <p>
@@ -1424,7 +1439,7 @@ function showTrack(id) {
                         id="sendTrackEvaluation"
                         style="margin-top:10px"
                       >
-                        📤 Enviar avaliação
+                        ${icon('send')} Enviar avaliação
                       </button>
 
                       <div
@@ -1477,8 +1492,8 @@ if (sendTrackEvaluation) {
         field.value.trim();
 
       if (!answer) {
-        msg.textContent =
-          '⚠️ Escreva sua avaliação antes de enviar.';
+        msg.innerHTML =
+          icon('triangle-alert') + ' Escreva sua avaliação antes de enviar.';
         return;
       }
 
@@ -1498,26 +1513,28 @@ if (sendTrackEvaluation) {
           }
         );
 
-        msg.textContent =
-          '✅ Avaliação da trilha enviada com sucesso!';
+        msg.innerHTML =
+          icon('circle-check') + ' Avaliação da trilha enviada com sucesso!';
 
         field.disabled = true;
 
-        sendTrackEvaluation.textContent =
-          '✅ Avaliação enviada';
+        sendTrackEvaluation.innerHTML =
+          icon('circle-check') + ' Avaliação enviada';
 
       } catch (e) {
 
-        msg.textContent =
-          '❌ ' +
-          (e.message ||
-            'Não foi possível enviar a avaliação.');
+        msg.innerHTML =
+          icon('circle-x') + ' ' +
+          esc(
+            e.message ||
+            'Não foi possível enviar a avaliação.'
+          );
 
         sendTrackEvaluation.disabled =
           false;
 
-        sendTrackEvaluation.textContent =
-          '📤 Enviar avaliação';
+        sendTrackEvaluation.innerHTML =
+          icon('send') + ' Enviar avaliação';
       }
     };
 }
@@ -1531,7 +1548,7 @@ async function rank() {
   const r = await api('/ranking');
 
   main.innerHTML =
-    '<h2>🏆 Ranking</h2>' +
+    '<h2>' + icon('trophy') + ' Ranking</h2>' +
 
     (
       r.map(
@@ -1555,8 +1572,8 @@ async function rank() {
             </span>
 
             <span>
-              ⭐ ${u.xp}
-              · 🔥 ${u.streak}
+              ${icon('star')} ${u.xp}
+              · ${icon('flame')} ${u.streak}
             </span>
 
           </div>
@@ -1598,7 +1615,7 @@ async function profile() {
       </h2>
 
       <h3>
-        🎖️ Nível ${p.level}
+        ${icon('medal')} Nível ${p.level}
       </h3>
 
       <div class="bar">
@@ -1619,24 +1636,24 @@ async function profile() {
       </p>
 
       <p>
-        🔥 ${p.streak} dia(s)
-        · 🪙 ${p.coins}
-        · 📘 ${p.lessons} lições
-        · 💯 ${p.perfect} perfeitas
-        · 🏁 ${p.tracks} trilhas
+        ${icon('flame')} ${p.streak} dia(s)
+        · ${icon('coins')} ${p.coins}
+        · ${icon('book')} ${p.lessons} lições
+        · ${icon('badge-check')} ${p.perfect} perfeitas
+        · ${icon('flag')} ${p.tracks} trilhas
       </p>
 
       <button
         class="btn sm"
         onclick="buyHearts()"
       >
-        ❤️ Recarregar vidas (30 🪙)
+        ${icon('heart')} Recarregar vidas (30 ${icon('coins')})
       </button>
 
     </div>
 
     <h3>
-      🎯 Missões de hoje
+      ${icon('target')} Missões de hoje
     </h3>
 
     ${arr(p.missions)
@@ -1655,14 +1672,14 @@ async function profile() {
 
             ${
               m.claimed
-                ? '✅'
+                ? icon('circle-check')
                 : m.done
                   ? `
                     <button
                       class="btn sm"
                       onclick="claim('${m.code}')"
                     >
-                      Resgatar +10 🪙
+                      Resgatar +10 ${icon('coins')}
                     </button>
                   `
                   : ''
@@ -1674,7 +1691,7 @@ async function profile() {
       .join('')}
 
     <h3>
-      🏅 Conquistas
+      ${icon('award')} Conquistas
     </h3>
 
     <div class="badges">
@@ -1703,7 +1720,7 @@ async function profile() {
     </div>
 
     <h3>
-      📅 XP dos últimos dias
+      ${icon('calendar')} XP dos últimos dias
     </h3>
 
     <div class="week">
@@ -1761,7 +1778,7 @@ async function badges() {
 
   main.innerHTML = `
     <h2>
-      🏅 Conquistas
+      ${icon('award')} Conquistas
     </h2>
 
     <p class="mut">
@@ -1799,8 +1816,8 @@ async function badges() {
               <small>
                 ${
                   b.got
-                    ? '✅ Conquistada'
-                    : '🔒 Bloqueada'
+                    ? icon('circle-check') + ' Conquistada'
+                    : icon('lock') + ' Bloqueada'
                 }
               </small>
 
@@ -1998,7 +2015,7 @@ function associar(q, onCheck) {
               ${
                 map[l.i]
                   ? `
-                    →
+                    ${icon('arrow-right')}
                     <b>
                       ${esc(
                         map[l.i].t
@@ -2232,7 +2249,7 @@ function block(b) {
     if (!src) {
       return `
         <div class="card badc">
-          ⚠️ Imagem inválida.
+          ${icon('triangle-alert')} Imagem inválida.
         </div>
       `;
     }
@@ -2274,7 +2291,7 @@ function block(b) {
     if (!src) {
       return `
         <div class="card badc">
-          ⚠️ Vídeo inválido.
+          ${icon('triangle-alert')} Vídeo inválido.
         </div>
       `;
     }
@@ -2336,7 +2353,7 @@ async function openLesson(id) {
         class="link"
         onclick="home()"
       >
-        ✕ Sair
+        ${icon('x')} Sair
       </button>
 
       <div class="card">
@@ -2344,15 +2361,15 @@ async function openLesson(id) {
         <div class="steps">
 
           <span class="pill on">
-            📖 Apresentação
+            ${icon('book-open')} Apresentação
           </span>
 
           <span class="pill">
-            💡 Explicação
+            ${icon('lightbulb')} Explicação
           </span>
 
           <span class="pill">
-            📝 Questões
+            ${icon('square-pen')} Questões
           </span>
 
         </div>
@@ -2379,7 +2396,7 @@ async function openLesson(id) {
           lesson.questions.length
             ? `
               <p class="mut">
-                📝 Este módulo possui
+                ${icon('square-pen')} Este módulo possui
                 <b>${lesson.questions.length}</b>
                 questão(ões).
               </p>
@@ -2397,8 +2414,8 @@ async function openLesson(id) {
         >
           ${
             lesson.content.length
-              ? 'Começar explicação →'
-              : 'Começar módulo →'
+              ? 'Começar explicação ' + icon('arrow-right')
+              : 'Começar módulo ' + icon('arrow-right')
           }
         </button>
 
@@ -2451,21 +2468,21 @@ async function openLesson(id) {
         class="link"
         onclick="home()"
       >
-        ✕ Sair
+        ${icon('x')} Sair
       </button>
 
       <div class="steps">
 
         <span class="pill">
-          📖 Apresentação
+          ${icon('book-open')} Apresentação
         </span>
 
         <span class="pill on">
-          💡 Explicação
+          ${icon('lightbulb')} Explicação
         </span>
 
         <span class="pill">
-          📝 Questões
+          ${icon('square-pen')} Questões
         </span>
 
       </div>
@@ -2473,7 +2490,7 @@ async function openLesson(id) {
       <div class="card">
 
         <h2>
-          💡 Explicação
+          ${icon('lightbulb')} Explicação
         </h2>
 
         ${
@@ -2490,8 +2507,8 @@ async function openLesson(id) {
       >
         ${
           lesson.questions.length
-            ? 'Ir para as questões →'
-            : 'Concluir módulo →'
+            ? 'Ir para as questões ' + icon('arrow-right')
+            : 'Concluir módulo ' + icon('arrow-right')
         }
       </button>
 
@@ -2542,7 +2559,7 @@ async function openLesson(id) {
         class="link"
         onclick="home()"
       >
-        ✕ Sair
+        ${icon('x')} Sair
       </button>
 
       <div class="row">
@@ -2593,11 +2610,11 @@ async function openLesson(id) {
       <div class="steps">
 
         <span class="pill">
-          📖 Explicação
+          ${icon('book-open')} Explicação
         </span>
 
         <span class="pill on">
-          📝 Pergunta
+          ${icon('square-pen')} Pergunta
           ${i + 1}/${lesson.questions.length}
         </span>
 
@@ -2610,7 +2627,7 @@ async function openLesson(id) {
             <details class="card">
 
               <summary>
-                📖 Rever explicação
+                ${icon('book-open')} Rever explicação
               </summary>
 
               ${
@@ -2672,8 +2689,8 @@ async function openLesson(id) {
 
       if ($('hearts')) {
 
-        $('hearts').textContent =
-          '❤️ ' + r.hearts;
+        $('hearts').innerHTML =
+          icon('heart') + ' ' + r.hearts;
 
       }
 
@@ -2712,13 +2729,13 @@ async function openLesson(id) {
 
             ${
               r.correct
-                ? '✅ Correto!'
-                : '❌ Incorreto'
+                ? icon('circle-check') + ' Correto!'
+                : icon('circle-x') + ' Incorreto'
             }
 
             ${
               combo >= 3
-                ? ` · 🔥 combo x${combo}!`
+                ? ` · ${icon('flame')} combo x${combo}!`
                 : ''
             }
 
@@ -2751,7 +2768,7 @@ async function openLesson(id) {
 
                 <p>
 
-                  💡
+                  ${icon('lightbulb')}
 
                   ${esc(
                     r.explanation
@@ -3038,8 +3055,8 @@ const finish = async (lessonId, lesson) => {
 
         ${
           r.perfect
-            ? '💯 Lição perfeita!'
-            : '🎉 Lição concluída!'
+            ? icon('badge-check') + ' Lição perfeita!'
+            : icon('party-popper') + ' Lição concluída!'
         }
 
       </h2>
@@ -3054,11 +3071,11 @@ const finish = async (lessonId, lesson) => {
           ? `
             <p>
 
-              ⭐ +${r.gained} XP
+              ${icon('star')} +${r.gained} XP
 
               ·
 
-              🪙 +${r.coins} moedas
+              ${icon('coins')} +${r.coins} moedas
 
             </p>
           `
@@ -3072,7 +3089,7 @@ const finish = async (lessonId, lesson) => {
 
       <p>
 
-        🔥 Sequência:
+        ${icon('flame')} Sequência:
         ${r.streak} dia(s)
 
       </p>
@@ -3082,7 +3099,7 @@ const finish = async (lessonId, lesson) => {
           ? `
             <h3>
 
-              🎖️ Você subiu para
+              ${icon('medal')} Você subiu para
               o nível ${r.level}!
 
             </h3>
@@ -3096,7 +3113,7 @@ const finish = async (lessonId, lesson) => {
             b => `
               <p>
 
-                🏅 Nova conquista:
+                ${icon('award')} Nova conquista:
 
                 ${b.icon}
 
@@ -3129,7 +3146,7 @@ const finish = async (lessonId, lesson) => {
           >
 
             <h3>
-              🏁 Conclusão do módulo
+              ${icon('flag')} Conclusão do módulo
             </h3>
 
             ${lesson.conclusion
@@ -3155,7 +3172,7 @@ const finish = async (lessonId, lesson) => {
           >
 
             <h3>
-              ⭐ Avaliação do módulo
+              ${icon('star')} Avaliação do módulo
             </h3>
 
             <p>
@@ -3205,7 +3222,7 @@ const finish = async (lessonId, lesson) => {
                         "
                       >
 
-                        ⭐
+                        ${icon('star')}
 
                         <span
                           style="
@@ -3245,7 +3262,7 @@ const finish = async (lessonId, lesson) => {
               "
               disabled
             >
-              📤 Enviar avaliação
+              ${icon('send')} Enviar avaliação
             </button>
 
             <div
@@ -3354,8 +3371,8 @@ const finish = async (lessonId, lesson) => {
           btn.style.borderColor =
             '#58cc02';
 
-          selected.textContent =
-            `Nota selecionada: ${selectedRating} ⭐`;
+          selected.innerHTML =
+            `Nota selecionada: ${selectedRating} ${icon('star')}`;
 
           sendButton.disabled =
             false;
@@ -3381,8 +3398,8 @@ const finish = async (lessonId, lesson) => {
         selectedRating > 5
       ) {
 
-        msg.textContent =
-          '⚠️ Selecione uma nota de 1 a 5.';
+        msg.innerHTML =
+          icon('triangle-alert') + ' Selecione uma nota de 1 a 5.';
 
         return;
       }
@@ -3390,8 +3407,8 @@ const finish = async (lessonId, lesson) => {
       sendButton.disabled =
         true;
 
-      sendButton.textContent =
-        '⏳ Enviando...';
+      sendButton.innerHTML =
+        icon('hourglass') + ' Enviando...';
 
       msg.textContent = '';
 
@@ -3406,8 +3423,8 @@ const finish = async (lessonId, lesson) => {
           }
         );
 
-        msg.textContent =
-          '✅ Avaliação enviada com sucesso!';
+        msg.innerHTML =
+          icon('circle-check') + ' Avaliação enviada com sucesso!';
 
         ratingButtons.forEach(
           b => {
@@ -3421,14 +3438,14 @@ const finish = async (lessonId, lesson) => {
           }
         );
 
-        sendButton.textContent =
-          '✅ Avaliação enviada';
+        sendButton.innerHTML =
+          icon('circle-check') + ' Avaliação enviada';
 
       } catch (e) {
 
-        msg.textContent =
-          '❌ ' +
-          (
+        msg.innerHTML =
+          icon('circle-x') + ' ' +
+          esc(
             e.message ||
             'Não foi possível enviar a avaliação.'
           );
@@ -3436,8 +3453,8 @@ const finish = async (lessonId, lesson) => {
         sendButton.disabled =
           false;
 
-        sendButton.textContent =
-          '📤 Enviar avaliação';
+        sendButton.innerHTML =
+          icon('send') + ' Enviar avaliação';
       }
 
     };
@@ -3528,7 +3545,9 @@ const DES = [
 ];
 
 const voltar =
-  '<button class="link" onclick="gestao()">← Gestão financeira</button>';
+  '<button class="link" onclick="gestao()">' +
+  icon('arrow-left') +
+  ' Gestão financeira</button>';
 
 async function mesAtual() {
   const es =
@@ -3561,28 +3580,28 @@ async function mesAtual() {
 function gestao() {
   const tools = [
     [
-      '🧾',
+      icon('receipt'),
       'Gastos do mês',
       'Registre receitas e gastos e veja para onde vai seu dinheiro',
       'gastos()'
     ],
 
     [
-      '💹',
+      icon('trending-up'),
       'Simulador',
       'Veja seu dinheiro crescer com rendimento, receitas e gastos',
       'sim()'
     ],
 
     [
-      '🛟',
+      icon('life-buoy'),
       'Reserva de emergência',
       'Descubra quanto guardar para os imprevistos',
       'reserva()'
     ],
 
     [
-      '📐',
+      icon('ruler'),
       'Regra 50/30/20',
       'Divida sua renda entre necessidades, desejos e poupança',
       'regra()'
@@ -3591,7 +3610,7 @@ function gestao() {
 
   main.innerHTML = `
     <h2>
-      💼 Gestão financeira
+      ${icon('briefcase')} Gestão financeira
     </h2>
 
     <p class="mut">
@@ -3687,7 +3706,7 @@ async function gastos(m) {
     ${voltar}
 
     <h2>
-      🧾 Gastos do mês
+      ${icon('receipt')} Gastos do mês
     </h2>
 
     <div class="row">
@@ -3699,7 +3718,7 @@ async function gastos(m) {
           -1
         )}')"
       >
-        ←
+        ${icon('arrow-left')}
       </button>
 
       <input
@@ -3716,7 +3735,7 @@ async function gastos(m) {
           1
         )}')"
       >
-        →
+        ${icon('arrow-right')}
       </button>
 
     </div>
@@ -3780,7 +3799,7 @@ async function gastos(m) {
     <div class="card">
 
       <h3>
-        ➕ Novo lançamento
+        ${icon('plus')} Novo lançamento
       </h3>
 
       <select
@@ -3788,11 +3807,11 @@ async function gastos(m) {
         onchange="catsLanc()"
       >
         <option value="gasto">
-          🔻 Gasto
+          ${icon('trending-down')} Gasto
         </option>
 
         <option value="receita">
-          🔺 Receita
+          ${icon('trending-up')} Receita
         </option>
       </select>
 
@@ -3895,8 +3914,8 @@ async function gastos(m) {
 
                 ${
                   e.kind === 'gasto'
-                    ? '🔻'
-                    : '🔺'
+                    ? icon('trending-down')
+                    : icon('trending-up')
                 }
 
                 <b>
@@ -3936,7 +3955,7 @@ async function gastos(m) {
                   class="btn sm red"
                   onclick="delLanc(${e.id})"
                 >
-                  ✕
+                  ${icon('x')}
                 </button>
 
               </span>
@@ -4058,7 +4077,7 @@ function addRow(
           class="btn sm red"
           onclick="this.parentNode.remove()"
         >
-          ✕
+          ${icon('x')}
         </button>
 
       </div>
@@ -4071,7 +4090,7 @@ function sim() {
     ${voltar}
 
     <h2>
-      💹 Simulador financeiro
+      ${icon('trending-up')} Simulador financeiro
     </h2>
 
     <p class="mut">
@@ -4147,7 +4166,7 @@ function sim() {
     <div class="card">
 
       <strong>
-        💵 Receitas mensais
+        ${icon('banknote')} Receitas mensais
       </strong>
 
       <div id="inc"></div>
@@ -4164,7 +4183,7 @@ function sim() {
     <div class="card">
 
       <strong>
-        🧾 Gastos mensais
+        ${icon('receipt')} Gastos mensais
       </strong>
 
       <div id="exp"></div>
@@ -4183,7 +4202,7 @@ function sim() {
       style="width:100%;margin-bottom:8px"
       onclick="importarMes()"
     >
-      📥 Importar do meu mês atual
+      ${icon('download')} Importar do meu mês atual
     </button>
 
     <button
@@ -4374,7 +4393,7 @@ function calcSim() {
       : mesMeta === null
         ? `
           <p class="err">
-            🎯 Com esses números,
+            ${icon('target')} Com esses números,
             você não chega a
             ${brl(meta)}
             em ${anos} ano(s).
@@ -4383,7 +4402,7 @@ function calcSim() {
         : `
           <p style="color:var(--g)">
             <b>
-              🎯 Meta de ${brl(meta)}
+              ${icon('target')} Meta de ${brl(meta)}
               atingida em
               ${Math.floor(
                 mesMeta / 12
@@ -4448,7 +4467,7 @@ function calcSim() {
         neg
           ? `
             <p class="err">
-              ⚠️ Com esses gastos,
+              ${icon('triangle-alert')} Com esses gastos,
               o saldo fica negativo
               no mês ${neg.m}.
             </p>
@@ -4573,7 +4592,7 @@ async function reserva() {
     ${voltar}
 
     <h2>
-      🛟 Reserva de emergência
+      ${icon('life-buoy')} Reserva de emergência
     </h2>
 
     <p class="mut">
@@ -4693,7 +4712,7 @@ function calcReserva() {
     !alvo
       ? 'Informe seu gasto mensal.'
       : falta === 0
-        ? 'Você já atingiu a reserva! 🎉'
+        ? 'Você já atingiu a reserva! ' + icon('party-popper')
         : mes
           ? `
             Guardando ${brl(mes)}
@@ -4750,7 +4769,7 @@ async function regra() {
     ${voltar}
 
     <h2>
-      📐 Regra 50/30/20
+      ${icon('ruler')} Regra 50/30/20
     </h2>
 
     <p class="mut">
@@ -4910,19 +4929,19 @@ function calcRegra() {
 
   $('res').innerHTML =
     linha(
-      '🏠 Necessidades',
+      icon('house') + ' Necessidades',
       50,
       nec
     ) +
 
     linha(
-      '🎉 Desejos',
+      icon('party-popper') + ' Desejos',
       30,
       des
     ) +
 
     linha(
-      '🐖 Poupança e dívidas',
+      icon('piggy-bank') + ' Poupança e dívidas',
       20,
       poup
     ) +
@@ -4997,7 +5016,7 @@ function doubtBubble(m, reply) {
                  class="btn sm red"
                  style="margin-left:auto"
                  onclick="delDoubt(${m.id})"
-               >🗑️</button>`
+               >${icon('trash-2')}</button>`
             : ''
         }
       </div>
@@ -5025,7 +5044,7 @@ async function doubts() {
   } catch (e) {
     main.innerHTML = `
       <div class="card">
-        <p>❌ ${esc(e.message || 'Não foi possível carregar as dúvidas.')}</p>
+        <p>${icon('circle-x')} ${esc(e.message || 'Não foi possível carregar as dúvidas.')}</p>
         <button class="btn" onclick="home()">Voltar</button>
       </div>`;
     return;
@@ -5043,7 +5062,7 @@ async function doubts() {
 
   main.innerHTML = `
     <div class="card">
-      <h2>💬 Painel de dúvidas</h2>
+      <h2>${icon('message-square')} Painel de dúvidas</h2>
       <p class="mut">
         ${
           staffUser
@@ -5065,7 +5084,7 @@ async function doubts() {
           <option value="">Sem trilha específica</option>
           ${trackOptions}
         </select>
-        <button class="btn" onclick="sendDoubt()">📤 Enviar dúvida</button>
+        <button class="btn" onclick="sendDoubt()">${icon('send')} Enviar dúvida</button>
       </div>
       <div id="doubtMsg" class="mut" style="margin-top:6px"></div>
     </div>
@@ -5085,8 +5104,8 @@ async function doubts() {
               d => `
         <div class="card" style="margin-top:12px">
           <div class="mut" style="font-size:12px">
-            ${d.track_title ? '📚 ' + esc(d.track_title) + ' · ' : ''}
-            ${d.answered ? '✅ Respondida' : '⏳ Aguardando resposta'}
+            ${d.track_title ? icon('library') + ' ' + esc(d.track_title) + ' · ' : ''}
+            ${d.answered ? icon('circle-check') + ' Respondida' : icon('hourglass') + ' Aguardando resposta'}
           </div>
 
           ${doubtBubble(d, false)}
@@ -5134,7 +5153,7 @@ async function sendDoubt() {
   const msg = document.getElementById('doubtMsg');
 
   if (!text.value.trim()) {
-    msg.textContent = '⚠️ Escreva sua dúvida.';
+    msg.innerHTML = icon('triangle-alert') + ' Escreva sua dúvida.';
     return;
   }
 
@@ -5146,7 +5165,7 @@ async function sendDoubt() {
 
     await doubts();
   } catch (e) {
-    msg.textContent = '❌ ' + (e.message || 'Não foi possível enviar.');
+    msg.innerHTML = icon('circle-x') + ' ' + esc(e.message || 'Não foi possível enviar.');
   }
 }
 
@@ -5180,6 +5199,185 @@ async function delDoubt(id) {
     alert(e.message || 'Não foi possível excluir.');
   }
 }
+
+// ============================================================
+// NAVEGAÇÃO: HISTÓRICO E BOTÃO VOLTAR
+// ============================================================
+// Cada tela (trilhas, perfil, ranking, dúvidas...) entra num
+// histórico. O botão "← Voltar" aparece no topo do conteúdo e
+// leva à tela anterior. Durante uma lição ele não aparece, para
+// ninguém sair no meio sem querer; a lição tem os próprios botões.
+
+(function () {
+  const VIEWS = [
+    'home',
+    'badges',
+    'profile',
+    'rank',
+    'gestao',
+    'doubts',
+    'gastos',
+    'sim',
+    'reserva',
+    'regra',
+    'showTrack',
+    'showTrackConclusion',
+    'showTrackEvaluation'
+  ];
+
+  const LESSON_VIEWS = ['openLesson'];
+
+  const stack = [];
+  const originals = {};
+  let replaying = false;
+
+  // Qual botão do menu representa cada tela.
+  const NAV_FOR = {
+    home: 'home',
+    showTrack: 'home',
+    showTrackConclusion: 'home',
+    showTrackEvaluation: 'home',
+    openLesson: 'home',
+    badges: 'badges',
+    profile: 'profile',
+    rank: 'rank',
+    doubts: 'doubts',
+    gestao: 'gestao',
+    gastos: 'gestao',
+    sim: 'gestao',
+    reserva: 'gestao',
+    regra: 'gestao'
+  };
+
+  // Destaca só o botão da tela atual (antes "Trilhas" ficava fixo).
+  function setActiveNav(viewName) {
+    const target = NAV_FOR[viewName];
+
+    document
+      .querySelectorAll('.app-navigation-main .app-nav-button')
+      .forEach(button => {
+        const isCurrent =
+          button.getAttribute('onclick') === target + '()';
+
+        button.classList.toggle('active', isCurrent);
+
+        if (isCurrent) {
+          button.setAttribute('aria-current', 'page');
+        } else {
+          button.removeAttribute('aria-current');
+        }
+      });
+  }
+
+  const sameEntry = (a, b) => {
+    if (!a || !b || a.name !== b.name) return false;
+
+    try {
+      return JSON.stringify(a.args) === JSON.stringify(b.args);
+    } catch {
+      return false;
+    }
+  };
+
+  function push(entry) {
+    // Telas transitórias (lição) não voltam a ser abertas.
+    while (stack.length && stack[stack.length - 1].transient) {
+      stack.pop();
+    }
+
+    // "Trilhas" é a raiz: recomeça o histórico.
+    if (entry.name === 'home') {
+      stack.length = 0;
+    }
+
+    if (!sameEntry(stack[stack.length - 1], entry)) {
+      stack.push(entry);
+    }
+  }
+
+  function wrap(name, transient) {
+    const original = window[name];
+
+    if (typeof original !== 'function') return;
+
+    originals[name] = original;
+
+    window[name] = function (...args) {
+      if (!replaying) {
+        push({ name, args, transient });
+      }
+
+      setActiveNav(name);
+
+      return original.apply(this, args);
+    };
+  }
+
+  VIEWS.forEach(name => wrap(name, false));
+  LESSON_VIEWS.forEach(name => wrap(name, true));
+
+  window.goBack = function () {
+    // Descarta a tela atual e as lições que ficaram para trás.
+    stack.pop();
+
+    while (stack.length && stack[stack.length - 1].transient) {
+      stack.pop();
+    }
+
+    const target = stack[stack.length - 1];
+
+    if (!target) {
+      return originals.home ? originals.home() : undefined;
+    }
+
+    replaying = true;
+    setActiveNav(target.name);
+
+    try {
+      return originals[target.name](...target.args);
+    } finally {
+      replaying = false;
+    }
+  };
+
+  // ----------------------------------------------------------
+  // BOTÃO "← VOLTAR" NO TOPO DO CONTEÚDO
+  // ----------------------------------------------------------
+
+  const backButton = document.createElement('button');
+
+  backButton.type = 'button';
+  backButton.className = 'link';
+  backButton.innerHTML = icon('arrow-left') + ' Voltar';
+  backButton.style.marginBottom = '12px';
+  backButton.setAttribute(
+    'aria-label',
+    'Voltar para a página anterior'
+  );
+  backButton.addEventListener('click', () => window.goBack());
+
+  function syncBackButton() {
+    const current = stack[stack.length - 1];
+
+    const show =
+      stack.length > 1 &&
+      !!current &&
+      !current.transient;
+
+    if (show) {
+      if (main.firstElementChild !== backButton) {
+        main.prepend(backButton);
+      }
+    } else if (backButton.parentNode === main) {
+      backButton.remove();
+    }
+  }
+
+  // Cada tela redesenha o #main; o botão é recolocado a cada vez.
+  new MutationObserver(syncBackButton).observe(main, {
+    childList: true
+  });
+})();
 
 // ============================================================
 // INICIALIZAÇÃO
