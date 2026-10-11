@@ -1,0 +1,384 @@
+/* DRAGNIX — refinamento do painel administrativo.
+   Carregar DEPOIS de style.css e admin-backup.css. */
+.admin-page { --adm-radius:16px; --adm-gap:16px; }
+.admin-page .admin-header { box-shadow:0 2px 16px rgba(0,0,0,.045); }
+.admin-page .admin-header-inner { min-height:62px; padding-block:8px; }
+.admin-page .admin-main { max-width:1320px; padding:22px 20px 56px; }
+.admin-page .admin-brand-text .trilhas-title { font-size:17px; }
+.admin-page .admin-brand-subtitle { font-size:11px; }
+.admin-page .stats-row { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:0 0 20px; }
+.admin-page .stats-row .stat { min-width:0; margin:0; border:1px solid var(--bd); border-radius:var(--adm-radius); padding:18px; background:var(--theme-surface,var(--bg)); display:flex; flex-direction:column; align-items:flex-start; gap:7px; box-shadow:0 3px 14px rgba(0,0,0,.035); }
+.admin-page .stats-row .stat b { font-size:clamp(24px,3vw,34px); line-height:1; font-weight:800; color:var(--fg); }
+.admin-page .split { display:grid; grid-template-columns:minmax(230px,300px) minmax(0,1fr); gap:18px; align-items:start; }
+.admin-page .split > aside { min-width:0; position:sticky; top:88px; max-height:calc(100dvh - 106px); overflow-y:auto; padding:14px; border:1px solid var(--bd); border-radius:var(--adm-radius); background:var(--theme-surface,var(--bg)); scrollbar-width:thin; }
+.admin-page .split > aside > .btn { width:100%; margin-bottom:14px; }
+.admin-page .split > aside .tr { display:flex; align-items:center; width:100%; min-width:0; gap:10px; padding:12px; margin:0 0 7px; border-radius:12px; text-align:left; transition:background .15s,border-color .15s; }
+.admin-page .split > aside .tr > span:last-child { min-width:0; }
+.admin-page .split > aside .tr b { display:block; overflow-wrap:anywhere; }
+.admin-page .split > aside .tr small { display:block; margin-top:4px; }
+.admin-page .split > section { min-width:0; border:1px solid var(--bd); border-radius:var(--adm-radius); padding:20px; background:var(--theme-surface,var(--bg)); }
+.admin-page .split .thead { display:flex; align-items:flex-start; gap:14px; min-width:0; }
+.admin-page .split .thead h2 { margin:0 0 8px; font-size:clamp(19px,2.2vw,25px); overflow-wrap:anywhere; }
+.admin-page .split .thead p { margin:0 0 8px; overflow-wrap:anywhere; }
+.admin-page .split .row, .admin-page .card.row { min-width:0; flex-wrap:wrap; gap:10px; }
+.admin-page .card.row { margin-bottom:10px; padding:15px; border-radius:14px; }
+.admin-page .card.row > span { flex:1 1 180px; min-width:0; overflow-wrap:anywhere; }
+.admin-page .card.row select { max-width:100%; }
+.admin-page #dlg { border-radius:18px; padding:clamp(16px,3vw,28px); }
+.admin-page #fields { overflow-wrap:anywhere; }
+.admin-page #fields img, .admin-page #fields video { max-width:100%; height:auto; }
+.admin-page #fields .opt-row { display:flex; flex-wrap:wrap; min-width:0; gap:8px; }
+.admin-page #fields .opt-row input:not([type=radio]):not([type=checkbox]) { flex:1 1 150px; min-width:0; }
+.admin-page #fields .blk { min-width:0; }
+.admin-page .admin-menu-panel { width:min(280px,calc(100vw - 24px)); max-height:calc(100dvh - 86px); overflow-y:auto; }
+@media(max-width:850px) {
+  .admin-page .split { grid-template-columns:1fr; }
+  .admin-page .split > aside { position:static; max-height:none; }
+  .admin-page .split > aside .tr { display:inline-flex; width:calc(50% - 5px); vertical-align:top; margin-right:5px; }
+  .admin-page .admin-main { padding:16px 14px 40px; }
+}
+@media(max-width:540px) {
+  .admin-page .admin-header-inner { min-height:56px; padding:7px 12px; }
+  .admin-page .admin-brand-subtitle { display:none; }
+  .admin-page .admin-brand-text .trilhas-title { font-size:14px; }
+  .admin-page .stats-row { gap:7px; }
+  .admin-page .stats-row .stat { padding:12px 9px; border-radius:12px; font-size:12px; }
+  .admin-page .stats-row .stat b { font-size:25px; }
+  .admin-page .split > aside { padding:10px; }
+  .admin-page .split > aside .tr { display:flex; width:100%; margin-right:0; }
+  .admin-page .split > section { padding:13px; }
+  .admin-page .split .thead { flex-wrap:wrap; }
+  .admin-page .card.row { align-items:stretch; }
+  .admin-page .card.row select { width:100%!important; }
+  .admin-page #dlg { max-width:calc(100vw - 16px); width:calc(100vw - 16px); }
+}
+
+ /* ============================================
+           ESTRUTURA GERAL
+           ============================================ */
+
+        .admin-page {
+            min-height: 100vh;
+            min-height: 100dvh;
+            margin: 0;
+        }
+
+        .admin-page,
+        .admin-page * {
+            box-sizing: border-box;
+        }
+
+        /* ============================================
+           CABEÇALHO
+           ============================================ */
+
+        .admin-page .admin-header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            width: 100%;
+            background: var(--bg);
+            border-bottom: 1px solid var(--bd);
+        }
+
+        .admin-page .admin-header-inner {
+            width: 100%;
+            max-width: 1440px;
+            min-height: 72px;
+            margin: 0 auto;
+            padding: 12px 24px;
+
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: nowrap;
+            gap: 16px;
+        }
+
+        /* ============================================
+           MARCA
+           ============================================ */
+
+        .admin-page .admin-brand {
+            display: flex;
+            align-items: center;
+            flex: 1 1 auto;
+            min-width: 0;
+            gap: 12px;
+        }
+
+        .admin-page .logo-home {
+            width: 48px;
+            height: 48px;
+            flex: 0 0 auto;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+
+            background: transparent;
+            border: 0;
+            border-radius: 12px;
+            padding: 4px;
+
+            color: inherit;
+            text-decoration: none;
+            cursor: pointer;
+
+            transition: background .2s ease;
+        }
+
+        .admin-page .logo-home:hover {
+            background: var(--bd);
+        }
+
+        .admin-page .logo-home:focus-visible {
+            outline: 2px solid var(--g);
+            outline-offset: 3px;
+        }
+
+        .admin-page .logo-home img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            transition: transform .2s ease;
+        }
+
+        .admin-page .logo-home:hover img {
+            transform: scale(1.06);
+        }
+
+        .admin-brand-text {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            gap: 3px;
+        }
+
+        .admin-page .admin-brand-text .trilhas-title {
+            margin: 0;
+            font-size: 19px;
+            font-weight: 800;
+            line-height: 1.2;
+            color: var(--fg);
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+
+        .admin-brand-subtitle {
+            font-size: 12px;
+            line-height: 1.3;
+            color: var(--mut);
+        }
+
+        /* ============================================
+           MENU
+           ============================================ */
+
+        .admin-page .admin-menu {
+            position: relative;
+            flex: 0 0 auto;
+            margin-left: auto;
+        }
+
+        .admin-page .admin-menu-toggle {
+            width: 44px;
+            height: 44px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            cursor: pointer;
+        }
+
+        .admin-page .admin-menu-panel {
+            position: absolute;
+            top: calc(100% + 12px);
+            right: 0;
+            left: auto;
+
+            width: 280px;
+            min-width: 0;
+            max-width: calc(100vw - 24px);
+            max-height: calc(100dvh - 100px);
+
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            z-index: 110;
+
+            box-sizing: border-box;
+        }
+
+        .admin-page .admin-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            min-height: 44px;
+            text-align: left;
+        }
+
+        .admin-page .admin-menu-item svg {
+            width: 19px;
+            height: 19px;
+            flex-shrink: 0;
+        }
+
+        /* ============================================
+           CONTEÚDO PRINCIPAL
+           ============================================ */
+
+        .admin-page .admin-main {
+            width: 100%;
+            max-width: 1440px;
+            margin: 0 auto;
+            padding: 28px 24px 60px;
+            min-width: 0;
+        }
+
+        .admin-page .admin-main > * {
+            max-width: 100%;
+        }
+
+        /* ============================================
+           MODAL
+           ============================================ */
+
+        .admin-page #dlg {
+            width: min(720px, calc(100vw - 32px));
+            max-width: calc(100vw - 32px);
+            max-height: calc(100dvh - 32px);
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+
+        .admin-page #dlg::backdrop {
+            background: rgba(0, 0, 0, .55);
+            backdrop-filter: blur(3px);
+        }
+
+        .admin-page #frm {
+            min-width: 0;
+        }
+
+        .admin-page #fields {
+            min-width: 0;
+        }
+
+        .admin-page #fields input,
+        .admin-page #fields textarea,
+        .admin-page #fields select {
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .admin-page #frm > .row {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        /* ============================================
+           TABLET
+           ============================================ */
+
+        @media (max-width: 900px) {
+
+            .admin-page .admin-header-inner {
+                min-height: 64px;
+                padding: 10px 18px;
+            }
+
+            .admin-page .admin-main {
+                padding: 22px 18px 48px;
+            }
+
+            .admin-page .admin-brand-text .trilhas-title {
+                font-size: 17px;
+            }
+        }
+
+        /* ============================================
+           CELULAR
+           ============================================ */
+
+        @media (max-width: 600px) {
+
+            .admin-page .admin-header-inner {
+                min-height: 60px;
+                padding: 8px 12px;
+                gap: 10px;
+            }
+
+            .admin-page .admin-brand {
+                gap: 8px;
+            }
+
+            .admin-page .logo-home {
+                width: 42px;
+                height: 42px;
+            }
+
+            .admin-page .admin-brand-text .trilhas-title {
+                font-size: 15px;
+                line-height: 1.2;
+            }
+
+            .admin-brand-subtitle {
+                font-size: 11px;
+            }
+
+            .admin-page .admin-menu-toggle {
+                width: 42px;
+                height: 42px;
+            }
+
+            .admin-page .admin-menu-panel {
+                width: min(280px, calc(100vw - 24px));
+                max-height: calc(100dvh - 80px);
+            }
+
+            .admin-page .admin-main {
+                padding: 16px 12px 40px;
+            }
+
+            .admin-page #dlg {
+                width: calc(100vw - 20px);
+                max-width: calc(100vw - 20px);
+                max-height: calc(100dvh - 20px);
+            }
+
+            .admin-page #frm > .row {
+                flex-direction: column-reverse;
+                align-items: stretch;
+            }
+
+            .admin-page #frm > .row .btn {
+                width: 100%;
+            }
+        }
+
+        /* ============================================
+           CELULAR PEQUENO
+           ============================================ */
+
+        @media (max-width: 360px) {
+
+            .admin-page .admin-brand-text .trilhas-title {
+                font-size: 13px;
+            }
+
+            .admin-brand-subtitle {
+                font-size: 10px;
+            }
+
+            .admin-page .admin-header-inner {
+                gap: 6px;
+            }
+        }
+

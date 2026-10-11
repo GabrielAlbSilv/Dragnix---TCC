@@ -1628,3 +1628,58 @@ details summary {
     }
 
 }
+
+
+/* ============================================================
+   BOTÃO DE TEMA — INDEX
+   ============================================================ */
+
+.index-theme-toggle {
+    position: fixed;
+    top: 18px;
+    right: 18px;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 44px;
+    height: 44px;
+
+    padding: 0;
+    border: 2px solid var(--bd);
+    border-radius: 12px;
+
+    background: var(--bg);
+    color: var(--fg);
+
+    cursor: pointer;
+
+    box-shadow: 0 4px 12px rgba(0, 0, 0, .12);
+
+    transition:
+        background-color .2s ease,
+        color .2s ease,
+        border-color .2s ease,
+        transform .2s ease;
+}
+
+.index-theme-toggle:hover {
+    transform: translateY(-2px);
+    border-color: var(--g);
+}
+
+.index-theme-toggle svg {
+    width: 22px;
+    height: 22px;
+}
+
+@media (max-width: 480px) {
+    .index-theme-toggle {
+        top: 12px;
+        right: 12px;
+        width: 40px;
+        height: 40px;
+    }
+}

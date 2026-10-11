@@ -2512,6 +2512,86 @@ async function setRole(id, role) {
   }
 }
 
+
+
+/* ============================================================
+   MENU LATERAL DO PAINEL ADMINISTRATIVO
+   ============================================================ */
+
+(function () {
+    function iniciarMenuAdmin() {
+        const menu = document.getElementById('adminMenu');
+        const toggle = document.getElementById('adminMenuToggle');
+
+        if (!menu || !toggle) return;
+
+        function setOpen(open) {
+            menu.classList.toggle('open', open);
+
+            toggle.setAttribute('aria-expanded', String(open));
+            toggle.setAttribute(
+                'aria-label',
+                open ? 'Fechar menu' : 'Abrir menu'
+            );
+
+            const icon = toggle.querySelector('svg, i');
+
+            if (icon) {
+                if (icon.tagName.toLowerCase() === 'svg') {
+                    icon.innerHTML = open
+                        ? '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'
+                        : '<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>';
+                } else {
+                    icon.setAttribute(
+                        'data-lucide',
+                        open ? 'x' : 'menu'
+                    );
+
+                    if (window.lucide) {
+                        window.lucide.createIcons();
+                    }
+                }
+            }
+        }
+
+        toggle.addEventListener('click', function (event) {
+            event.stopPropagation();
+            setOpen(!menu.classList.contains('open'));
+        });
+
+        menu.querySelectorAll('.admin-menu-item').forEach(function (item) {
+            item.addEventListener('click', function () {
+                setOpen(false);
+            });
+        });
+
+        document.addEventListener('click', function (event) {
+            if (!menu.contains(event.target)) {
+                setOpen(false);
+            }
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (
+                event.key === 'Escape' &&
+                menu.classList.contains('open')
+            ) {
+                setOpen(false);
+                toggle.focus();
+            }
+        });
+
+        setOpen(false);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', iniciarMenuAdmin);
+    } else {
+        iniciarMenuAdmin();
+    }
+})();
+
+
 /* =========================================================
    INICIALIZAÇÃO
 ========================================================= */

@@ -1,0 +1,692 @@
+
+/* ============================================================
+   DRAGNIX — LOGIN MODERNO
+   ============================================================ */
+
+.dragnix-login {
+    margin: 0;
+    min-height: 100vh;
+    min-height: 100dvh;
+    width: 100%;
+    overflow-x: hidden;
+}
+
+.dragnix-login,
+.dragnix-login * {
+    box-sizing: border-box;
+}
+
+/* ============================================================
+   LAYOUT PRINCIPAL
+   ============================================================ */
+
+.dragnix-login .login-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    min-height: 100vh;
+    min-height: 100dvh;
+    width: 100%;
+}
+
+/* ============================================================
+   ÁREA ESQUERDA — DRAGÃO
+   ============================================================ */
+
+.dragnix-login .login-visual {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding: 48px;
+    overflow: hidden;
+
+    background: var(--bg);
+}
+
+.dragnix-login .login-visual-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    width: 100%;
+    max-width: 700px;
+}
+
+.dragnix-login .login-dragon-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-width: 0;
+}
+
+.dragnix-login .login-dragon {
+    display: block;
+    width: min(100%, 560px);
+    height: auto;
+    max-height: 68vh;
+    object-fit: contain;
+    filter: drop-shadow(0 20px 35px rgba(0,0,0,.08));
+}
+
+.dragnix-login .login-visual-caption {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--mut);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: .06em;
+    text-align: center;
+}
+
+.dragnix-login .login-visual-line {
+    width: 30px;
+    height: 2px;
+    background: var(--g, #58cc02);
+    border-radius: 10px;
+}
+
+/* ============================================================
+   ÁREA DIREITA
+   ============================================================ */
+
+.dragnix-login .login-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    padding: 76px 40px 36px;
+    background: var(--bg);
+}
+
+.dragnix-login .login-content-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+    max-width: 440px;
+    min-width: 0;
+    margin: auto;
+}
+
+/* ============================================================
+   MARCA / NOME
+   ============================================================ */
+
+.dragnix-login .login-brand {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 30px;
+    text-align: center;
+}
+
+.dragnix-login .login-name-logo {
+    display: block;
+    width: min(100%, 310px);
+    height: auto;
+    max-height: 110px;
+    object-fit: contain;
+}
+
+.dragnix-login .login-brand-description {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--mut);
+}
+
+/* ============================================================
+   FORMULÁRIO
+   ============================================================ */
+
+.dragnix-login .login-form-area {
+    width: 100%;
+    min-width: 0;
+}
+
+.dragnix-login .login-form-heading {
+    margin-bottom: 22px;
+}
+
+.dragnix-login .login-form-heading h1 {
+    margin: 0 0 7px;
+    font-size: clamp(22px, 2.4vw, 29px);
+    font-weight: 800;
+    line-height: 1.2;
+    color: var(--fg);
+}
+
+.dragnix-login .login-form-heading p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--mut);
+}
+
+/* ABAS */
+
+.dragnix-login .login-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 14px;
+}
+
+.dragnix-login .login-tabs .btn {
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+}
+
+/* CARD */
+
+.dragnix-login .login-card {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 25px;
+
+    border: 1px solid var(--bd);
+    border-radius: 18px;
+    background: var(--bg);
+
+    box-shadow: 0 12px 35px rgba(0,0,0,.07);
+}
+
+/* CAMPOS */
+
+.dragnix-login .login-card > input,
+.dragnix-login .senha-box > input {
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    margin: 0;
+    font-size: 14px;
+}
+
+.dragnix-login .senha-box {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+
+.dragnix-login .senha-box input {
+    padding-right: 48px;
+}
+
+.dragnix-login .senha-btn {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+}
+
+.dragnix-login .senha-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* BOTÃO PRINCIPAL */
+
+.dragnix-login #go {
+    width: 100%;
+    min-height: 48px;
+    margin-top: 2px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+/* MANTER CAMPOS OCULTOS */
+
+.dragnix-login .hide {
+    display: none !important;
+}
+
+/* ERROS */
+
+.dragnix-login #err:empty {
+    display: none;
+}
+
+/* ============================================================
+   RODAPÉ DA ÁREA DE LOGIN
+   ============================================================ */
+
+.dragnix-login .login-footer {
+    position: static;
+    width: 100%;
+    margin: 28px 0 0;
+    padding: 0;
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+}
+
+.dragnix-login .login-footer .site-footer-inner {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+.dragnix-login .login-footer .footer-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 2px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.dragnix-login .login-footer .footer-link svg {
+    width: 15px;
+    height: 15px;
+}
+
+.dragnix-login .login-footer .footer-separator {
+    opacity: .5;
+}
+
+/* ============================================================
+   BOTÃO DE TEMA
+   ============================================================ */
+
+.dragnix-login .index-theme-toggle {
+    position: fixed;
+    top: 20px;
+    right: 22px;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 44px;
+    height: 44px;
+    padding: 0;
+
+    border: 1px solid var(--bd);
+    border-radius: 12px;
+    background: var(--bg);
+    color: var(--fg);
+
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,.08);
+}
+
+.dragnix-login .index-theme-toggle svg {
+    width: 21px;
+    height: 21px;
+}
+
+/* ============================================================
+   TELAS INTERMEDIÁRIAS
+   ============================================================ */
+
+@media (max-width: 1050px) {
+
+    .dragnix-login .login-visual {
+        padding: 30px;
+    }
+
+    .dragnix-login .login-content {
+        padding: 76px 25px 30px;
+    }
+
+    .dragnix-login .login-dragon {
+        width: min(100%, 430px);
+    }
+
+    .dragnix-login .login-card {
+        padding: 20px;
+    }
+}
+
+/* ============================================================
+   TABLET / CELULAR
+   ============================================================ */
+
+@media (max-width: 760px) {
+
+    .dragnix-login .login-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .dragnix-login .login-visual {
+        padding: 64px 20px 8px;
+    }
+
+    .dragnix-login .login-visual-inner {
+        gap: 0;
+    }
+
+    .dragnix-login .login-dragon {
+        width: min(100%, 190px);
+        max-height: 190px;
+    }
+
+    .dragnix-login .login-visual-caption {
+        display: none;
+    }
+
+    .dragnix-login .login-content {
+        align-items: flex-start;
+        padding: 8px 20px 28px;
+    }
+
+    .dragnix-login .login-content-inner {
+        max-width: 440px;
+        margin: 0 auto;
+    }
+
+    .dragnix-login .login-brand {
+        margin-bottom: 20px;
+    }
+
+    .dragnix-login .login-name-logo {
+        width: min(100%, 230px);
+        max-height: 85px;
+    }
+
+    .dragnix-login .login-form-heading {
+        margin-bottom: 18px;
+    }
+
+    .dragnix-login .login-form-heading h1 {
+        font-size: 24px;
+    }
+
+    .dragnix-login .login-footer {
+        margin-top: 22px;
+    }
+}
+
+/* ============================================================
+   CELULARES PEQUENOS
+   ============================================================ */
+
+@media (max-width: 420px) {
+
+    .dragnix-login .login-visual {
+        padding-top: 62px;
+    }
+
+    .dragnix-login .login-dragon {
+        width: 145px;
+        max-height: 145px;
+    }
+
+    .dragnix-login .login-content {
+        padding: 8px 14px 24px;
+    }
+
+    .dragnix-login .login-name-logo {
+        width: 205px;
+    }
+
+    .dragnix-login .login-card {
+        padding: 17px;
+        gap: 12px;
+    }
+
+    .dragnix-login .login-form-heading h1 {
+        font-size: 22px;
+    }
+
+    .dragnix-login .login-brand-description,
+    .dragnix-login .login-form-heading p {
+        font-size: 13px;
+    }
+
+    .dragnix-login .login-footer .footer-link {
+        font-size: 11px;
+    }
+
+    .dragnix-login .index-theme-toggle {
+        top: 12px;
+        right: 12px;
+        width: 40px;
+        height: 40px;
+    }
+}
+
+
+
+/* ============================================================
+   DRAGNIX — LOGIN COMPACTO
+   Ajustes para caber na altura da tela
+   ============================================================ */
+
+/* Layout ocupa a tela */
+.dragnix-login .login-layout {
+    min-height: 100dvh;
+}
+
+/* Dragão um pouco menor */
+.dragnix-login .login-visual {
+    padding: 20px 35px;
+}
+
+.dragnix-login .login-visual-inner {
+    gap: 12px;
+}
+
+.dragnix-login .login-dragon {
+    width: min(100%, 440px);
+    max-height: 58dvh;
+}
+
+/* Área direita mais compacta */
+.dragnix-login .login-content {
+    padding: 35px 30px 20px;
+}
+
+.dragnix-login .login-content-inner {
+    max-width: 400px;
+}
+
+/* Logo do nome Dragnix */
+.dragnix-login .login-brand {
+    gap: 5px;
+    margin-bottom: 18px;
+}
+
+.dragnix-login .login-name-logo {
+    width: min(100%, 250px);
+    max-height: 75px;
+}
+
+.dragnix-login .login-brand-description {
+    font-size: 12px;
+}
+
+/* Título e descrição */
+.dragnix-login .login-form-heading {
+    margin-bottom: 12px;
+}
+
+.dragnix-login .login-form-heading h1 {
+    font-size: 23px;
+    margin-bottom: 4px;
+}
+
+.dragnix-login .login-form-heading p {
+    font-size: 12px;
+}
+
+/* Abas */
+.dragnix-login .login-tabs {
+    margin-bottom: 10px;
+    gap: 8px;
+}
+
+.dragnix-login .login-tabs .btn {
+    min-height: 38px;
+}
+
+/* Caixa do formulário */
+.dragnix-login .login-card {
+    padding: 18px;
+    gap: 10px;
+    border-radius: 15px;
+}
+
+/* Campos */
+.dragnix-login .login-card > input,
+.dragnix-login .senha-box > input {
+    min-height: 40px;
+    font-size: 13px;
+}
+
+/* Botão principal */
+.dragnix-login #go {
+    min-height: 42px;
+    font-size: 14px;
+}
+
+/* Links inferiores */
+.dragnix-login .login-footer {
+    margin-top: 15px;
+}
+
+.dragnix-login .login-footer .footer-link {
+    font-size: 11px;
+    padding: 4px 2px;
+}
+
+/* ============================================================
+   TELAS COM POUCA ALTURA
+   ============================================================ */
+
+@media (min-width: 761px) and (max-height: 750px) {
+
+    .dragnix-login .login-content {
+        padding-top: 18px;
+        padding-bottom: 12px;
+    }
+
+    .dragnix-login .login-dragon {
+        max-height: 50dvh;
+    }
+
+    .dragnix-login .login-brand {
+        margin-bottom: 10px;
+    }
+
+    .dragnix-login .login-name-logo {
+        max-height: 58px;
+    }
+
+    .dragnix-login .login-form-heading {
+        margin-bottom: 8px;
+    }
+
+    .dragnix-login .login-card {
+        padding: 14px;
+        gap: 8px;
+    }
+
+    .dragnix-login .login-footer {
+        margin-top: 10px;
+    }
+}
+
+/* ============================================================
+   CELULARES
+   ============================================================ */
+
+@media (max-width: 760px) {
+
+    .dragnix-login .login-layout {
+        min-height: 100dvh;
+    }
+
+    .dragnix-login .login-visual {
+        padding: 52px 16px 0;
+    }
+
+    .dragnix-login .login-dragon {
+        width: min(100%, 125px);
+        max-height: 125px;
+    }
+
+    .dragnix-login .login-content {
+        padding: 6px 16px 16px;
+    }
+
+    .dragnix-login .login-name-logo {
+        width: min(100%, 200px);
+        max-height: 65px;
+    }
+
+    .dragnix-login .login-brand {
+        margin-bottom: 12px;
+    }
+
+    .dragnix-login .login-form-heading h1 {
+        font-size: 20px;
+    }
+
+    .dragnix-login .login-form-heading {
+        margin-bottom: 10px;
+    }
+
+    .dragnix-login .login-card {
+        padding: 14px;
+        gap: 9px;
+    }
+
+    .dragnix-login .login-footer {
+        margin-top: 12px;
+    }
+}
+
+/* Celulares com pouca altura */
+@media (max-width: 760px) and (max-height: 700px) {
+
+    .dragnix-login .login-visual {
+        padding-top: 44px;
+    }
+
+    .dragnix-login .login-dragon {
+        width: 90px;
+        max-height: 90px;
+    }
+
+    .dragnix-login .login-brand {
+        margin-bottom: 8px;
+    }
+
+    .dragnix-login .login-brand-description {
+        display: none;
+    }
+
+    .dragnix-login .login-form-heading {
+        margin-bottom: 8px;
+    }
+
+    .dragnix-login .login-card {
+        padding: 12px;
+        gap: 7px;
+    }
+}

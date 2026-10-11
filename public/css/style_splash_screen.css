@@ -149,3 +149,67 @@ body {
         transform: translateY(-8px);
     }
 }
+
+
+/* ============================================================
+   CORREÇÃO DA SPLASH SCREEN — TEMAS CLARO E ESCURO
+   ============================================================ */
+
+:root,
+:root[data-theme="light"] {
+    --bg: #f2f2f2;
+    --fg: #3c3c3c;
+    --bd: #d6d6d6;
+    --mut: #777;
+}
+
+:root[data-theme="dark"] {
+    --bg: #252525;
+    --fg: #f1f7fb;
+    --bd: #444;
+    --mut: #9fb0b9;
+}
+
+html,
+body {
+    width: 100%;
+    min-height: 100%;
+}
+
+.splash {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    padding: 20px;
+    text-align: center;
+}
+
+.splash img.logo {
+    display: block;
+    width: 150px;
+    height: 150px;
+    max-width: 100%;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.splash .nome {
+    max-width: 100%;
+    font-size: clamp(22px, 5vw, 32px);
+    overflow-wrap: anywhere;
+}
+
+.splash .carregando {
+    flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+    .splash img.logo {
+        width: 120px;
+        height: 120px;
+    }
+
+    .splash .saudacao {
+        font-size: 16px;
+    }
+}

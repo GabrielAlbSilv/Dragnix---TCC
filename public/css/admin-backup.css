@@ -3,11 +3,6 @@
    BACKUP — PAINEL ADMINISTRATIVO
    ============================================================ */
 
-
-/* ============================================================
-   PAINEL DE BACKUP
-   ============================================================ */
-
 .admin-backup-panel {
     width: 100%;
     margin: 24px 0;
@@ -15,10 +10,8 @@
 
 .admin-backup-content {
     padding: 24px;
-
     border: 2px solid var(--bd);
     border-radius: 18px;
-
     background: var(--bg);
     color: var(--fg);
 }
@@ -31,7 +24,6 @@
     margin: 8px 0 16px;
 }
 
-
 /* ============================================================
    AÇÕES DE BACKUP
    ============================================================ */
@@ -42,7 +34,6 @@
     gap: 10px;
 }
 
-
 /* ============================================================
    BOTÕES — PADRÃO DRAGNIX
    ============================================================ */
@@ -51,32 +42,20 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-
     background: var(--g);
     color: #fff;
-
     border: 0;
     border-bottom: 4px solid var(--gd);
-
     border-radius: 14px;
-
     padding: 10px 16px;
-
     min-height: 40px;
-
     font: inherit;
     font-weight: 800;
     font-size: 14px;
-
     cursor: pointer;
-
     text-transform: uppercase;
-
     white-space: nowrap;
-
-    transition:
-        transform .15s ease,
-        opacity .15s ease;
+    transition: transform .15s ease, opacity .15s ease;
 }
 
 .admin-action-btn:hover {
@@ -93,26 +72,20 @@
     transform: none;
 }
 
-
 /* ============================================================
-   GERAR BACKUP — PRINCIPAL
+   GERAR BACKUP
    ============================================================ */
 
 #btnGerarBackup {
     background: var(--g);
     color: #fff;
-
     border: 0;
     border-bottom: 4px solid var(--gd);
-
     border-radius: 14px;
-
     padding: 10px 16px;
-
     font: inherit;
     font-weight: 800;
     font-size: 14px;
-
     cursor: pointer;
     text-transform: uppercase;
 }
@@ -121,26 +94,20 @@
     transform: translateY(-1px);
 }
 
-
 /* ============================================================
-   LER BACKUP — SECUNDÁRIO
+   LER BACKUP
    ============================================================ */
 
 #btnSelecionarBackup {
     background: transparent;
     color: var(--blue);
-
     border: 2px solid var(--bd);
     border-bottom-width: 4px;
-
     border-radius: 14px;
-
     padding: 10px 16px;
-
     font: inherit;
     font-weight: 800;
     font-size: 14px;
-
     cursor: pointer;
     text-transform: uppercase;
 }
@@ -149,7 +116,6 @@
     border-color: var(--blue);
 }
 
-
 /* ============================================================
    RESTAURAR BACKUP
    ============================================================ */
@@ -157,18 +123,13 @@
 #btnRestaurarBackup {
     background: var(--g);
     color: #fff;
-
     border: 0;
     border-bottom: 4px solid var(--gd);
-
     border-radius: 14px;
-
     padding: 10px 16px;
-
     font: inherit;
     font-weight: 800;
     font-size: 14px;
-
     cursor: pointer;
     text-transform: uppercase;
 }
@@ -176,7 +137,6 @@
 #btnRestaurarBackup:hover {
     transform: translateY(-1px);
 }
-
 
 /* ============================================================
    LIMPAR BANCO — PERIGOSO
@@ -186,18 +146,13 @@
 .admin-danger-btn {
     background: var(--red);
     color: #fff;
-
     border: 0;
     border-bottom: 4px solid #c33;
-
     border-radius: 14px;
-
     padding: 10px 16px;
-
     font: inherit;
     font-weight: 800;
     font-size: 14px;
-
     cursor: pointer;
     text-transform: uppercase;
 }
@@ -207,7 +162,6 @@
     opacity: .9;
     transform: translateY(-1px);
 }
-
 
 /* ============================================================
    ESTADOS DESABILITADOS
@@ -222,21 +176,16 @@
     transform: none;
 }
 
-
 /* ============================================================
    STATUS DO BACKUP
    ============================================================ */
 
 #backupStatus {
     min-height: 20px;
-
     margin-top: 16px;
-
     font-size: 14px;
-
     color: var(--fg);
 }
-
 
 /* ============================================================
    PREVIEW DO BACKUP
@@ -244,16 +193,13 @@
 
 .backup-preview {
     width: 100%;
-
     margin-top: 20px;
 }
 
 .backup-preview-box {
     padding: 18px;
-
     border: 2px solid var(--bd);
     border-radius: 16px;
-
     background: transparent;
     color: var(--fg);
 }
@@ -266,40 +212,27 @@
     margin: 6px 0;
 }
 
-
 /* ============================================================
    BARRA DO PAINEL ADM
    ============================================================ */
 
 .admin-header {
     width: 100%;
-
     border-bottom: 2px solid var(--bd);
-
     box-sizing: border-box;
 }
 
 .admin-header-inner {
     width: 100%;
     max-width: 1400px;
-
     margin: 0 auto;
-
     display: flex;
     align-items: center;
     justify-content: space-between;
-
     gap: 20px;
-
-    /*
-       Apenas 6px em cima e embaixo.
-       Mantém a barra compacta.
-    */
     padding: 6px 20px;
-
     box-sizing: border-box;
 }
-
 
 /* ============================================================
    LOGO / MARCA
@@ -308,9 +241,7 @@
 .admin-brand {
     display: flex;
     align-items: center;
-
     gap: 10px;
-
     flex-shrink: 0;
 }
 
@@ -318,22 +249,18 @@
 .admin-brand img {
     width: 42px;
     height: 42px;
-
     object-fit: contain;
     display: block;
 }
 
 .admin-brand .trilhas-title {
     white-space: nowrap;
-
     color: var(--g);
-
     font-size: 24px;
 }
 
-
 /* ============================================================
-   MENU DO PAINEL (BOTÃO DE TRÊS TRACINHOS)
+   MENU DO PAINEL — BOTÃO DE TRÊS LINHAS
    ============================================================ */
 
 .admin-menu {
@@ -344,23 +271,16 @@
 .admin-menu-toggle {
     width: 44px;
     height: 44px;
-
     display: inline-flex;
     align-items: center;
     justify-content: center;
-
     padding: 0;
-
     border: 2px solid var(--theme-border);
     border-radius: 12px;
-
     background: var(--theme-surface);
     color: var(--theme-text);
-
     font-size: 22px;
-
     cursor: pointer;
-
     transition:
         background-color .15s ease,
         border-color .15s ease,
@@ -387,38 +307,29 @@
     margin-right: 0;
 }
 
-
-/* Painel que abre ao clicar */
+/* ============================================================
+   PAINEL QUE ABRE AO CLICAR
+   ============================================================ */
 
 .admin-menu-panel {
     position: absolute;
     top: calc(100% + 10px);
     right: 0;
-
     z-index: 1000;
-
     min-width: 250px;
-
     display: flex;
     flex-direction: column;
     gap: 2px;
-
     padding: 8px;
-
     box-sizing: border-box;
-
     border: 2px solid var(--theme-border);
     border-radius: 14px;
-
     background: var(--theme-surface);
-
     box-shadow: 0 12px 32px rgba(0, 0, 0, .18);
-
     opacity: 0;
     visibility: hidden;
     transform: translateY(-6px) scale(.98);
     transform-origin: top right;
-
     transition:
         opacity .15s ease,
         transform .15s ease,
@@ -431,33 +342,26 @@
     transform: none;
 }
 
-
-/* Opções */
+/* ============================================================
+   OPÇÕES DO MENU
+   ============================================================ */
 
 .admin-menu-item {
     width: 100%;
-
     display: flex;
     align-items: center;
     gap: 10px;
-
     padding: 11px 14px;
-
     box-sizing: border-box;
-
     border: 0;
     border-radius: 10px;
-
     background: transparent;
     color: var(--theme-text);
-
     font: inherit;
     font-weight: 700;
     text-align: left;
     text-decoration: none;
-
     cursor: pointer;
-
     transition:
         background-color .12s ease,
         color .12s ease;
@@ -466,11 +370,8 @@
 .admin-menu-item .lucide-icon {
     width: 1.25em;
     height: 1.25em;
-
     margin-right: 0;
-
     color: var(--theme-text-secondary);
-
     transition: color .12s ease;
 }
 
@@ -484,11 +385,8 @@
 
 .admin-menu-divider {
     height: 2px;
-
     margin: 6px 4px;
-
     border-radius: 2px;
-
     background: var(--theme-border);
 }
 
@@ -505,77 +403,8 @@
     color: var(--red, #ff4b4b);
 }
 
-
-/* ============================================================
-   STATUS / PREVIEW — ÁREA ANTIGA
-   ============================================================ */
-
-.backup-status {
-    width: 100%;
-    max-width: 1400px;
-
-    margin: 0 auto;
-
-    padding: 0 20px 10px;
-
-    box-sizing: border-box;
-
-    min-height: 20px;
-
-    font-size: 14px;
-}
-
-
-/* ============================================================
-   RESPONSIVO — CELULAR
-   ============================================================ */
-
-@media (max-width: 700px) {
-
-    .admin-header-inner {
-        gap: 10px;
-    }
-
-    .admin-action-btn {
-        flex: 1 1 auto;
-    }
-
-}
-
-
-/* ============================================================
-   RESPONSIVO — CELULAR PEQUENO
-   ============================================================ */
-
-@media (max-width: 450px) {
-
-    .admin-header-inner {
-        padding: 8px 12px;
-    }
-
-    .admin-brand .trilhas-title {
-        font-size: 15px;
-    }
-
-    .admin-brand .trilhas-icon,
-    .admin-brand img {
-        width: 40px;
-        height: 40px;
-    }
-
-    .admin-action-btn {
-        width: 100%;
-    }
-
-    .admin-menu-panel {
-        min-width: min(280px, calc(100vw - 24px));
-    }
-
-}
-
 /* ============================================================
    LINKS DO ADM
-   TRILHAS / USUÁRIOS / VER COMO ALUNO / SAIR
    ============================================================ */
 
 .admin-link,
@@ -583,28 +412,17 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-
     min-height: 34px;
-
     padding: 6px 12px;
-
     border: 0;
-
     border-radius: 10px;
-
     background: transparent;
-
     color: var(--blue);
-
     font: inherit;
     font-weight: 700;
-
     line-height: 1;
-
     white-space: nowrap;
-
     text-decoration: none;
-
     cursor: pointer;
 }
 
@@ -613,7 +431,6 @@
     opacity: .8;
 }
 
-
 /* ============================================================
    STATUS / PREVIEW — ÁREA ANTIGA
    ============================================================ */
@@ -621,18 +438,12 @@
 .backup-status {
     width: 100%;
     max-width: 1400px;
-
     margin: 0 auto;
-
     padding: 0 20px 10px;
-
     box-sizing: border-box;
-
     min-height: 20px;
-
     font-size: 14px;
 }
-
 
 /* ============================================================
    RESPONSIVO — TABLET
@@ -641,21 +452,46 @@
 @media (max-width: 1100px) {
 
     .admin-header-inner {
-        align-items: flex-start;
-
-        flex-direction: column;
-
+        align-items: center;
+        flex-direction: row;
+        justify-content: space-between;
+        flex-wrap: nowrap;
+        gap: 10px;
         padding: 8px 20px;
+    }
+
+    .admin-brand {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .admin-brand .trilhas-title {
+        min-width: 0;
+        white-space: normal;
+        overflow-wrap: anywhere;
+    }
+
+    .admin-menu {
+        margin-left: auto;
+        flex: 0 0 auto;
+    }
+
+    .admin-menu-panel {
+        right: 0;
+        left: auto;
+        width: min(280px, calc(100vw - 24px));
+        min-width: 0;
+        max-width: calc(100vw - 24px);
+        max-height: calc(100dvh - 85px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
     }
 
     .admin-nav {
         width: 100%;
-
         justify-content: flex-start;
     }
-
 }
-
 
 /* ============================================================
    RESPONSIVO — CELULAR
@@ -669,7 +505,6 @@
 
     .admin-nav {
         width: 100%;
-
         flex-direction: column;
         align-items: stretch;
     }
@@ -677,9 +512,7 @@
     .admin-nav-main,
     .admin-nav-exit {
         width: 100%;
-
         flex-wrap: wrap;
-
         justify-content: flex-start;
     }
 
@@ -688,9 +521,7 @@
     .admin-nav .link {
         flex: 1 1 auto;
     }
-
 }
-
 
 /* ============================================================
    RESPONSIVO — CELULAR PEQUENO
@@ -704,6 +535,7 @@
 
     .admin-brand .trilhas-title {
         font-size: 15px;
+        line-height: 1.25;
     }
 
     .admin-brand .trilhas-icon,
@@ -718,5 +550,9 @@
         width: 100%;
     }
 
+    .admin-menu-panel {
+        width: min(280px, calc(100vw - 24px));
+        min-width: 0;
+        max-width: calc(100vw - 24px);
+    }
 }
-

@@ -42,16 +42,47 @@
        APLICAR TEMA
        ======================================================== */
 
-    function applyTheme(theme) {
+    
+/* ========================================================
+   APLICAR TEMA
+   ======================================================== */
 
-        document.documentElement.setAttribute(
-            'data-theme',
-            theme
+function applyTheme(theme) {
+
+    document.documentElement.setAttribute(
+        'data-theme',
+        theme
+    );
+
+    updateThemeButtons(theme);
+    updateThemeLogos(theme);
+
+}
+
+/* ========================================================
+   ATUALIZAR LOGOS CONFORME O TEMA
+   ======================================================== */
+
+    function updateThemeLogos(theme) {
+
+        const logos = document.querySelectorAll(
+            'img[data-logo-light][data-logo-dark]'
         );
 
-        updateThemeButtons(theme);
+        logos.forEach(function (logo) {
+
+            const newSrc = theme === 'dark'
+                ? logo.dataset.logoDark
+                : logo.dataset.logoLight;
+
+            if (logo.getAttribute('src') !== newSrc) {
+                logo.setAttribute('src', newSrc);
+            }
+
+        });
 
     }
+
 
 
     /* ========================================================
@@ -195,6 +226,52 @@
         );
 
     });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            updateThemeLogos(getTheme());
+        });
+
+        
+/* ============================================================
+   BOTÃO DE TEMA — INDEX
+   ============================================================ */
+
+function iniciarBotaoTemaIndex() {
+    const botao = document.getElementById('indexThemeToggle');
+
+    if (!botao) return;
+
+    function atualizarIcone() {
+        const tema = document.documentElement.getAttribute('data-theme');
+        const nomeIcone = tema === 'dark' ? 'sun' : 'moon';
+
+        const icone = botao.querySelector('svg, i');
+
+        if (!icone) return;
+
+        if (window.lucide && window.lucide.icons) {
+            botao.innerHTML = window.lucide.icons[nomeIcone].toSvg({
+                width: 22,
+                height: 22
+            });
+        } else {
+            botao.textContent = tema === 'dark' ? '☀' : '☾';
+        }
+    }
+
+    botao.addEventListener('click', function () {
+        toggleTheme();
+        atualizarIcone();
+    });
+
+    atualizarIcone();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', iniciarBotaoTemaIndex);
+} else {
+    iniciarBotaoTemaIndex();
+}
 
 
 })();
