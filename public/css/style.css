@@ -1683,3 +1683,707 @@ details summary {
         height: 40px;
     }
 }
+
+/* ============================================================
+   DRAGNIX — PAINEL DE DESAFIOS
+   ============================================================ */
+
+.challenge-panel {
+width: 100%;
+min-width: 0;
+margin-top: 18px;
+animation: challengeEnter .3s ease both;
+}
+.challenge-card,
+.challenge-empty {
+width: 100%;
+min-width: 0;
+box-sizing: border-box;
+border: 1px solid var(--line, rgba(128,128,128,.25));
+border-radius: 18px;
+padding: clamp(16px, 3vw, 26px);
+background: var(--card, transparent);
+}
+.challenge-card-top {
+display: flex;
+justify-content: space-between;
+align-items: flex-start;
+flex-wrap: wrap;
+gap: 12px;
+}
+.challenge-card h3 {
+margin: 8px 0;
+font-size: clamp(19px, 2.5vw, 25px);
+overflow-wrap: anywhere;
+}
+.challenge-eyebrow {
+color: var(--g, #35b875);
+font-size: 11px;
+font-weight: 800;
+letter-spacing: .09em;
+}
+.challenge-status {
+border-radius: 30px;
+padding: 7px 12px;
+background: rgba(128,128,128,.12);
+font-size: 12px;
+font-weight: 700;
+}
+.challenge-status.is-active {
+color: #20b875;
+background: rgba(32,184,117,.12);
+}
+.challenge-stats {
+display: grid;
+grid-template-columns: repeat(3, minmax(0,1fr));
+gap: 12px;
+margin: 20px 0;
+}
+.challenge-stats > div {
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 6px;
+min-width: 0;
+padding: 18px 8px;
+border-radius: 13px;
+background: rgba(128,128,128,.07);
+text-align: center;
+}
+.challenge-stats strong {
+font-size: clamp(19px, 3vw, 27px);
+color: var(--g, #35b875);
+overflow-wrap: anywhere;
+}
+.challenge-stats small {
+font-size: 12px;
+opacity: .75;
+}
+.challenge-question-preview,
+.challenge-badge-preview {
+margin-top: 14px;
+padding: 16px;
+border-radius: 12px;
+background: rgba(128,128,128,.07);
+overflow-wrap: anywhere;
+}
+.challenge-question-preview p {
+margin: 10px 0;
+line-height: 1.6;
+}
+.challenge-badge-preview {
+display: flex;
+align-items: center;
+gap: 14px;
+}
+.challenge-badge-preview > span {
+font-size: 30px;
+}
+.challenge-badge-preview > div {
+display: flex;
+flex-direction: column;
+gap: 5px;
+min-width: 0;
+}
+.challenge-badge-preview small {
+opacity: .7;
+}
+.challenge-actions {
+display: flex;
+flex-wrap: wrap;
+gap: 10px;
+margin-top: 20px;
+}
+.challenge-empty {
+text-align: center;
+padding: 35px 18px;
+}
+.challenge-empty h3 {
+margin: 10px 0;
+}
+.challenge-empty p {
+opacity: .7;
+line-height: 1.6;
+}
+.challenge-symbol {
+display: block;
+font-size: 44px;
+animation: challengeFloat 3s ease-in-out infinite;
+}
+/* ============================================================
+FORMULÁRIO DOS DESAFIOS
+============================================================ */
+.challenge-editor {
+display: flex;
+flex-direction: column;
+gap: 17px;
+width: 100%;
+min-width: 0;
+}
+.challenge-editor-heading {
+display: flex;
+align-items: center;
+gap: 14px;
+padding-bottom: 15px;
+border-bottom: 1px solid rgba(128,128,128,.2);
+}
+.challenge-editor-heading > span {
+font-size: 32px;
+}
+.challenge-editor-heading h3 {
+margin: 0 0 5px;
+}
+.challenge-editor-heading p {
+margin: 0;
+}
+.challenge-editor label {
+display: flex;
+flex-direction: column;
+gap: 8px;
+font-weight: 600;
+}
+.challenge-editor input:not([type="checkbox"]):not([type="radio"]),
+.challenge-editor textarea,
+.challenge-editor select {
+width: 100%;
+min-width: 0;
+box-sizing: border-box;
+font: inherit;
+border-radius: 10px;
+}
+.challenge-editor textarea {
+resize: vertical;
+}
+.challenge-section-title {
+display: flex;
+align-items: center;
+justify-content: space-between;
+gap: 10px;
+margin-top: 8px;
+}
+.challenge-option-list {
+display: flex;
+flex-direction: column;
+gap: 10px;
+}
+.challenge-option-row {
+display: flex;
+align-items: center;
+gap: 10px;
+min-width: 0;
+padding: 10px;
+border-radius: 12px;
+border: 1px solid rgba(128,128,128,.2);
+transition: border-color .2s, background .2s;
+}
+.challenge-option-row:focus-within {
+border-color: var(--g, #35b875);
+background: rgba(32,184,117,.05);
+}
+.challenge-option-row input[type="radio"] {
+width: 18px;
+height: 18px;
+flex-shrink: 0;
+accent-color: var(--g, #35b875);
+}
+.challenge-option-row .ch-option-input {
+flex: 1;
+min-width: 0;
+}
+.challenge-config-grid {
+display: grid;
+grid-template-columns: repeat(3, minmax(0,1fr));
+gap: 12px;
+}
+.challenge-toggle {
+display: flex !important;
+flex-direction: row !important;
+align-items: center;
+gap: 12px;
+padding: 15px;
+border: 1px solid rgba(128,128,128,.2);
+border-radius: 12px;
+cursor: pointer;
+}
+.challenge-toggle input {
+width: 20px;
+height: 20px;
+accent-color: var(--g, #35b875);
+}
+.challenge-toggle span {
+display: flex;
+flex-direction: column;
+gap: 5px;
+}
+.challenge-toggle small {
+font-weight: 400;
+opacity: .7;
+}
+.challenge-panel .btn,
+.challenge-editor .btn {
+transition: transform .2s ease, opacity .2s ease;
+}
+.challenge-panel .btn:hover,
+.challenge-editor .btn:hover {
+transform: translateY(-2px);
+}
+/* ============================================================
+ANIMAÇÕES
+============================================================ */
+@keyframes challengeEnter {
+from {
+opacity: 0;
+transform: translateY(12px);
+}
+to {
+opacity: 1;
+transform: translateY(0);
+}
+}
+@keyframes challengeFloat {
+0%, 100% { transform: translateY(0); }
+50% { transform: translateY(-5px); }
+}
+/* ============================================================
+RESPONSIVIDADE
+============================================================ */
+@media (max-width: 650px) {
+.challenge-card,
+.challenge-empty {
+padding: 15px;
+border-radius: 14px;
+}
+.challenge-config-grid {
+grid-template-columns: 1fr;
+}
+.challenge-stats {
+gap: 7px;
+}
+.challenge-stats > div {
+padding: 12px 5px;
+}
+.challenge-stats strong {
+font-size: 19px;
+}
+.challenge-stats small {
+font-size: 10px;
+}
+.challenge-actions {
+flex-direction: column;
+}
+.challenge-actions .btn {
+width: 100%;
+}
+.challenge-option-row {
+gap: 6px;
+padding: 7px;
+}
+}
+@media (prefers-reduced-motion: reduce) {
+.challenge-panel,
+.challenge-symbol {
+animation: none !important;
+}
+.challenge-panel .btn,
+.challenge-editor .btn,
+.challenge-option-row {
+transition: none !important;
+}
+}
+
+
+
+/* ============================================================
+   DRAGNIX — DESAFIOS DO ALUNO
+   ============================================================ */
+
+.student-challenge-node-wrap {
+    text-align: center;
+    animation: challengeEnter .35s ease both;
+}
+
+.student-challenge-node {
+    background: linear-gradient(135deg, #ffb72c, #f06b29) !important;
+    box-shadow: 0 5px 0 #a64b16, 0 9px 20px rgba(240,107,41,.2);
+    transition: transform .2s, filter .2s;
+}
+
+.student-challenge-node:not(:disabled):hover {
+    transform: translateY(-3px) scale(1.04);
+    filter: brightness(1.08);
+}
+
+.student-challenge-node.completed {
+    background: linear-gradient(135deg, #20bc7d, #098b63) !important;
+    box-shadow: 0 5px 0 #076b4b;
+}
+
+.student-challenge-node:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+}
+
+.student-challenge-node-wrap .mut {
+    margin-top: 12px;
+    line-height: 1.5;
+}
+
+/* Janela */
+
+.student-challenge-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+    background: rgba(5, 10, 18, .78);
+    backdrop-filter: blur(8px);
+    animation: challengeFade .25s ease both;
+}
+
+.student-challenge-dialog {
+    position: relative;
+    width: min(100%, 610px);
+    max-height: min(90dvh, 850px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    box-sizing: border-box;
+    border-radius: 22px;
+    padding: clamp(20px, 4vw, 38px);
+    background: var(--card, #17212b);
+    color: var(--text, inherit);
+    border: 1px solid var(--line, rgba(128,128,128,.25));
+    box-shadow: 0 25px 90px rgba(0,0,0,.3);
+    animation: challengePop .3s cubic-bezier(.2,.8,.2,1) both;
+}
+
+.student-challenge-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: grid;
+    place-items: center;
+    width: 35px;
+    height: 35px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(128,128,128,.12);
+    color: inherit;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.student-challenge-intro,
+.student-challenge-result {
+    text-align: center;
+}
+
+.student-challenge-hero-icon,
+.student-challenge-result-icon {
+    font-size: 58px;
+    margin-bottom: 12px;
+    animation: challengeFloat 3s ease-in-out infinite;
+}
+
+.student-challenge-kicker {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    color: #f2a42b;
+}
+
+.student-challenge-intro h2,
+.student-challenge-result h2 {
+    margin: 10px 0;
+    font-size: clamp(23px, 4vw, 32px);
+    overflow-wrap: anywhere;
+}
+
+.student-challenge-intro p,
+.student-challenge-result p {
+    line-height: 1.6;
+    overflow-wrap: anywhere;
+}
+
+.student-challenge-rewards {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+    margin: 24px 0;
+}
+
+.student-challenge-rewards > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    padding: 15px 5px;
+    border-radius: 13px;
+    background: rgba(128,128,128,.09);
+}
+
+.student-challenge-rewards strong {
+    font-size: clamp(17px, 3vw, 24px);
+    overflow-wrap: anywhere;
+}
+
+.student-challenge-rewards small {
+    font-size: 11px;
+    opacity: .7;
+}
+
+.student-challenge-achievement {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+    border: 1px solid rgba(242,164,43,.3);
+    background: rgba(242,164,43,.07);
+    border-radius: 13px;
+    text-align: left;
+}
+
+.student-challenge-achievement > svg {
+    flex-shrink: 0;
+    color: #f2a42b;
+}
+
+.student-challenge-achievement div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.student-challenge-achievement small {
+    opacity: .75;
+}
+
+.student-challenge-buttons {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 22px;
+}
+
+.student-challenge-warning {
+    color: #e69a31;
+}
+
+.student-challenge-success {
+    color: #20b875;
+}
+
+.student-challenge-loading {
+    text-align: center;
+    padding: 30px 0;
+}
+
+/* Cronômetro */
+
+.student-challenge-play-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding-right: 24px;
+}
+
+.student-challenge-play-header > span {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    color: #f2a42b;
+}
+
+#challengeClock {
+    font-size: clamp(22px, 4vw, 30px);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+#challengeClock.urgent {
+    color: #ed5757;
+    animation: challengePulse .65s ease-in-out infinite alternate;
+}
+
+.student-challenge-progress {
+    height: 9px;
+    margin: 15px 0 25px;
+    overflow: hidden;
+    border-radius: 20px;
+    background: rgba(128,128,128,.2);
+}
+
+#challengeProgressBar {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: #20b875;
+    transition: width .1s linear, background .3s;
+}
+
+#challengeProgressBar.urgent {
+    background: #ed5757;
+}
+
+.student-challenge-play h2 {
+    margin: 0 0 24px;
+    font-size: clamp(20px, 3.5vw, 27px);
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.student-challenge-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.student-challenge-option {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    width: 100%;
+    padding: 15px;
+    border: 2px solid rgba(128,128,128,.2);
+    border-radius: 13px;
+    background: rgba(128,128,128,.05);
+    color: inherit;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+    transition: border-color .2s, background .2s, transform .2s;
+    overflow-wrap: anywhere;
+}
+
+.student-challenge-option:hover {
+    border-color: #20b875;
+    transform: translateX(3px);
+}
+
+.student-challenge-option.selected {
+    border-color: #20b875;
+    background: rgba(32,184,117,.13);
+}
+
+.student-challenge-option-letter {
+    display: grid;
+    place-items: center;
+    flex-shrink: 0;
+    width: 35px;
+    height: 35px;
+    border-radius: 9px;
+    background: rgba(128,128,128,.15);
+    font-weight: 800;
+}
+
+.student-challenge-option.selected .student-challenge-option-letter {
+    background: #20b875;
+    color: #fff;
+}
+
+.student-challenge-hint {
+    margin: 18px 0;
+    font-size: 12px;
+    opacity: .7;
+}
+
+.student-challenge-submit {
+    width: 100%;
+    min-height: 48px;
+}
+
+.student-challenge-submit:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+
+.student-challenge-win-xp {
+    margin: 20px auto;
+    font-size: clamp(27px, 5vw, 38px);
+    font-weight: 900;
+    color: #20b875;
+    animation: challengePop .5s ease both;
+}
+
+.student-challenge-result.victory .student-challenge-result-icon {
+    animation: challengeVictory .65s ease both;
+}
+
+/* Animações */
+
+@keyframes challengeFade {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes challengePop {
+    from { opacity: 0; transform: translateY(18px) scale(.96); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes challengePulse {
+    from { opacity: 1; }
+    to { opacity: .45; }
+}
+
+@keyframes challengeVictory {
+    0% { transform: scale(.5) rotate(-20deg); opacity: 0; }
+    60% { transform: scale(1.2) rotate(8deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0); }
+}
+
+@media (max-width: 600px) {
+    .student-challenge-overlay {
+        padding: 10px;
+    }
+
+    .student-challenge-dialog {
+        padding: 23px 16px;
+        max-height: 94dvh;
+        border-radius: 16px;
+    }
+
+    .student-challenge-rewards {
+        gap: 6px;
+    }
+
+    .student-challenge-rewards > div {
+        padding: 12px 4px;
+    }
+
+    .student-challenge-option {
+        padding: 12px;
+    }
+
+    .student-challenge-buttons {
+        flex-direction: column;
+    }
+
+    .student-challenge-buttons .btn {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .student-challenge-overlay,
+    .student-challenge-dialog,
+    .student-challenge-hero-icon,
+    .student-challenge-result-icon,
+    .student-challenge-win-xp,
+    #challengeClock.urgent {
+        animation: none !important;
+    }
+
+    .student-challenge-option,
+    #challengeProgressBar {
+        transition: none !important;
+    }
+}
+

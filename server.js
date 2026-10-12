@@ -198,6 +198,85 @@ const pub = user => ({
   role: user.role
 });
 
+
+
+ // ============================================================
+ // PROTEÇÃO CONTRA BRUTE FORCE
+ // ============================================================
+
+const MAX_LOGIN_FAILURES = 5;
+const LOGIN_BLOCK_MS = 10 * 60 * 1000;
+
+// Persistência do bloqueio no banco SQLite.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS login_attempts (
+    email TEXT PRIMARY KEY,
+    failures INTEGER NOT NULL DEFAULT 0,
+    blocked_until INTEGER NOT NULL DEFAULT 0
+  )
+`);
+
+function getLoginAttempt(email) {
+  return db.prepare(
+    `SELECT failures, blocked_until
+     FROM login_attempts
+     WHERE email=?`
+  ).get(email);
+}
+
+function clearLoginAttempts(email) {
+  db.prepare(
+    'DELETE FROM login_attempts WHERE email=?'
+  ).run(email);
+}
+
+function getRemainingBlockMs(email) {
+  const attempt = getLoginAttempt(email);
+
+  if (!attempt || !attempt.blocked_until) {
+    return 0;
+  }
+
+  const remaining = attempt.blocked_until - Date.now();
+
+  if (remaining <= 0) {
+    clearLoginAttempts(email);
+    return 0;
+  }
+
+  return remaining;
+}
+
+function recordLoginFailure(email) {
+  const previous = getLoginAttempt(email);
+  const failures = Number(previous?.failures || 0) + 1;
+
+  // Bloqueia a partir da sexta senha incorreta.
+  const blockedUntil = failures > MAX_LOGIN_FAILURES
+    ? Date.now() + LOGIN_BLOCK_MS
+    : 0;
+
+  db.prepare(`
+    INSERT INTO login_attempts (
+      email, failures, blocked_until
+    )
+    VALUES (?, ?, ?)
+    ON CONFLICT(email) DO UPDATE SET
+      failures=excluded.failures,
+      blocked_until=excluded.blocked_until
+  `).run(email, failures, blockedUntil);
+
+  return {
+    failures,
+    remainingAttempts: Math.max(
+      0,
+      MAX_LOGIN_FAILURES + 1 - failures
+    ),
+    blockedUntil
+  };
+}
+
+
 // ============================================================
 // MIDDLEWARE DE AUTENTICAÇÃO
 // ============================================================
@@ -378,59 +457,78 @@ app.post('/api/auth/register', (req, res) => {
   }
 }); //   '/api/auth/register',
 
-app.post(
-  '/api/auth/login',
-  (req, res) => {
-    try {
-      const email =
-        String(
-          req.body?.email || ''
-        )
-          .trim()
-          .toLowerCase();
 
-      const password =
-        String(
-          req.body?.password || ''
-        );
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const email = String(req.body?.email || '')
+      .trim()
+      .toLowerCase();
 
-      const user =
-        db
-          .prepare(
-            'SELECT * FROM users WHERE email=?'
-          )
-          .get(email);
+    const password = String(req.body?.password || '');
 
-      if (
-        !user ||
-        !bcrypt.compareSync(
-          password,
-          user.password
-        )
-      ) {
-        return res.status(401).json({
-          error:
-            'E-mail ou senha inválidos'
+    if (!email || !password) {
+      return res.status(400).json({
+        error: 'Informe seu e-mail e senha.'
+      });
+    }
+
+    // Verifica o bloqueio antes de validar a senha.
+    const remainingMs = getRemainingBlockMs(email);
+
+    if (remainingMs > 0) {
+      const remainingSeconds = Math.ceil(
+        remainingMs / 1000
+      );
+
+      return res.status(429).json({
+        error: 'Login temporariamente bloqueado.',
+        code: 'LOGIN_BLOCKED',
+        retryAfterSeconds: remainingSeconds
+      });
+    }
+
+    const user = db.prepare(
+      'SELECT * FROM users WHERE email=?'
+    ).get(email);
+
+    const validPassword = user &&
+      bcrypt.compareSync(password, user.password);
+
+    if (!validPassword) {
+      const attempt = recordLoginFailure(email);
+
+      if (attempt.blockedUntil > 0) {
+        return res.status(429).json({
+          error: 'Login temporariamente bloqueado.',
+          code: 'LOGIN_BLOCKED',
+          retryAfterSeconds: 600
         });
       }
 
-      return res.json({
-        token: sign(user),
-        user: pub(user)
-      });
-    } catch (error) {
-      console.error(
-        'Erro no login:',
-        error
-      );
-
-      return res.status(500).json({
-        error:
-          'Erro interno ao realizar login'
+      return res.status(401).json({
+        error: 'E-mail ou senha inválidos.',
+        code: 'INVALID_CREDENTIALS',
+        remainingAttempts: attempt.remainingAttempts
       });
     }
+
+    // Login correto: zera os erros anteriores.
+    clearLoginAttempts(email);
+
+    return res.json({
+      token: sign(user),
+      user: pub(user)
+    });
+
+  } catch (error) {
+    console.error('Erro no login:', error);
+
+    return res.status(500).json({
+      error: 'Erro interno ao realizar login'
+    });
   }
-);
+});
+
 
 // ============================================================
 // VERSÃO / GIT
@@ -892,6 +990,7 @@ function unlocked(uid) {
       .get(uid)
       ?.b || 0;
 
+
   const tracks =
     db
       .prepare(
@@ -916,9 +1015,16 @@ function unlocked(uid) {
       .get(uid)
       .c;
 
+  
+  const challengeXp = db.prepare(`
+    SELECT COALESCE(SUM(xp_awarded), 0) AS total
+    FROM challenge_rewards
+    WHERE user_id=?
+  `).get(uid).total;
+
   const state = {
     n: progress.n,
-    xp: progress.xp,
+    xp: Number(progress.xp || 0) + Number(challengeXp || 0),
     perf: progress.perf,
     best,
     tracks
@@ -1023,17 +1129,23 @@ const MISSIONS = {
 };
 
 function stats(uid) {
-  const xp =
-    one(
-      `SELECT
-         COALESCE(
-           SUM(xp),
-           0
-         ) v
-       FROM progress
-       WHERE user_id=?`,
-      uid
-    ).v;
+  
+  const lessonXp = one(
+    `SELECT COALESCE(SUM(xp), 0) AS v
+     FROM progress
+     WHERE user_id=?`,
+    uid
+  ).v;
+
+  const challengeXp = one(
+    `SELECT COALESCE(SUM(xp_awarded), 0) AS v
+     FROM challenge_rewards
+     WHERE user_id=?`,
+    uid
+  ).v;
+
+  const xp = lessonXp + challengeXp;
+
 
   const tracks =
     one(
@@ -1207,6 +1319,2033 @@ function bump(
   }
 }
 
+
+/* ============================================================
+   DESAFIOS — BACKEND
+   ============================================================ */
+
+
+function challengeTransaction(callback) {
+  db.exec('BEGIN IMMEDIATE');
+
+  try {
+    const result = callback();
+    db.exec('COMMIT');
+    return result;
+  } catch (error) {
+    try {
+      db.exec('ROLLBACK');
+    } catch (rollbackError) {
+      console.error(
+        '[DESAFIOS] Erro no rollback:',
+        rollbackError
+      );
+    }
+
+    throw error;
+  }
+}
+
+
+/* ============================================================
+   DESAFIOS — ENCERRAMENTO ADMINISTRATIVO SEM PENALIDADE
+   ============================================================ */
+
+function challengeCancelActiveAttempts(challengeId) {
+  const now = Date.now();
+
+  const result = db.prepare(`
+    UPDATE challenge_attempts
+    SET
+      status = 'expired',
+      finished_at = ?,
+      state_json = json_set(
+        COALESCE(state_json, '{}'),
+        '$.admin_cancelled',
+        1
+      )
+    WHERE challenge_id = ?
+      AND status = 'in_progress'
+  `).run(now, challengeId);
+
+  return Number(result.changes || 0);
+}
+
+
+
+const challengeJson = (value) => {
+  try {
+    const parsed = JSON.parse(value || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+function challengePublic(row) {
+  if (!row) return null;
+
+  const {
+    correct_answer,
+    options,
+    ...rest
+  } = row;
+
+  return {
+    ...rest,
+    options: challengeJson(options)
+  };
+}
+
+function challengeError(res, error) {
+  console.error('[DESAFIOS]', error);
+
+  return res.status(500).json({
+    error: 'Não foi possível processar o desafio.'
+  });
+}
+
+
+/* ============================================================
+   DESAFIOS MULTITIPOS — CONSULTA E CATÁLOGO
+   ============================================================ */
+
+const CHALLENGE_TYPE_INFO = Object.freeze({
+  tempo: {
+    name: 'Contra o tempo',
+    icon: 'zap'
+  },
+  precisao: {
+    name: 'Precisão',
+    icon: 'target'
+  },
+  quebra_cabeca: {
+    name: 'Quebra-cabeça',
+    icon: 'puzzle'
+  },
+  resistencia: {
+    name: 'Resistência',
+    icon: 'flame'
+  }
+});
+
+function challengeValidId(value) {
+  const id = Number(value);
+
+  return Number.isSafeInteger(id) && id > 0
+    ? id
+    : null;
+}
+
+function challengeConfig(value) {
+  try {
+    const parsed = JSON.parse(value || '{}');
+
+    return parsed &&
+      typeof parsed === 'object' &&
+      !Array.isArray(parsed)
+        ? parsed
+        : {};
+  } catch {
+    return {};
+  }
+}
+
+function challengeSummary(row) {
+  return {
+    id: row.id,
+    track_id: row.track_id,
+    title: row.title,
+    description: row.description,
+    type: row.type,
+    type_name:
+      CHALLENGE_TYPE_INFO[row.type]?.name ||
+      'Desafio',
+    type_icon:
+      CHALLENGE_TYPE_INFO[row.type]?.icon ||
+      'trophy',
+    enabled: Boolean(row.enabled),
+    time_limit: row.time_limit,
+    xp_reward: row.xp_reward,
+    max_attempts: row.max_attempts,
+    badge_name: row.badge_name,
+    badge_description: row.badge_description,
+    badge_icon: row.badge_icon
+  };
+}
+
+// Lista completa para professores e administradores.
+app.get(
+  '/api/admin/tracks/:trackId/challenges',
+  auth,
+  staff,
+  (req, res) => {
+    try {
+      const trackId = challengeValidId(
+        req.params.trackId
+      );
+
+      if (!trackId) {
+        return res.status(400).json({
+          error: 'Trilha inválida.'
+        });
+      }
+
+      const track = db.prepare(`
+        SELECT id
+        FROM tracks
+        WHERE id = ?
+      `).get(trackId);
+
+      if (!track) {
+        return res.status(404).json({
+          error: 'Trilha não encontrada.'
+        });
+      }
+
+    const rows = db.prepare(`
+      SELECT *
+      FROM challenges
+      WHERE track_id = ?
+        AND deleted_at IS NULL
+      ORDER BY id
+    `).all(trackId);
+
+      const challenges = rows.map(row => {
+        const questionRows = db.prepare(`
+          SELECT
+            id,
+            question_type,
+            prompt,
+            options,
+            correct_answer,
+            difficulty,
+            position
+          FROM challenge_questions
+          WHERE challenge_id = ?
+            AND revision = ?
+          ORDER BY position, id
+          `).all(
+            row.id,
+            Number(row.revision || 1)
+          );
+
+        const attempts = db.prepare(`
+          SELECT COUNT(*) AS total
+          FROM challenge_attempts
+          WHERE challenge_id = ?
+        `) .get(row.id).total;
+
+        
+
+        return {
+          ...row,
+          options: challengeJson(row.options),
+          config: challengeConfig(row.config_json),
+          questions: questionRows.map(q => ({
+            ...q,
+            options: challengeJson(q.options)
+          })),
+          locked: attempts > 0,
+          attempts_count: attempts
+        };
+      });
+
+      return res.json({
+        ok: true,
+        challenges
+      });
+
+    } catch (error) {
+      return challengeError(res, error);
+    }
+  }
+);
+
+// Lista pública dos desafios ativos da trilha.
+app.get(
+  '/api/tracks/:trackId/challenges',
+  auth,
+  (req, res) => {
+    try {
+      const trackId = challengeValidId(
+        req.params.trackId
+      );
+
+      if (!trackId) {
+        return res.status(400).json({
+          error: 'Trilha inválida.'
+        });
+      }
+
+      const missingTracks = trilhasFaltando(
+        req.user,
+        trackId
+      );
+
+      if (missingTracks.length) {
+        return res.status(403).json({
+          error:
+            'Conclua primeiro as trilhas obrigatórias: ' +
+            missingTracks.join(', ')
+        });
+      }
+
+      const rows = db.prepare(`
+        SELECT *
+        FROM challenges
+        WHERE track_id = ?
+          AND enabled = 1
+          AND deleted_at IS NULL
+        ORDER BY id
+      `).all(trackId);
+
+
+      const challenges = rows.map(row => {
+        const attempts = db.prepare(`
+          SELECT COUNT(*) AS total
+          FROM challenge_attempts
+          WHERE challenge_id = ?
+            AND user_id = ?
+            AND NOT (
+              status = 'expired'
+              AND COALESCE(
+                json_extract(state_json, '$.admin_cancelled'),
+                0
+              ) = 1
+            )
+        `).get(row.id, req.user.id).total;
+
+        const reward = db.prepare(`
+          SELECT xp_awarded, awarded_at
+          FROM challenge_rewards
+          WHERE challenge_id = ?
+            AND user_id = ?
+        `).get(row.id, req.user.id);
+
+        const active = db.prepare(`
+          SELECT id, deadline_at
+          FROM challenge_attempts
+          WHERE challenge_id = ?
+            AND user_id = ?
+            AND status = 'in_progress'
+        `).get(row.id, req.user.id);
+
+        return {
+          ...challengeSummary(row),
+          question_count: db.prepare(`
+            SELECT COUNT(*) AS total
+            FROM challenge_questions
+            WHERE challenge_id = ?
+              AND revision = ?
+            `).get(
+              row.id,
+              Number(row.revision || 1)
+            ).total,
+          attempts,
+          remaining: Math.max(
+            0,
+            row.max_attempts - attempts
+          ),
+          completed: Boolean(reward),
+          reward: reward || null,
+          active: active
+            ? {
+                id: active.id,
+                deadline_at: active.deadline_at
+              }
+            : null
+        };
+      });
+
+      return res.json({
+        ok: true,
+        challenges
+      });
+
+    } catch (error) {
+      return challengeError(res, error);
+    }
+  }
+);
+
+
+/* ============================================================
+   DESAFIOS MULTITIPOS — CADASTRO E EDIÇÃO
+   ============================================================ */
+
+// Valida e normaliza os dados recebidos do painel.
+function challengeValidatePayload(body) {
+  const data = body || {};
+
+  const type = String(data.type || '').trim();
+
+  if (!Object.hasOwn(CHALLENGE_TYPE_INFO, type)) {
+    throw new Error('Selecione um tipo de desafio válido.');
+  }
+
+  const title = String(data.title || '').trim();
+  const description = String(data.description || '').trim();
+
+  if (!title || title.length > 120) {
+    throw new Error('O título deve ter de 1 a 120 caracteres.');
+  }
+
+  if (description.length > 2000) {
+    throw new Error('A descrição deve ter até 2000 caracteres.');
+  }
+
+  const xpReward = Number(data.xp_reward ?? 1000);
+  const maxAttempts = Number(data.max_attempts ?? 1);
+  const timeLimit = Number(data.time_limit ?? 30);
+
+  if (!Number.isInteger(xpReward) ||
+      xpReward < 0 || xpReward > 100000) {
+    throw new Error('O XP deve estar entre 0 e 100000.');
+  }
+
+  if (!Number.isInteger(maxAttempts) ||
+      maxAttempts < 1 || maxAttempts > 100) {
+    throw new Error('O limite deve ser de 1 a 100 tentativas.');
+  }
+
+  if (!Number.isInteger(timeLimit) ||
+      timeLimit < 5 || timeLimit > 3600) {
+    throw new Error('O tempo deve estar entre 5 e 3600 segundos.');
+  }
+
+  const badgeName = String(
+    data.badge_name || 'Conquistador'
+  ).trim();
+
+  const badgeDescription = String(
+    data.badge_description || ''
+  ).trim();
+
+  const badgeIcon = String(
+    data.badge_icon || 'trophy'
+  ).trim();
+
+  if (!badgeName || badgeName.length > 120 ||
+      badgeDescription.length > 500 ||
+      !badgeIcon || badgeIcon.length > 80) {
+    throw new Error('Dados da conquista inválidos.');
+  }
+
+  const enabled =
+    data.enabled === true || data.enabled === 1
+      ? 1
+      : 0;
+
+  const config = data.config || {};
+
+  if (!config || typeof config !== 'object' ||
+      Array.isArray(config)) {
+    throw new Error('Configuração inválida.');
+  }
+
+  const lives = Number(config.lives ?? 3);
+
+  if (!Number.isInteger(lives) ||
+      lives < 1 || lives > 10) {
+    throw new Error('A resistência deve ter de 1 a 10 vidas.');
+  }
+
+  if (!Array.isArray(data.questions) ||
+      data.questions.length < 1 ||
+      data.questions.length > 50) {
+    throw new Error('Informe de 1 a 50 questões.');
+  }
+
+    
+  if (type === 'tempo' && data.questions.length < 2) {
+    throw new Error(
+      'O desafio Contra o Tempo deve ter pelo menos duas questões.'
+    );
+  }
+
+  const questions = data.questions.map((raw, index) => {
+    const prompt = String(raw.prompt || '').trim();
+
+    if (!prompt || prompt.length > 2000) {
+      throw new Error(
+        `A questão ${index + 1} precisa de um enunciado válido.`
+      );
+    }
+
+    const questionType =
+      type === 'quebra_cabeca'
+        ? 'ordenar'
+        : 'multipla';
+
+    const options = Array.isArray(raw.options)
+      ? raw.options.map(v => String(v).trim())
+      : [];
+
+    if (options.length < 2 ||
+        options.length > 10 ||
+        options.some(v => !v || v.length > 500) ||
+        new Set(options.map(v => v.toLowerCase())).size !==
+          options.length) {
+      throw new Error(
+        `A questão ${index + 1} precisa de 2 a 10 opções distintas.`
+      );
+    }
+
+    let correctAnswer;
+
+    if (questionType === 'multipla') {
+      // A tabela atual armazena o índice da alternativa.
+      correctAnswer = Number(raw.correct_answer);
+
+      if (!Number.isInteger(correctAnswer) ||
+          correctAnswer < 0 ||
+          correctAnswer >= options.length) {
+        throw new Error(
+          `Selecione a alternativa correta da questão ${index + 1}.`
+        );
+      }
+    } else {
+      // Para ordenação, o gabarito é representado
+      // pela posição das opções no cadastro:
+      // [0, 1, 2, ...].
+      // O motor de respostas usará essa convenção.
+      correctAnswer = 0;
+    }
+
+    const difficulty = Number(
+      raw.difficulty ?? Math.min(index + 1, 10)
+    );
+
+    if (!Number.isInteger(difficulty) ||
+        difficulty < 1 || difficulty > 10) {
+      throw new Error(
+        `Dificuldade inválida na questão ${index + 1}.`
+      );
+    }
+
+    return {
+      question_type: questionType,
+      prompt,
+      options,
+      correct_answer: correctAnswer,
+      difficulty,
+      position: index
+    };
+  });
+
+  if (type === 'resistencia') {
+    // Mantém a progressão de dificuldade.
+    for (let i = 1; i < questions.length; i++) {
+      if (questions[i].difficulty <
+          questions[i - 1].difficulty) {
+        throw new Error(
+          'Na Resistência, a dificuldade não pode diminuir.'
+        );
+      }
+    }
+  }
+
+  return {
+    title,
+    description,
+    type,
+    enabled,
+    time_limit: timeLimit,
+    xp_reward: xpReward,
+    max_attempts: maxAttempts,
+    badge_name: badgeName,
+    badge_description: badgeDescription,
+    badge_icon: badgeIcon,
+    config_json: JSON.stringify({
+      lives: type === 'resistencia' ? lives : 1
+    }),
+    questions
+  };
+}
+
+// Salva todas as questões de um desafio novo ou
+// ainda sem tentativas.
+
+/* ============================================================
+   DESAFIOS — SALVAR QUESTÕES COM VERSIONAMENTO
+   ============================================================ */
+
+function challengeSaveQuestions(challengeId, questions) {
+  const challenge = db.prepare(`
+    SELECT revision
+    FROM challenges
+    WHERE id = ?
+      AND deleted_at IS NULL
+  `).get(challengeId);
+
+  if (!challenge) {
+    throw new Error(
+      'Não foi possível salvar: desafio não encontrado.'
+    );
+  }
+
+  const revision = Number(challenge.revision || 1);
+
+  // Não exclui as questões de revisões anteriores.
+  // Cada edição recebe um novo conjunto de questões.
+
+  const insert = db.prepare(`
+    INSERT INTO challenge_questions (
+      challenge_id,
+      revision,
+      question_type,
+      prompt,
+      options,
+      correct_answer,
+      difficulty,
+      position
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  for (const question of questions) {
+    insert.run(
+      challengeId,
+      revision,
+      question.question_type,
+      question.prompt,
+      JSON.stringify(question.options),
+      question.correct_answer,
+      question.difficulty,
+      question.position
+    );
+  }
+
+  return revision;
+}
+
+
+// Cria um novo desafio na trilha.
+app.post(
+  '/api/admin/tracks/:trackId/challenges',
+  auth,
+  staff,
+  (req, res) => {
+    try {
+      const trackId = challengeValidId(
+        req.params.trackId
+      );
+
+      if (!trackId) {
+        return res.status(400).json({
+          error: 'Trilha inválida.'
+        });
+      }
+
+      const track = db.prepare(`
+        SELECT id
+        FROM tracks
+        WHERE id = ?
+      `).get(trackId);
+
+      if (!track) {
+        return res.status(404).json({
+          error: 'Trilha não encontrada.'
+        });
+      }
+
+      let data;
+
+      try {
+        data = challengeValidatePayload(req.body);
+      } catch (error) {
+        return res.status(400).json({
+          error: error.message
+        });
+      }
+
+      const saved = challengeTransaction(() => {
+        const first = data.questions[0];
+
+        const result = db.prepare(`
+          INSERT INTO challenges (
+            track_id,
+            title,
+            description,
+            type,
+            enabled,
+            question,
+            options,
+            correct_answer,
+            time_limit,
+            xp_reward,
+            badge_code,
+            badge_name,
+            badge_description,
+            badge_icon,
+            max_attempts,
+            config_json
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          trackId,
+          data.title,
+          data.description,
+          data.type,
+          data.enabled,
+          first.prompt,
+          JSON.stringify(first.options),
+          first.correct_answer,
+          data.time_limit,
+          data.xp_reward,
+          'pending',
+          data.badge_name,
+          data.badge_description,
+          data.badge_icon,
+          data.max_attempts,
+          data.config_json
+        );
+
+        const challengeId = Number(
+          result.lastInsertRowid
+        );
+
+        // Cada desafio recebe um código exclusivo,
+        // mesmo quando pertence à mesma trilha.
+        db.prepare(`
+          UPDATE challenges
+          SET badge_code = ?
+          WHERE id = ?
+        `).run(
+          `challenge_${challengeId}`,
+          challengeId
+        );
+
+        challengeSaveQuestions(
+          challengeId,
+          data.questions
+        );
+
+        return db.prepare(`
+          SELECT id, track_id, title, type, enabled
+          FROM challenges
+          WHERE id = ?
+        `).get(challengeId);
+      });
+
+      return res.status(201).json({
+        ok: true,
+        challenge: saved
+      });
+
+    } catch (error) {
+      return challengeError(res, error);
+    }
+  }
+);
+
+
+ // Edita um desafio específico, preservando recompensas anteriores.
+app.put(
+  '/api/admin/challenges/:challengeId',
+  auth,
+  staff,
+  (req, res) => {
+    try {
+      const challengeId = challengeValidId(
+        req.params.challengeId
+      );
+
+      if (!challengeId) {
+        return res.status(400).json({
+          error: 'Desafio inválido.'
+        });
+      }
+
+      let data;
+
+      try {
+        data = challengeValidatePayload(req.body);
+      } catch (error) {
+        return res.status(400).json({
+          error: error.message
+        });
+      }
+
+      const result = challengeTransaction(() => {
+        const existing = db.prepare(`
+          SELECT *
+          FROM challenges
+          WHERE id = ?
+            AND deleted_at IS NULL
+        `).get(challengeId);
+
+        if (!existing) {
+          return null;
+        }
+
+        // Encerra tentativas em andamento sem consumir
+        // uma tentativa do aluno e sem retirar XP.
+        const cancelledAttempts =
+          challengeCancelActiveAttempts(challengeId);
+
+        const first = data.questions[0];
+
+        db.prepare(`
+          UPDATE challenges
+          SET
+            title = ?,
+            description = ?,
+            type = ?,
+            enabled = ?,
+            question = ?,
+            options = ?,
+            correct_answer = ?,
+            time_limit = ?,
+            xp_reward = ?,
+            badge_name = ?,
+            badge_description = ?,
+            badge_icon = ?,
+            max_attempts = ?,
+            config_json = ?,
+            revision = revision + 1,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+            AND deleted_at IS NULL
+        `).run(
+          data.title,
+          data.description,
+          data.type,
+          data.enabled,
+          first.prompt,
+          JSON.stringify(first.options),
+          first.correct_answer,
+          data.time_limit,
+          data.xp_reward,
+          data.badge_name,
+          data.badge_description,
+          data.badge_icon,
+          data.max_attempts,
+          data.config_json,
+          challengeId
+        );
+
+        // Atualiza as questões sem apagar o histórico
+        // das tentativas concluídas ou as recompensas.
+        challengeSaveQuestions(
+          challengeId,
+          data.questions
+        );
+
+        const updated = db.prepare(`
+          SELECT
+            id,
+            track_id,
+            title,
+            type,
+            enabled,
+            revision
+          FROM challenges
+          WHERE id = ?
+        `).get(challengeId);
+
+        return {
+          challenge: updated,
+          cancelledAttempts
+        };
+      });
+
+      if (!result) {
+        return res.status(404).json({
+          error: 'Desafio não encontrado ou excluído.'
+        });
+      }
+
+      return res.json({
+        ok: true,
+        challenge: result.challenge,
+        cancelled_attempts: result.cancelledAttempts,
+        message:
+          'Desafio atualizado. Tentativas em andamento ' +
+          'foram encerradas sem penalidade.'
+      });
+
+    } catch (error) {
+      return challengeError(res, error);
+    }
+  }
+);
+
+/* ============================================================
+   ADMINISTRAÇÃO — EXCLUSÃO LÓGICA DE DESAFIOS
+   ============================================================ */
+
+app.delete(
+  '/api/admin/challenges/:challengeId',
+  auth,
+  adm,
+  (req, res) => {
+    try {
+      const challengeId = challengeValidId(
+        req.params.challengeId
+      );
+
+      if (!challengeId) {
+        return res.status(400).json({
+          error: 'Desafio inválido.'
+        });
+      }
+
+      const result = challengeTransaction(() => {
+        const challenge = db.prepare(`
+          SELECT id, title
+          FROM challenges
+          WHERE id = ?
+            AND deleted_at IS NULL
+        `).get(challengeId);
+
+        if (!challenge) {
+          return null;
+        }
+
+        // Cancela tentativas em andamento sem penalidade.
+        const cancelledAttempts =
+          challengeCancelActiveAttempts(challengeId);
+
+        // Exclusão lógica: preserva o registro original.
+        db.prepare(`
+          UPDATE challenges
+          SET
+            enabled = 0,
+            deleted_at = CURRENT_TIMESTAMP,
+            revision = revision + 1,
+            updated_at = CURRENT_TIMESTAMP
+          WHERE id = ?
+            AND deleted_at IS NULL
+        `).run(challengeId);
+
+        return {
+          id: challenge.id,
+          title: challenge.title,
+          cancelledAttempts
+        };
+      });
+
+      if (!result) {
+        return res.status(404).json({
+          error: 'Desafio não encontrado ou já excluído.'
+        });
+      }
+
+      return res.json({
+        ok: true,
+        deleted: true,
+        challenge_id: result.id,
+        cancelled_attempts: result.cancelledAttempts,
+        message:
+          'Desafio excluído com sucesso. ' +
+          'O histórico e as recompensas dos alunos foram preservados.'
+      });
+
+    } catch (error) {
+      return challengeError(res, error);
+    }
+  }
+);
+
+// ============================================================
+// ADMINISTRAÇÃO — CONSULTAR DESAFIO
+// ============================================================
+
+app.get('/api/admin/tracks/:trackId/challenge', auth, staff, (req, res) => {
+  try {
+    const trackId = Number(req.params.trackId);
+
+    if (!Number.isSafeInteger(trackId) || trackId <= 0) {
+      return res.status(400).json({
+        error: 'Trilha inválida.'
+      });
+    }
+
+    const challenge = db.prepare(
+      'SELECT * FROM challenges WHERE track_id=?'
+    ).get(trackId);
+
+    return res.json({
+      challenge: challenge
+        ? {
+            ...challenge,
+            options: challengeJson(challenge.options)
+          }
+        : null
+    });
+  } catch (error) {
+    return challengeError(res, error);
+  }
+});
+
+
+/* ============================================================
+   ADMINISTRAÇÃO — ROTA ANTIGA DE EDIÇÃO
+   ============================================================ */
+
+// A edição antiga foi desativada para impedir alterações
+// que ignorem o controle de revisões, as tentativas dos
+// alunos e a preservação das recompensas.
+//
+// O painel atualizado deve utilizar:
+// POST /api/admin/tracks/:trackId/challenges
+// PUT  /api/admin/challenges/:challengeId
+
+app.put(
+  '/api/admin/tracks/:trackId/challenge',
+  auth,
+  staff,
+  (req, res) => {
+    return res.status(410).json({
+      ok: false,
+      error:
+        'Esta forma de edição foi descontinuada. ' +
+        'Atualize o painel administrativo para utilizar ' +
+        'o editor de desafios.'
+    });
+  }
+);
+
+// ============================================================
+// ALUNO — VISUALIZAR DESAFIO
+// ============================================================
+
+app.get('/api/tracks/:trackId/challenge', auth, (req, res) => {
+  try {
+    const trackId = Number(req.params.trackId);
+    const uid = req.user.id;
+        
+    const missingTracks = trilhasFaltando(req.user, trackId);
+
+    if (missingTracks.length) {
+      return res.status(403).json({
+        error:
+          'Conclua primeiro as trilhas obrigatórias: ' +
+          missingTracks.join(', ')
+      });
+    }
+
+
+    if (!Number.isSafeInteger(trackId) || trackId <= 0) {
+      return res.status(400).json({ error: 'Trilha inválida.' });
+    }
+
+    const challenge = db.prepare(
+      'SELECT * FROM challenges WHERE track_id=? AND enabled=1 AND deleted_at IS NULL'
+    ).get(trackId);
+
+    if (!challenge) {
+      return res.status(404).json({
+        error: 'Desafio indisponível.'
+      });
+    }
+
+   const attempts = db.prepare(`
+    SELECT COUNT(*) AS total
+    FROM challenge_attempts
+    WHERE challenge_id = ?
+      AND user_id = ?
+      AND NOT (
+        status = 'expired'
+        AND COALESCE(
+          json_extract(state_json, '$.admin_cancelled'),
+          0
+        ) = 1
+      )
+  `).get(challenge.id, uid).total;
+
+    const reward = db.prepare(`
+      SELECT xp_awarded, badge_code, awarded_at
+      FROM challenge_rewards
+      WHERE challenge_id=? AND user_id=?
+    `).get(challenge.id, uid);
+
+    const active = db.prepare(`
+      SELECT id, deadline_at
+      FROM challenge_attempts
+      WHERE challenge_id=? AND user_id=?
+        AND status='in_progress'
+    `).get(challenge.id, uid);
+
+    const activeValid = active && Date.now() < active.deadline_at;
+
+    const publicChallenge = challengePublic(challenge);
+
+    // Não revelar alternativas antes de iniciar.
+    delete publicChallenge.options;
+    delete publicChallenge.question;
+
+    return res.json({
+      challenge: publicChallenge,
+      attempts,
+      remaining: Math.max(0, challenge.max_attempts - attempts),
+      completed: Boolean(reward),
+      reward: reward || null,
+      active: activeValid
+        ? { id: active.id, deadline_at: active.deadline_at }
+        : null
+    });
+  } catch (error) {
+    return challengeError(res, error);
+  }
+});
+
+
+/* ============================================================
+   DESAFIOS MULTITIPOS — INICIAR E RETOMAR
+   ============================================================ */
+
+const CHALLENGE_SESSION_MS = 24 * 60 * 60 * 1000;
+
+function challengeReadState(value) {
+  try {
+    const state = JSON.parse(value || '{}');
+
+    return state &&
+      typeof state === 'object' &&
+      !Array.isArray(state)
+        ? state
+        : {};
+  } catch {
+    return {};
+  }
+}
+
+// Embaralhamento criptograficamente seguro.
+// A ordem gerada é salva no banco para impedir
+// que o aluno obtenha outra sequência ao atualizar.
+function challengeShuffleIndexes(length) {
+  const indexes = Array.from(
+    { length },
+    (_, index) => index
+  );
+
+  for (let i = indexes.length - 1; i > 0; i--) {
+    const j = crypto.randomInt(i + 1);
+
+    [indexes[i], indexes[j]] = [
+      indexes[j],
+      indexes[i]
+    ];
+  }
+
+  return indexes;
+}
+
+// Recupera a questão atual sem revelar o gabarito.
+function challengeCurrentQuestion(attempt, challenge) {
+  const questions = db.prepare(`
+    SELECT
+      id,
+      question_type,
+      prompt,
+      options,
+      difficulty,
+      position
+    FROM challenge_questions
+    WHERE challenge_id = ?
+    AND revision = ?
+    ORDER BY position, id
+
+ `).all(
+  challenge.id,
+  Number(attempt.challenge_revision || 1)
+);
+
+  const index = Number(attempt.current_question || 0);
+
+  if (index < 0 || index >= questions.length) {
+    return null;
+  }
+
+  const question = questions[index];
+  const options = challengeJson(question.options);
+  const state = challengeReadState(attempt.state_json);
+
+  let order = state.order;
+
+  if (
+    !Array.isArray(order) ||
+    order.length !== options.length ||
+    new Set(order).size !== options.length ||
+    order.some(
+      value =>
+        !Number.isInteger(value) ||
+        value < 0 ||
+        value >= options.length
+    )
+  ) {
+    order = challengeShuffleIndexes(options.length);
+
+    // O estado deve ser persistido antes de enviar
+    // a questão ao aluno.
+    state.order = order;
+
+    db.prepare(`
+      UPDATE challenge_attempts
+      SET state_json = ?
+      WHERE id = ?
+        AND status = 'in_progress'
+    `).run(
+      JSON.stringify(state),
+      attempt.id
+    );
+  }
+
+  const displayedOptions = order.map(
+    originalIndex => options[originalIndex]
+  );
+
+  return {
+    id: question.id,
+    index,
+    total: questions.length,
+    question_type: question.question_type,
+    prompt: question.prompt,
+    options: displayedOptions,
+    difficulty: question.difficulty
+  };
+}
+
+function challengeAttemptResponse(attempt, challenge) {
+  const question = challengeCurrentQuestion(
+    attempt,
+    challenge
+  );
+
+  const config = challengeConfig(
+    challenge.config_json
+  );
+
+  const lives = challenge.type === 'resistencia'
+    ? Number(config.lives || 3)
+    : 1;
+
+  return {
+    ok: true,
+    attempt_id: attempt.id,
+    challenge_id: challenge.id,
+    type: challenge.type,
+    title: challenge.title,
+    server_time: Date.now(),
+    deadline_at: challenge.type === 'tempo'
+      ? attempt.deadline_at
+      : null,
+    current_question: Number(
+      attempt.current_question || 0
+    ),
+    mistakes: Number(attempt.mistakes || 0),
+    lives_remaining: challenge.type === 'resistencia'
+      ? Math.max(0, lives - Number(attempt.mistakes || 0))
+      : null,
+    question,
+    // Campos de compatibilidade com o frontend antigo.
+    ...(question
+      ? {
+          options: question.options
+        }
+      : {})
+  };
+}
+
+// Inicia um desafio específico, independentemente
+// de quantos desafios existam na mesma trilha.
+app.post(
+  '/api/challenges/:challengeId/start',
+  auth,
+  (req, res) => {
+    try {
+      const challengeId = challengeValidId(
+        req.params.challengeId
+      );
+
+      if (!challengeId) {
+        return res.status(400).json({
+          error: 'Desafio inválido.'
+        });
+      }
+
+      const uid = req.user.id;
+
+      
+    const challenge = db.prepare(`
+      SELECT *
+      FROM challenges
+      WHERE id = ?
+        AND enabled = 1
+        AND deleted_at IS NULL
+    `).get(challengeId);
+
+
+      if (!challenge) {
+        return res.status(404).json({
+          error: 'Desafio indisponível.'
+        });
+      }
+
+      const missingTracks = trilhasFaltando(
+        req.user,
+        challenge.track_id
+      );
+
+      if (missingTracks.length) {
+        return res.status(403).json({
+          error:
+            'Conclua primeiro as trilhas obrigatórias: ' +
+            missingTracks.join(', ')
+        });
+      }
+
+      const result = challengeTransaction(() => {
+        const reward = db.prepare(`
+          SELECT id
+          FROM challenge_rewards
+          WHERE challenge_id = ?
+            AND user_id = ?
+        `).get(challengeId, uid);
+
+        if (reward) {
+          return {
+            code: 409,
+            error: 'Você já concluiu este desafio.'
+          };
+        }
+
+        const now = Date.now();
+
+        let attempt = db.prepare(`
+          SELECT *
+          FROM challenge_attempts
+          WHERE challenge_id = ?
+            AND user_id = ?
+            AND status = 'in_progress'
+        `).get(challengeId, uid);
+
+        if (attempt && now >= attempt.deadline_at) {
+          db.prepare(`
+            UPDATE challenge_attempts
+            SET
+              status = 'expired',
+              finished_at = ?
+            WHERE id = ?
+              AND status = 'in_progress'
+          `).run(now, attempt.id);
+
+          attempt = null;
+        }
+
+        if (!attempt) {
+          const count = db.prepare(`
+          SELECT COUNT(*) AS total
+          FROM challenge_attempts
+          WHERE challenge_id = ?
+            AND user_id = ?
+            AND NOT (
+              status = 'expired'
+              AND COALESCE(
+                json_extract(state_json, '$.admin_cancelled'),
+                0
+              ) = 1
+            )
+        `).get(challengeId, uid).total;
+
+          if (count >= challenge.max_attempts) {
+            return {
+              code: 403,
+              error: 'Você atingiu o limite de tentativas.'
+            };
+          }
+
+          
+        const questionCount = db.prepare(`
+          SELECT COUNT(*) AS total
+          FROM challenge_questions
+          WHERE challenge_id = ?
+            AND revision = ?
+        `).get(
+          challengeId,
+          Number(challenge.revision || 1)
+        ).total;
+
+          if (questionCount === 0) {
+            return {
+              code: 409,
+              error: 'Este desafio ainda não possui questões.'
+            };
+          }
+
+          const deadline = challenge.type === 'tempo'
+            ? now + challenge.time_limit * 1000
+            : now + CHALLENGE_SESSION_MS;
+
+          
+        const inserted = db.prepare(`
+          INSERT INTO challenge_attempts (
+            challenge_id,
+            user_id,
+            started_at,
+            deadline_at,
+            current_question,
+            mistakes,
+            state_json,
+            status,
+            challenge_revision
+          )
+          VALUES (?, ?, ?, ?, 0, 0, '{}', 'in_progress', ?)
+        `).run(
+          challengeId,
+          uid,
+          now,
+          deadline,
+          Number(challenge.revision || 1)
+        );
+
+
+          attempt = db.prepare(`
+            SELECT *
+            FROM challenge_attempts
+            WHERE id = ?
+          `).get(Number(inserted.lastInsertRowid));
+        }
+
+        return challengeAttemptResponse(
+          attempt,
+          challenge
+        );
+      });
+
+      if (result.error) {
+        return res.status(result.code).json({
+          error: result.error
+        });
+      }
+
+      return res.json(result);
+
+    } catch (error) {
+      return challengeError(res, error);
+    }
+  }
+);
+
+// ============================================================
+// ALUNO — INICIAR DESAFIO
+// ============================================================
+
+app.post('/api/tracks/:trackId/challenge/start', auth, (req, res) => {
+  try {
+    const trackId = Number(req.params.trackId);
+    const uid = req.user.id;
+
+    if (!Number.isSafeInteger(trackId) || trackId <= 0) {
+      return res.status(400).json({ error: 'Trilha inválida.' });
+    }
+    
+      const missingTracks = trilhasFaltando(req.user, trackId);
+
+      if (missingTracks.length) {
+        return res.status(403).json({
+          error:
+            'Conclua primeiro as trilhas obrigatórias: ' +
+            missingTracks.join(', ')
+        });
+      }
+
+    const challenge = db.prepare(
+      'SELECT * FROM challenges WHERE track_id=? AND enabled=1 AND deleted_at IS NULL'
+    ).get(trackId);
+
+    if (!challenge) {
+      return res.status(404).json({
+        error: 'Desafio indisponível.'
+      });
+    }
+
+    const startAttempt = () => challengeTransaction(() => {
+      const reward = db.prepare(`
+        SELECT id FROM challenge_rewards
+        WHERE challenge_id=? AND user_id=?
+      `).get(challenge.id, uid);
+
+      if (reward) {
+        return { error: 'Você já conquistou esta recompensa.', code: 409 };
+      }
+
+      const now = Date.now();
+
+      const active = db.prepare(`
+        SELECT * FROM challenge_attempts
+        WHERE challenge_id=? AND user_id=?
+          AND status='in_progress'
+      `).get(challenge.id, uid);
+
+      if (active) {
+        if (now < active.deadline_at) {
+          return { attempt: active };
+        }
+
+        db.prepare(`
+          UPDATE challenge_attempts
+          SET status='expired', finished_at=?
+          WHERE id=? AND status='in_progress'
+        `).run(now, active.id);
+      }
+
+      
+      const count = db.prepare(`
+        SELECT COUNT(*) AS total
+        FROM challenge_attempts
+        WHERE challenge_id = ?
+          AND user_id = ?
+          AND NOT (
+            status = 'expired'
+            AND COALESCE(
+              json_extract(state_json, '$.admin_cancelled'),
+              0
+            ) = 1
+          )
+      `).get(challenge.id, uid).total;
+
+      if (count >= challenge.max_attempts) {
+        return { error: 'Você atingiu o limite de tentativas.', code: 403 };
+      }
+
+      const deadline = now + challenge.time_limit * 1000;
+
+     
+      const result = db.prepare(`
+        INSERT INTO challenge_attempts (
+          challenge_id,
+          user_id,
+          started_at,
+          deadline_at,
+          challenge_revision
+        )
+        VALUES (?, ?, ?, ?, ?)
+      `).run(
+        challenge.id,
+        uid,
+        now,
+        deadline,
+        Number(challenge.revision || 1)
+      );
+
+      return {
+        attempt: {
+          id: Number(result.lastInsertRowid),
+          started_at: now,
+          deadline_at: deadline
+        }
+      };
+    });
+
+    const result = startAttempt();
+
+    if (result.error) {
+      return res.status(result.code).json({ error: result.error });
+    }
+
+    return res.json({
+      ok: true,
+      attempt_id: result.attempt.id,
+      server_time: Date.now(),
+      deadline_at: result.attempt.deadline_at,
+      question: challenge.question,
+      options: challengeJson(challenge.options)
+    });
+  } catch (error) {
+    return challengeError(res, error);
+  }
+});
+
+// ============================================================
+// ALUNO — RESPONDER AO DESAFIO
+// ============================================================
+
+/* ============================================================
+   MOTOR DE RESPOSTAS — QUATRO TIPOS DE DESAFIO
+   ============================================================ */
+
+app.post(
+  '/api/challenges/attempts/:attemptId/answer',
+  auth,
+  (req, res) => {
+    try {
+      const attemptId = challengeValidId(
+        req.params.attemptId
+      );
+
+      const uid = req.user.id;
+
+      if (!attemptId) {
+        return res.status(400).json({
+          error: 'Tentativa inválida.'
+        });
+      }
+
+      const access = db.prepare(`
+        SELECT c.track_id
+        FROM challenge_attempts a
+        JOIN challenges c
+          ON c.id = a.challenge_id
+        WHERE a.id = ?
+          AND a.user_id = ?
+      `).get(attemptId, uid);
+
+      if (!access) {
+        return res.status(404).json({
+          error: 'Tentativa não encontrada.'
+        });
+      }
+
+      const missingTracks = trilhasFaltando(
+        req.user,
+        access.track_id
+      );
+
+      if (missingTracks.length) {
+        return res.status(403).json({
+          error:
+            'Conclua primeiro as trilhas obrigatórias: ' +
+            missingTracks.join(', ')
+        });
+      }
+
+      const result = challengeTransaction(() => {
+        const attempt = db.prepare(`
+          SELECT *
+          FROM challenge_attempts
+          WHERE id = ?
+            AND user_id = ?
+        `).get(attemptId, uid);
+
+        if (!attempt) {
+          return {
+            code: 404,
+            error: 'Tentativa não encontrada.'
+          };
+        }
+
+        if (attempt.status !== 'in_progress') {
+          return {
+            code: 409,
+            error: 'Esta tentativa já foi encerrada.'
+          };
+        }
+
+        const challenge = db.prepare(`
+          SELECT *
+          FROM challenges
+          WHERE id = ?
+        `).get(attempt.challenge_id);
+
+        if (!challenge) {
+          return {
+            code: 404,
+            error: 'Desafio não encontrado.'
+          };
+        }
+
+        const now = Date.now();
+
+        // O prazo é sempre verificado pelo servidor.
+        if (now >= attempt.deadline_at) {
+          db.prepare(`
+            UPDATE challenge_attempts
+            SET
+              status = 'expired',
+              finished_at = ?
+            WHERE id = ?
+              AND status = 'in_progress'
+          `).run(now, attemptId);
+
+          return {
+            ok: true,
+            status: 'expired',
+            gained: 0,
+            message: challenge.type === 'tempo'
+              ? 'O tempo acabou!'
+              : 'A sessão expirou.'
+          };
+        }
+
+       const questions = db.prepare(`
+          SELECT *
+          FROM challenge_questions
+          WHERE challenge_id = ?
+            AND revision = ?
+          ORDER BY position, id
+        `).all(
+          challenge.id,
+          Number(attempt.challenge_revision || 1)
+        );
+
+        const index = Number(
+          attempt.current_question || 0
+        );
+
+        if (
+          !questions.length ||
+          index < 0 ||
+          index >= questions.length
+        ) {
+          return {
+            code: 409,
+            error: 'Questão atual indisponível.'
+          };
+        }
+
+        const question = questions[index];
+        const options = challengeJson(
+          question.options
+        );
+
+        const state = challengeReadState(
+          attempt.state_json
+        );
+
+        // Tentativas antigas não possuem ordem salva.
+        // Nelas, a ordem original é preservada.
+        let order = state.order;
+
+        const validOrder =
+          Array.isArray(order) &&
+          order.length === options.length &&
+          new Set(order).size === options.length &&
+          order.every(
+            value =>
+              Number.isInteger(value) &&
+              value >= 0 &&
+              value < options.length
+          );
+
+        if (!validOrder) {
+          order = options.map((_, i) => i);
+        }
+
+        let correct = false;
+        let selectedAnswer = null;
+
+        if (challenge.type === 'quebra_cabeca') {
+          // selected_order representa os índices
+          // das alternativas na ordem exibida.
+          // Exemplo: [2, 0, 1].
+          const submitted = req.body?.selected_order;
+
+          const valid =
+            Array.isArray(submitted) &&
+            submitted.length === options.length &&
+            new Set(submitted).size === options.length &&
+            submitted.every(
+              value =>
+                Number.isInteger(value) &&
+                value >= 0 &&
+                value < options.length
+            );
+
+          if (!valid) {
+            return {
+              code: 400,
+              error: 'Envie uma sequência válida.'
+            };
+          }
+
+          // Converte a sequência exibida para os
+          // índices originais do gabarito.
+          const originalOrder = submitted.map(
+            displayedIndex => order[displayedIndex]
+          );
+
+          correct = originalOrder.every(
+            (value, position) => value === position
+          );
+
+        } else {
+          const selected = req.body?.selected_answer;
+
+          if (
+            !Number.isSafeInteger(selected) ||
+            selected < 0 ||
+            selected >= options.length
+          ) {
+            return {
+              code: 400,
+              error: 'Selecione uma alternativa válida.'
+            };
+          }
+
+          selectedAnswer = selected;
+
+          // O índice exibido é convertido no índice
+          // original antes de comparar com o gabarito.
+          const originalIndex = order[selected];
+
+          correct =
+            originalIndex === Number(
+              question.correct_answer
+            );
+        }
+
+        const config = challengeConfig(
+          challenge.config_json
+        );
+
+        const lives = challenge.type === 'resistencia'
+          ? Math.max(
+              1,
+              Math.min(10, Number(config.lives || 3))
+            )
+          : 1;
+
+        const mistakes =
+          Number(attempt.mistakes || 0) +
+          (correct ? 0 : 1);
+
+        const nextIndex = index + 1;
+
+        const isLast =
+          nextIndex >= questions.length;
+
+        let lost = false;
+        let won = false;
+
+        switch (challenge.type) {
+          
+            case 'tempo':
+              // O quarto erro encerra a tentativa.
+              lost = mistakes > 3;
+
+              // Concluir todas as questões com até
+              // três erros garante a vitória.
+              won = !lost && isLast;
+              break;
+
+            case 'precisao':
+
+            lost = !correct;
+            won = correct && isLast;
+            break;
+
+          case 'quebra_cabeca':
+            lost = !correct;
+            won = correct && isLast;
+            break;
+
+          case 'resistencia':
+            lost = mistakes >= lives;
+            won = !lost && isLast;
+            break;
+
+          default:
+            return {
+              code: 409,
+              error: 'Tipo de desafio não reconhecido.'
+            };
+        }
+
+        if (lost) {
+          db.prepare(`
+            UPDATE challenge_attempts
+            SET
+              status = 'lost',
+              selected_answer = ?,
+              mistakes = ?,
+              finished_at = ?
+            WHERE id = ?
+              AND status = 'in_progress'
+          `).run(
+            selectedAnswer,
+            mistakes,
+            now,
+            attemptId
+          );
+
+          return {
+            ok: true,
+            status: 'lost',
+            correct,
+            gained: 0,
+            mistakes,
+            lives_remaining: challenge.type === 'resistencia'
+              ? 0
+              : null,
+            message: challenge.type === 'tempo' && mistakes > 3
+            ? 'Você cometeu 4 erros. O desafio foi encerrado.'
+            : 'Desafio não concluído.'
+          };
+        }
+
+        if (won) {
+          // Uma recompensa por aluno e desafio.
+          // A restrição UNIQUE(user_id, challenge_id)
+          // no banco também protege contra duplicação.
+          const previousReward = db.prepare(`
+            SELECT id
+            FROM challenge_rewards
+            WHERE challenge_id = ?
+              AND user_id = ?
+          `).get(challenge.id, uid);
+
+          if (previousReward) {
+            db.prepare(`
+              UPDATE challenge_attempts
+              SET
+                status = 'lost',
+                finished_at = ?
+              WHERE id = ?
+            `).run(now, attemptId);
+
+            return {
+              code: 409,
+              error: 'A recompensa já foi recebida.'
+            };
+          }
+
+          const baseXp = Math.max(
+            0,
+            Number(challenge.xp_reward) || 0
+          );
+
+          const xpAwarded = challenge.type === 'tempo'
+            ? Math.floor(baseXp * (1 - mistakes * 0.10))
+            : baseXp;
+
+          db.prepare(`
+            UPDATE challenge_attempts
+            SET
+              status = 'won',
+              selected_answer = ?,
+              mistakes = ?,
+              current_question = ?,
+              finished_at = ?
+            WHERE id = ?
+              AND status = 'in_progress'
+          `).run(
+            selectedAnswer,
+            mistakes,
+            nextIndex,
+            now,
+            attemptId
+          );
+
+          db.prepare(`
+            INSERT INTO challenge_rewards (
+              challenge_id,
+              user_id,
+              attempt_id,
+              xp_awarded,
+              badge_code,
+              awarded_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).run(
+            challenge.id,
+            uid,
+            attemptId,
+            xpAwarded,
+            challenge.badge_code,
+            now
+          );
+
+          db.prepare(`
+            INSERT OR IGNORE INTO badges (
+              user_id,
+              code
+            )
+            VALUES (?, ?)
+          `).run(
+            uid,
+            challenge.badge_code
+          );
+
+          // Registra o XP na atividade diária.
+          // O XP total já é calculado a partir
+          // de challenge_rewards.
+          if (xpAwarded > 0) {
+          bump(uid, {
+            xp: xpAwarded
+          });
+          }
+
+          return {
+            ok: true,
+            status: 'won',
+            correct,
+            gained: xpAwarded,
+            badge_code: challenge.badge_code,
+            mistakes,
+            lives_remaining: challenge.type === 'resistencia'
+              ? Math.max(0, lives - mistakes)
+              : null,
+            message: 'Desafio concluído!'
+          };
+        }
+
+        // Ainda existem questões e a tentativa
+        // não foi perdida.
+        // Apaga a ordem anterior para gerar uma
+        // nova ordem para a próxima questão.
+        delete state.order;
+
+        db.prepare(`
+          UPDATE challenge_attempts
+          SET
+            current_question = ?,
+            selected_answer = ?,
+            mistakes = ?,
+            state_json = ?
+          WHERE id = ?
+            AND status = 'in_progress'
+        `).run(
+          nextIndex,
+          selectedAnswer,
+          mistakes,
+          JSON.stringify(state),
+          attemptId
+        );
+
+        const updatedAttempt = db.prepare(`
+          SELECT *
+          FROM challenge_attempts
+          WHERE id = ?
+        `).get(attemptId);
+
+        const next = challengeAttemptResponse(
+          updatedAttempt,
+          challenge
+        );
+
+        return {
+          ...next,
+          status: 'in_progress',
+          correct,
+          gained: 0,
+          message: correct
+          ? 'Resposta correta! Continue.'
+          : challenge.type === 'tempo'
+            ? `Resposta incorreta! ${mistakes}/3 erros permitidos.`
+            : 'Resposta incorreta. Você perdeu uma vida.'
+        };
+      });
+
+      if (result.error) {
+        return res.status(result.code).json({
+          error: result.error
+        });
+      }
+
+      return res.json(result);
+
+    } catch (error) {
+      return challengeError(res, error);
+    }
+  }
+);
+
+
+
 // ============================================================
 // ÁREA DO ALUNO
 // ============================================================
@@ -1232,6 +3371,19 @@ app.get(
                 row.lesson_id
             )
         );
+
+       const completionCounts = Object.fromEntries(
+  db.prepare(
+    `SELECT lesson_id, review_count
+     FROM progress
+     WHERE user_id=?`
+  )
+  .all(req.user.id)
+  .map(row => [
+    row.lesson_id,
+    Number(row.review_count || 1)
+  ])
+);
 
       const lessons =
         db
@@ -1346,15 +3498,18 @@ app.get(
                       ...lesson,
 
                       done:
-                        done.has(
-                          lesson.id
-                        ),
+                          done.has(
+                            lesson.id
+                          ),
 
-                      total:
-                        questionCount[
-                          lesson.id
-                        ] || 0,
+                        // Quantidade de vezes que o aluno concluiu o módulo
+                        completionCount:
+                          completionCounts[lesson.id] || 0,
 
+                        total:
+                          questionCount[
+                            lesson.id
+                          ] || 0,
                       answered:
                         answerCount[
                           lesson.id
@@ -2154,224 +4309,199 @@ app.post(
 );
 
 
+
 // ============================================================
 // CONCLUSÃO DA LIÇÃO
 // ============================================================
 
-app.post(
-  '/api/lessons/:id/complete',
-  auth,
-  (req, res) => {
-    try {
-      const lesson =
-        db
-          .prepare(
-            'SELECT * FROM lessons WHERE id=?'
-          )
-          .get(
-            req.params.id
-          );
+app.post('/api/lessons/:id/complete', auth, (req, res) => {
+  try {
+    const lesson = db.prepare(
+      'SELECT * FROM lessons WHERE id=?'
+    ).get(req.params.id);
 
-      const uid =
-        req.user.id;
+    const uid = req.user.id;
 
-      if (!lesson) {
-        return res.status(404).json({
-          error:
-            'Lição não encontrada'
-        });
-      }
-
-      if (trilhasFaltando(req.user, lesson.track_id).length) {
-        return res.status(403).json({
-          error: 'Trilha bloqueada: conclua os pré-requisitos antes.'
-        });
-      }
-
-      const total =
-        one(
-          `SELECT COUNT(*) v
-           FROM questions
-           WHERE lesson_id=?`,
-          lesson.id
-        ).v;
-
-      const result =
-        one(
-          `SELECT
-             COUNT(*) n,
-             COALESCE(
-               SUM(correct),
-               0
-             ) c
-           FROM answers
-           WHERE user_id=?
-           AND question_id IN(
-             SELECT id
-             FROM questions
-             WHERE lesson_id=?
-           )`,
-          uid,
-          lesson.id
-        );
-
-      if (
-        result.n < total
-      ) {
-        return res.status(400).json({
-          error:
-            'Responda todas as questões'
-        });
-      }
-
-      const perfect =
-        total > 0 &&
-        result.c === total
-          ? 1
-          : 0;
-
-      let gained = 0;
-      let coins = 0;
-
-      if (
-        !isDone(
-          uid,
-          lesson.id
-        )
-      ) {
-        gained =
-          Number(
-            lesson.xp || 0
-          ) +
-          result.c * 2 +
-          (perfect ? 10 : 0);
-
-        coins =
-          5 +
-          (perfect ? 5 : 0);
-
-        db.prepare(
-          `INSERT INTO progress(
-            user_id,
-            lesson_id,
-            xp,
-            perfect,
-            done_at
-          )
-          VALUES(?,?,?,?,?)`
-        ).run(
-          uid,
-          lesson.id,
-          gained,
-          perfect,
-          today()
-        );
-
-        db.prepare(
-          `UPDATE users
-           SET coins=coins+?
-           WHERE id=?`
-        ).run(
-          coins,
-          uid
-        );
-
-        bump(
-          uid,
-          {
-            xp: gained,
-            lessons: 1
-          }
-        );
-      }
-
-      const user =
-        one(
-          `SELECT
-             streak,
-             last_day,
-             best_streak
-           FROM users
-           WHERE id=?`,
-          uid
-        );
-
-      let streak =
-        user?.streak || 0;
-
-      if (
-        user?.last_day !==
-        today()
-      ) {
-        streak =
-          user?.last_day ===
-          yesterday()
-            ? (user.streak || 0) +
-              1
-            : 1;
-
-        const bestStreak =
-          Math.max(
-            user?.best_streak ||
-              0,
-            streak
-          );
-
-        db.prepare(
-          `UPDATE users
-           SET streak=?,
-               last_day=?,
-               best_streak=?
-           WHERE id=?`
-        ).run(
-          streak,
-          today(),
-          bestStreak,
-          uid
-        );
-      }
-
-      const state =
-        stats(uid);
-
-      res.json({
-        ok: true,
-        streak,
-        gained,
-        coins,
-        perfect:
-          !!perfect,
-        hits: result.c,
-        total,
-        level:
-          state.level,
-
-        levelUp:
-          state.level >
-          LEVEL(
-            Math.max(
-              0,
-              state.xp -
-                gained
-            )
-          ),
-
-        badges:
-          awardBadges(uid)
-      });
-    } catch (error) {
-      console.error(
-        'Erro ao concluir lição:',
-        error
-      );
-
-      res.status(500).json({
-        error:
-          'Erro ao concluir lição'
+    if (!lesson) {
+      return res.status(404).json({
+        error: 'Lição não encontrada'
       });
     }
+
+    if (trilhasFaltando(req.user, lesson.track_id).length) {
+      return res.status(403).json({
+        error: 'Trilha bloqueada: conclua os pré-requisitos antes.'
+      });
+    }
+
+    const total = one(
+      `SELECT COUNT(*) v
+       FROM questions
+       WHERE lesson_id=?`,
+      lesson.id
+    ).v;
+
+    const result = one(
+      `SELECT
+         COUNT(*) n,
+         COALESCE(SUM(correct), 0) c
+       FROM answers
+       WHERE user_id=?
+       AND question_id IN (
+         SELECT id
+         FROM questions
+         WHERE lesson_id=?
+       )`,
+      uid,
+      lesson.id
+    );
+
+    if (result.n < total) {
+      return res.status(400).json({
+        error: 'Responda todas as questões'
+      });
+    }
+
+    const perfect = total > 0 && result.c === total ? 1 : 0;
+
+    // Consulta quantas vezes o aluno concluiu o módulo.
+    const previousProgress = db.prepare(
+      `SELECT xp, perfect, review_count
+       FROM progress
+       WHERE user_id=? AND lesson_id=?`
+    ).get(uid, lesson.id);
+
+    const repeated = !!previousProgress;
+
+    const completionNumber = repeated
+      ? Number(previousProgress.review_count || 1) + 1
+      : 1;
+
+    // 1ª = 100%, 2ª = 50%, 3ª = 30%, demais = 20%.
+    const xpMultiplier =
+      completionNumber === 1 ? 1 :
+      completionNumber === 2 ? 0.5 :
+      completionNumber === 3 ? 0.3 :
+      0.2;
+
+    const originalXp =
+      Number(lesson.xp || 0) +
+      result.c * 2 +
+      (perfect ? 10 : 0);
+
+    const gained = Math.floor(originalXp * xpMultiplier);
+
+    // Moedas são concedidas apenas na primeira conclusão.
+    const coins = repeated ? 0 : 5 + (perfect ? 5 : 0);
+
+    if (repeated) {
+      db.prepare(
+        `UPDATE progress
+         SET xp=xp+?,
+             perfect=MAX(perfect, ?),
+             review_count=?
+         WHERE user_id=? AND lesson_id=?`
+      ).run(
+        gained,
+        perfect,
+        completionNumber,
+        uid,
+        lesson.id
+      );
+    } else {
+      db.prepare(
+        `INSERT INTO progress (
+          user_id,
+          lesson_id,
+          xp,
+          perfect,
+          done_at,
+          review_count
+        ) VALUES (?, ?, ?, ?, ?, ?)`
+      ).run(
+        uid,
+        lesson.id,
+        gained,
+        perfect,
+        today(),
+        1
+      );
+
+      db.prepare(
+        `UPDATE users
+         SET coins=coins+?
+         WHERE id=?`
+      ).run(coins, uid);
+    }
+
+    bump(uid, {
+      xp: gained,
+      lessons: repeated ? 0 : 1
+    });
+
+    // Mantém a sequência diária do aluno.
+    const user = one(
+      `SELECT streak, last_day, best_streak
+       FROM users
+       WHERE id=?`,
+      uid
+    );
+
+    let streak = user?.streak || 0;
+
+    if (user?.last_day !== today()) {
+      streak = user?.last_day === yesterday()
+        ? (user.streak || 0) + 1
+        : 1;
+
+      const bestStreak = Math.max(
+        user?.best_streak || 0,
+        streak
+      );
+
+      db.prepare(
+        `UPDATE users
+         SET streak=?,
+             last_day=?,
+             best_streak=?
+         WHERE id=?`
+      ).run(
+        streak,
+        today(),
+        bestStreak,
+        uid
+      );
+    }
+
+    const state = stats(uid);
+
+    return res.json({
+      ok: true,
+      streak,
+      gained,
+      coins,
+      perfect: !!perfect,
+      hits: result.c,
+      total,
+      repeated,
+      completionNumber,
+      xpMultiplier,
+      originalXp,
+      level: state.level,
+      levelUp: state.level > LEVEL(
+        Math.max(0, state.xp - gained)
+      ),
+      badges: awardBadges(uid)
+    });
+
+  } catch (error) {
+    console.error('Erro ao concluir lição:', error);
+
+    return res.status(500).json({
+      error: 'Erro ao concluir lição'
+    });
   }
-);
+});
 
 // ============================================================
 // AVALIAÇÃO DO MÓDULO
@@ -2610,22 +4740,39 @@ app.get(
             })
           ),
 
-        badges:
-          Object.entries(
-            BADGES
-          ).map(
-            ([
-              code,
-              badge
-            ]) => ({
-              code,
-              icon: badge[0],
-              name: badge[1],
-              desc: badge[2],
-              got:
-                have.has(code)
-            })
-          ),
+       
+        badges: [
+          ...Object.entries(BADGES).map(([code, badge]) => ({
+            code,
+            icon: badge[0],
+            name: badge[1],
+            desc: badge[2],
+            got: have.has(code)
+          })),
+
+          ...db.prepare(`
+            SELECT
+              c.badge_code AS code,
+              c.badge_icon AS icon,
+              c.badge_name AS name,
+              c.badge_description AS description,
+              CASE WHEN r.id IS NULL THEN 0 ELSE 1 END AS got
+            FROM challenges c
+            LEFT JOIN challenge_rewards r
+              ON r.challenge_id=c.id
+              AND r.user_id=?
+            WHERE (c.enabled = 1 AND c.deleted_at IS NULL)
+            OR r.id IS NOT NULL
+            ORDER BY c.id
+          `).all(uid).map(row => ({
+            code: row.code,
+            icon: row.icon,
+            name: row.name,
+            desc: row.description,
+            got: Boolean(row.got)
+          }))
+        ],
+
 
         week:
           db

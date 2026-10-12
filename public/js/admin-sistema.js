@@ -866,13 +866,6 @@ if (logoutButton) {
       // ENCERRA A SESSÃO
       // ==============================================
 
-      const user = JSON.parse(localStorage.getItem('user') || 'null');
-      const nome = user?.name ? user.name.split(' ')[0] : '';
-
-      if (!confirm(`Deseja sair, ${nome}?`)) {
-        return;
-      }
-
       localStorage.removeItem(
         'token'
       );

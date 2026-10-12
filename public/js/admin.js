@@ -1394,6 +1394,985 @@ function trackForm(t = {}) {
   );
 }
 
+
+/* =========================================================
+   DESAFIOS — PAINEL ADMINISTRATIVO
+========================================================= */
+
+const challengeCache = new Map();
+const challengeLoading = new Set();
+
+function challengeEscape(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;'
+  })[char]);
+}
+
+
+/* =========================================================
+   DESAFIOS — LISTAGEM DE MÚLTIPLOS DESAFIOS
+========================================================= */
+
+const CHALLENGE_TYPES_ADMIN = {
+  tempo: {
+    icon: '⚡',
+    name: 'Contra o tempo'
+  },
+  precisao: {
+    icon: '🎯',
+    name: 'Precisão'
+  },
+  quebra_cabeca: {
+    icon: '🧩',
+    name: 'Quebra-cabeça'
+  },
+  resistencia: {
+    icon: '🔥',
+    name: 'Resistência'
+  }
+};
+
+function challengeInfo(trackId) {
+  if (!challengeCache.has(trackId)) {
+    return `
+      <div class="challenge-empty">
+        <span class="challenge-symbol">🏆</span>
+        <h3>Desafios especiais</h3>
+        <p class="mut">
+          Carregue os desafios cadastrados nesta trilha.
+        </p>
+        <button
+          type="button"
+          class="btn"
+          data-a="challenge-load"
+        >
+          Carregar desafios
+        </button>
+      </div>
+    `;
+  }
+
+  const challenges = challengeCache.get(trackId) || [];
+
+  if (!challenges.length) {
+    return `
+      <div class="challenge-empty">
+        <span class="challenge-symbol">🏆</span>
+        <h3>Nenhum desafio cadastrado</h3>
+        <p class="mut">
+          Esta trilha ainda não possui desafios especiais.
+          O cadastro de múltiplos desafios será habilitado
+          na próxima etapa.
+        </p>
+
+        <button
+            type="button"
+            class="btn"
+            data-a="challenge-new"
+          >
+            + Novo desafio
+          </button>
+
+        <button
+          type="button"
+          class="btn sm sec"
+          data-a="challenge-reload"
+        >
+          ↻ Atualizar
+        </button>
+      </div>
+    `;
+  }
+
+  const activeCount = challenges.filter(
+    challenge => Boolean(challenge.enabled)
+  ).length;
+
+  return `
+    <div class="challenge-list">
+
+      <div class="challenge-card-top">
+        <div>
+          <h3>🏆 Desafios especiais</h3>
+          <p class="mut">
+            ${challenges.length} desafio(s) cadastrado(s)
+            · ${activeCount} ativo(s)
+          </p>
+        </div>
+
+        <button
+            type="button"
+            class="btn"
+            data-a="challenge-new"
+          >
+            + Novo desafio
+          </button>
+
+        <button
+          type="button"
+          class="btn sm sec"
+          data-a="challenge-reload"
+        >
+          ↻ Atualizar
+        </button>
+      </div>
+
+      ${challenges.map(challenge => {
+        const type = CHALLENGE_TYPES_ADMIN[
+          challenge.type
+        ] || {
+          icon: '🏆',
+          name: 'Desafio'
+        };
+
+        const questions = Array.isArray(
+          challenge.questions
+        )
+          ? challenge.questions
+          : [];
+
+        const locked = Boolean(challenge.locked);
+
+        return `
+          <div class="challenge-card">
+
+            <div class="challenge-card-top">
+              <div>
+                <span class="challenge-eyebrow">
+                  ${type.icon}
+                  ${challengeEscape(type.name)}
+                </span>
+
+                <h3>
+                  ${challengeEscape(challenge.title)}
+                </h3>
+              </div>
+
+              <span class="challenge-status ${
+                challenge.enabled ? 'is-active' : ''
+              }">
+                ${
+                  challenge.enabled
+                    ? '● Ativo'
+                    : '○ Inativo'
+                }
+              </span>
+            </div>
+
+            <p class="mut">
+              ${challengeEscape(
+                challenge.description || 'Sem descrição'
+              )}
+            </p>
+
+            <div class="challenge-stats">
+              <div>
+                <strong>${questions.length}</strong>
+                <small>Questões</small>
+              </div>
+
+              <div>
+                <strong>
+                  ${Number(
+                    challenge.xp_reward || 0
+                  ).toLocaleString('pt-BR')}
+                </strong>
+                <small>XP</small>
+              </div>
+
+              <div>
+                <strong>
+                  ${Number(challenge.max_attempts || 1)}
+                </strong>
+                <small>Tentativas</small>
+              </div>
+
+              <div>
+                <strong>
+                  ${Number(challenge.attempts_count || 0)}
+                </strong>
+                <small>Realizadas</small>
+              </div>
+            </div>
+
+            ${
+              challenge.type === 'tempo'
+                ? `
+                  <p class="mut">
+                    ⏱️ Tempo:
+                    ${Number(challenge.time_limit)} segundos
+                  </p>
+                `
+                : ''
+            }
+
+            ${
+              challenge.type === 'resistencia'
+                ? `
+                  <p class="mut">
+                    ❤️ Vidas:
+                    ${Number(challenge.config?.lives || 3)}
+                  </p>
+                `
+                : ''
+            }
+
+            <div class="challenge-question-preview">
+              <small class="mut">QUESTÕES CADASTRADAS</small>
+
+              ${
+                questions.map((q, index) => `
+                  <p>
+                    <strong>${index + 1}.</strong>
+                    ${challengeEscape(q.prompt)}
+                    <small class="mut">
+                      · Dificuldade ${Number(q.difficulty || 1)}
+                    </small>
+                  </p>
+                `).join('') ||
+                '<p class="mut">Nenhuma questão encontrada.</p>'
+              }
+            </div>
+
+            <div class="challenge-badge-preview">
+              <span>🏆</span>
+              <div>
+                <strong>
+                  ${challengeEscape(challenge.badge_name)}
+                </strong>
+                <small>
+                  ${challengeEscape(
+                    challenge.badge_description || ''
+                  )}
+                </small>
+              </div>
+            </div>
+
+            
+            
+        <div class="challenge-actions">
+          <button
+            type="button"
+            class="btn sm sec"
+            data-a="challenge-edit"
+            data-id="${Number(challenge.id)}"
+          >
+            ✏️ Editar desafio
+          </button>
+
+          ${me()?.role === 'adm' ? `
+            <button
+              type="button"
+              class="btn sm red"
+              data-a="challenge-delete"
+              data-id="${Number(challenge.id)}"
+            >
+              🗑️ Excluir desafio
+            </button>
+          ` : ''}
+
+          ${locked ? `
+            <small class="mut">
+              Este desafio já possui tentativas.
+              A edição criará uma nova revisão, preservando
+              as questões anteriores e o histórico dos alunos.
+            </small>
+          ` : ''}
+        </div>
+
+
+
+          </div>
+        `;
+      }).join('')}
+
+    </div>
+  `;
+}
+
+
+async function loadChallenge(trackId, force = false) {
+  if (challengeLoading.has(trackId)) {
+    return;
+  }
+
+  if (!force && challengeCache.has(trackId)) {
+    return;
+  }
+
+  challengeLoading.add(trackId);
+
+  try {
+    const data = await api(
+      `/admin/tracks/${trackId}/challenges`
+    );
+
+    const challenges = Array.isArray(data.challenges)
+      ? data.challenges
+      : [];
+
+    challengeCache.set(trackId, challenges);
+
+  } finally {
+    challengeLoading.delete(trackId);
+  }
+
+  render();
+}
+
+
+/* =========================================================
+   EDITOR DE DESAFIOS MULTITIPOS
+========================================================= */
+
+async function editChallenge(trackId, challengeId = null) {
+  try {
+    if (!challengeCache.has(trackId)) {
+      await loadChallenge(trackId);
+    }
+  } catch (error) {
+    alert(error.message || 'Erro ao carregar desafios.');
+    return;
+  }
+
+  const challenges = challengeCache.get(trackId) || [];
+
+  const existing = challengeId == null
+    ? null
+    : challenges.find(c => Number(c.id) === Number(challengeId));
+
+  if (challengeId != null && !existing) {
+    alert('Desafio não encontrado. Atualize a listagem.');
+    return;
+  }
+
+
+  let questions = existing?.questions?.length
+    ? existing.questions.map(q => ({
+        prompt: String(q.prompt || ''),
+        options: Array.isArray(q.options)
+          ? [...q.options]
+          : (() => {
+              try {
+                return JSON.parse(q.options || '[]');
+              } catch {
+                return [];
+              }
+            })(),
+        correct_answer: Number(q.correct_answer ?? 0),
+        difficulty: Number(q.difficulty ?? 1)
+      }))
+    : [{
+        prompt: '',
+        options: ['', '', '', ''],
+        correct_answer: 0,
+        difficulty: 1
+      }];
+
+  let selectedQuestion = 0;
+
+  const types = {
+    tempo: '⚡ Contra o tempo',
+    precisao: '🎯 Precisão',
+    quebra_cabeca: '🧩 Quebra-cabeça',
+    resistencia: '🔥 Resistência'
+  };
+
+  const html = `
+    <div class="challenge-editor">
+      <label>
+        Tipo de desafio
+        <select id="ch-type">
+          ${Object.entries(types).map(([key, label]) => `
+            <option value="${key}"
+              ${existing?.type === key ? 'selected' : ''}>
+              ${label}
+            </option>
+          `).join('')}
+        </select>
+      </label>
+
+      <label>
+        Título
+        <input id="ch-title" maxlength="120"
+          value="${challengeEscape(existing?.title || '')}"
+          placeholder="Ex.: Desafio de Programação">
+      </label>
+
+      <label>
+        Descrição
+        <textarea id="ch-description" maxlength="2000"
+          rows="3">${challengeEscape(existing?.description || '')}</textarea>
+      </label>
+
+      <div class="challenge-section-title">
+        <strong>Questões do desafio</strong>
+      </div>
+
+      <div id="ch-question-list"></div>
+
+      <div class="challenge-actions">
+        <button type="button" class="btn sm sec"
+          id="ch-add-question">
+          + Adicionar questão
+        </button>
+      </div>
+
+      <div id="ch-question-editor"></div>
+
+      <div class="challenge-section-title">
+        <strong>Configurações</strong>
+      </div>
+
+      <div class="challenge-config-grid">
+        <label id="ch-time-label">
+          Tempo (segundos)
+          <input type="number" id="ch-time"
+            min="5" max="3600" step="1"
+            value="${Number(existing?.time_limit ?? 30)}">
+        </label>
+
+        <label>
+          XP da vitória
+          <input type="number" id="ch-xp"
+            min="0" max="100000" step="1"
+            value="${Number(existing?.xp_reward ?? 1000)}">
+        </label>
+
+        <label>
+          Máximo de tentativas
+          <input type="number" id="ch-attempts"
+            min="1" max="100" step="1"
+            value="${Number(existing?.max_attempts ?? 3)}">
+        </label>
+
+        <label id="ch-lives-label">
+          Vidas na Resistência
+          <input type="number" id="ch-lives"
+            min="1" max="10" step="1"
+            value="${Number(existing?.config?.lives ?? 3)}">
+        </label>
+      </div>
+
+      <div class="challenge-section-title">
+        <strong>🏆 Conquista especial</strong>
+      </div>
+
+      <label>
+        Nome da conquista
+        <input id="ch-badge-name" maxlength="120"
+          value="${challengeEscape(
+            existing?.badge_name || 'Conquistador'
+          )}">
+      </label>
+
+      <label>
+        Descrição da conquista
+        <textarea id="ch-badge-description"
+          maxlength="500" rows="2">${challengeEscape(
+            existing?.badge_description || ''
+          )}</textarea>
+      </label>
+
+      <label>
+        Ícone da conquista
+        <select id="ch-badge-icon">
+          ${[
+            'trophy', 'zap', 'target', 'puzzle',
+            'flame', 'crown', 'medal', 'star',
+            'gem', 'award'
+          ].map(icon => `
+            <option value="${icon}"
+              ${(existing?.badge_icon || 'trophy') === icon
+                ? 'selected'
+                : ''}>
+              ${icon}
+            </option>
+          `).join('')}
+        </select>
+      </label>
+
+      <label class="challenge-toggle">
+        <input type="checkbox" id="ch-enabled"
+          ${existing?.enabled ? 'checked' : ''}>
+        <span>
+          <strong>Desafio ativo</strong>
+          <small>Permitir participação dos alunos</small>
+        </span>
+      </label>
+
+      <p class="mut">
+        Desafios são opcionais e não impedem
+        a conclusão da trilha.
+      </p>
+    </div>
+  `;
+
+  function syncQuestion() {
+    const editor = $('ch-question-editor');
+    const q = questions[selectedQuestion];
+
+    if (!editor || !q) return;
+
+    const prompt = editor.querySelector('#ch-prompt');
+    const difficulty = editor.querySelector('#ch-difficulty');
+
+    if (prompt) q.prompt = prompt.value;
+    if (difficulty) q.difficulty = Number(difficulty.value);
+
+    editor.querySelectorAll('.ch-option-input').forEach(input => {
+      q.options[Number(input.dataset.index)] = input.value;
+    });
+
+    const checked = editor.querySelector(
+      'input[name="ch-correct"]:checked'
+    );
+
+    if (checked) {
+      q.correct_answer = Number(checked.value);
+    }
+  }
+
+  function drawQuestions() {
+    const type = $('ch-type').value;
+    const puzzle = type === 'quebra_cabeca';
+
+    $('ch-time-label').style.display =
+      type === 'tempo' ? '' : 'none';
+
+    $('ch-lives-label').style.display =
+      type === 'resistencia' ? '' : 'none';
+
+    $('ch-add-question').disabled =
+      questions.length >= 50 ||
+      type === 'quebra_cabeca';
+
+    $('ch-question-list').innerHTML = questions.map((q, i) => `
+      <button type="button"
+        class="btn sm ${i === selectedQuestion ? '' : 'sec'}"
+        data-ch-question="${i}">
+        Questão ${i + 1}
+      </button>
+    `).join(' ');
+
+    const q = questions[selectedQuestion];
+
+    if (!q) return;
+
+    $('ch-question-editor').innerHTML = `
+      <div class="challenge-question-preview">
+        <h4>Questão ${selectedQuestion + 1}</h4>
+
+        <label>
+          Enunciado
+          <textarea id="ch-prompt" maxlength="2000"
+            rows="3">${challengeEscape(q.prompt)}</textarea>
+        </label>
+
+        <label>
+          Dificuldade (1 a 10)
+          <input id="ch-difficulty" type="number"
+            min="1" max="10" step="1"
+            value="${Number(q.difficulty)}">
+        </label>
+
+        <p class="mut">
+          ${puzzle
+            ? 'Informe os itens na ordem correta. O aluno verá a ordem embaralhada.'
+            : 'Selecione a alternativa correta.'}
+        </p>
+
+        <div id="ch-options">
+          ${q.options.map((option, i) => `
+            <div class="challenge-option-row">
+              ${puzzle
+                ? `<strong>${i + 1}.</strong>`
+                : `<input type="radio" name="ch-correct"
+                    value="${i}"
+                    ${q.correct_answer === i ? 'checked' : ''}>`}
+
+              <input class="ch-option-input"
+                data-index="${i}"
+                maxlength="500"
+                value="${challengeEscape(option)}"
+                placeholder="${puzzle ? 'Item' : 'Alternativa'} ${i + 1}">
+
+              <button type="button" class="btn sm sec"
+                data-ch-move="${i}:-1"
+                ${i === 0 ? 'disabled' : ''}>↑</button>
+
+              <button type="button" class="btn sm sec"
+                data-ch-move="${i}:1"
+                ${i === q.options.length - 1 ? 'disabled' : ''}>↓</button>
+
+              <button type="button" class="btn sm red"
+                data-ch-remove-option="${i}"
+                ${q.options.length <= 2 ? 'disabled' : ''}>×</button>
+            </div>
+          `).join('')}
+        </div>
+
+        <button type="button" class="btn sm sec"
+          id="ch-add-option"
+          ${q.options.length >= (puzzle ? 10 : 6)
+            ? 'disabled'
+            : ''}>
+          + Adicionar ${puzzle ? 'item' : 'alternativa'}
+        </button>
+
+        <button type="button" class="btn sm red"
+          id="ch-remove-question"
+          ${questions.length <= 1 ? 'disabled' : ''}>
+          Remover questão
+        </button>
+      </div>
+    `;
+
+    $('ch-question-list')
+      .querySelectorAll('[data-ch-question]')
+      .forEach(button => {
+        button.onclick = () => {
+          syncQuestion();
+          selectedQuestion = Number(
+            button.dataset.chQuestion
+          );
+          drawQuestions();
+        };
+      });
+
+    $('ch-options')
+      .querySelectorAll('[data-ch-remove-option]')
+      .forEach(button => {
+        button.onclick = () => {
+          syncQuestion();
+
+          const index = Number(
+            button.dataset.chRemoveOption
+          );
+
+          q.options.splice(index, 1);
+
+          if (q.correct_answer === index) {
+            q.correct_answer = 0;
+          } else if (q.correct_answer > index) {
+            q.correct_answer--;
+          }
+
+          drawQuestions();
+        };
+      });
+
+    $('ch-options')
+      .querySelectorAll('[data-ch-move]')
+      .forEach(button => {
+        button.onclick = () => {
+          syncQuestion();
+
+          const [index, delta] = button.dataset.chMove
+            .split(':')
+            .map(Number);
+
+          const next = index + delta;
+
+          [q.options[index], q.options[next]] =
+            [q.options[next], q.options[index]];
+
+          if (q.correct_answer === index) {
+            q.correct_answer = next;
+          } else if (q.correct_answer === next) {
+            q.correct_answer = index;
+          }
+
+          drawQuestions();
+        };
+      });
+
+    $('ch-add-option').onclick = () => {
+      syncQuestion();
+      q.options.push('');
+      drawQuestions();
+    };
+
+    $('ch-remove-question').onclick = () => {
+      syncQuestion();
+      questions.splice(selectedQuestion, 1);
+      selectedQuestion = Math.min(
+        selectedQuestion,
+        questions.length - 1
+      );
+      drawQuestions();
+    };
+  }
+
+  const result = await modal(
+    existing ? 'Editar desafio' : 'Novo desafio',
+    html,
+    () => {
+      $('ch-type').onchange = () => {
+        syncQuestion();
+
+        const type = $('ch-type').value;
+
+          if (
+          type === 'quebra_cabeca' &&
+          questions.length > 1
+        )  {
+          if (!confirm(
+            'Quebra-cabeça permite apenas uma questão. ' +
+            'Remover as demais?'
+          )) {
+            $('ch-type').value = $('ch-type').dataset.previous;
+            return;
+          }
+
+          questions = [questions[0]];
+          selectedQuestion = 0;
+        }
+
+        $('ch-type').dataset.previous = type;
+        drawQuestions();
+      };
+
+      $('ch-type').dataset.previous = $('ch-type').value;
+
+      $('ch-add-question').onclick = () => {
+        syncQuestion();
+
+        if (questions.length >= 50) return;
+
+        questions.push({
+          prompt: '',
+          options: ['', '', '', ''],
+          correct_answer: 0,
+          difficulty: Math.min(questions.length + 1, 10)
+        });
+
+        selectedQuestion = questions.length - 1;
+        drawQuestions();
+      };
+
+      drawQuestions();
+    },
+    () => {
+      syncQuestion();
+
+      const get = id => $(id).value.trim();
+      const type = get('ch-type');
+
+      const title = get('ch-title');
+      const badgeName = get('ch-badge-name');
+
+      if (!title || !badgeName) {
+        throw new Error(
+          'Preencha o título e o nome da conquista.'
+        );
+      }
+
+      if (
+          type === 'quebra_cabeca' &&
+          questions.length !== 1
+        ) {
+          throw new Error(
+            'O quebra-cabeça exige exatamente uma questão.'
+          );
+        }
+
+        if (
+          type === 'tempo' &&
+          questions.length < 2
+        ) {
+          throw new Error(
+            'O desafio Contra o Tempo exige pelo menos duas questões.'
+          );
+        }
+
+      if (
+        (type === 'precisao' || type === 'resistencia') &&
+        questions.length < 2
+      ) {
+        throw new Error(
+          'Cadastre pelo menos duas questões.'
+        );
+      }
+
+      const cleaned = questions.map((q, i) => {
+        const prompt = q.prompt.trim();
+        const options = q.options.map(v => v.trim());
+
+        if (!prompt) {
+          throw new Error(
+            `Informe o enunciado da questão ${i + 1}.`
+          );
+        }
+
+        if (
+          options.length < (type === 'quebra_cabeca' ? 3 : 2) ||
+          options.some(v => !v)
+        ) {
+          throw new Error(
+            `Verifique as opções da questão ${i + 1}.`
+          );
+        }
+
+        if (
+          new Set(options.map(v => v.toLowerCase())).size !==
+          options.length
+        ) {
+          throw new Error(
+            `Existem opções repetidas na questão ${i + 1}.`
+          );
+        }
+
+        if (
+          !Number.isInteger(q.difficulty) ||
+          q.difficulty < 1 ||
+          q.difficulty > 10
+        ) {
+          throw new Error(
+            `Dificuldade inválida na questão ${i + 1}.`
+          );
+        }
+
+        if (
+          type !== 'quebra_cabeca' &&
+          (!Number.isInteger(q.correct_answer) ||
+            q.correct_answer < 0 ||
+            q.correct_answer >= options.length)
+        ) {
+          throw new Error(
+            `Selecione a resposta da questão ${i + 1}.`
+          );
+        }
+
+        return {
+          question_type:
+            type === 'quebra_cabeca'
+              ? 'ordenar'
+              : 'multipla',
+          prompt,
+          options,
+          correct_answer:
+            type === 'quebra_cabeca'
+              ? 0
+              : q.correct_answer,
+          difficulty: q.difficulty
+        };
+      });
+
+      if (type === 'resistencia') {
+        for (let i = 1; i < cleaned.length; i++) {
+          if (
+            cleaned[i].difficulty <
+            cleaned[i - 1].difficulty
+          ) {
+            throw new Error(
+              'Na Resistência, a dificuldade deve ' +
+              'permanecer igual ou aumentar.'
+            );
+          }
+        }
+      }
+
+      const xp = Number(get('ch-xp'));
+      const attempts = Number(get('ch-attempts'));
+      const time = Number(get('ch-time'));
+      const lives = Number(get('ch-lives'));
+
+      if (!Number.isInteger(xp) || xp < 0 || xp > 100000) {
+        throw new Error('XP inválido.');
+      }
+
+      if (
+        !Number.isInteger(attempts) ||
+        attempts < 1 ||
+        attempts > 100
+      ) {
+        throw new Error('Limite de tentativas inválido.');
+      }
+
+      if (
+        !Number.isInteger(time) ||
+        time < 5 ||
+        time > 3600
+      ) {
+        throw new Error('Tempo inválido.');
+      }
+
+      if (
+        !Number.isInteger(lives) ||
+        lives < 1 ||
+        lives > 10
+      ) {
+        throw new Error('Quantidade de vidas inválida.');
+      }
+
+      return {
+        title,
+        description: get('ch-description'),
+        type,
+        enabled: $('ch-enabled').checked,
+        time_limit: time,
+        xp_reward: xp,
+        max_attempts: attempts,
+        badge_name: badgeName,
+        badge_description: get('ch-badge-description'),
+        badge_icon: get('ch-badge-icon'),
+        config: { lives },
+        questions: cleaned
+      };
+    }
+  );
+
+  
+if (!result) return;
+
+if (existing) {
+  const confirmed = confirm(
+    `Deseja salvar as alterações do desafio "${existing.title}"?\n\n` +
+    'Uma nova revisão do desafio será criada.\n\n' +
+    'As tentativas em andamento serão canceladas, ' +
+    'sem consumir tentativas, XP ou vidas.\n\n' +
+    'As tentativas já concluídas, o XP recebido ' +
+    'e as conquistas dos alunos serão preservados.\n\n' +
+    'Deseja continuar?'
+  );
+
+  if (!confirmed) {
+    return;
+  }
+}
+
+try {
+  if (existing) {
+    await api(
+      `/admin/challenges/${existing.id}`,
+      'PUT',
+      result
+    );
+  } else {
+    await api(
+      `/admin/tracks/${trackId}/challenges`,
+      'POST',
+      result
+    );
+  }
+
+  await loadChallenge(trackId, true);
+
+} catch (error) {
+  alert(
+    error.message ||
+    'Não foi possível salvar o desafio.'
+  );
+}
+}
+
+
+
 /* =========================================================
    DADOS
 ========================================================= */
@@ -1525,6 +2504,100 @@ async function act(a, id, d) {
     );
 
   let o;
+
+  
+  // =========================================================
+  // AÇÕES DOS DESAFIOS
+  // =========================================================
+
+  if (a === 'challenge-load' || a === 'challenge-reload') {
+    if (!T) return;
+
+    try {
+      await loadChallenge(T.id, true);
+    } catch (error) {
+      alert(error.message || 'Erro ao carregar desafio.');
+    }
+
+    return;
+  }
+
+  
+if (a === 'challenge-new') {
+  if (!T) return;
+
+  await editChallenge(T.id);
+  return;
+}
+
+if (a === 'challenge-edit') {
+  if (!T || !Number.isSafeInteger(id) || id <= 0) {
+    return;
+  }
+
+  await editChallenge(T.id, id);
+  return;
+}
+
+
+if (a === 'challenge-delete') {
+  if (me()?.role !== 'adm') {
+    alert('Somente administradores podem excluir desafios.');
+    return;
+  }
+
+  if (!T || !Number.isSafeInteger(id) || id <= 0) {
+    return;
+  }
+
+  const challenges = challengeCache.get(T.id) || [];
+
+  const challenge = challenges.find(
+    item => Number(item.id) === id
+  );
+
+  if (!challenge) {
+    alert('Desafio não encontrado. Atualize a listagem.');
+    return;
+  }
+
+  const confirmed = confirm(
+    `Deseja realmente excluir o desafio "${challenge.title}"?\n\n` +
+    'O desafio deixará de aparecer para os alunos.\n\n' +
+    'As tentativas em andamento serão canceladas, ' +
+    'sem consumir tentativas, XP ou vidas.\n\n' +
+    'O histórico de tentativas concluídas, ' +
+    'XP e conquistas já recebidas será preservado.\n\n' +
+    'Esta ação não poderá ser desfeita pelo painel.'
+  );
+
+  if (!confirmed) {
+    return;
+  }
+
+  try {
+    await api(
+      `/admin/challenges/${id}`,
+      'DELETE'
+    );
+
+    challengeCache.delete(T.id);
+
+    await loadChallenge(T.id, true);
+
+    alert('Desafio excluído com sucesso.');
+
+  } catch (error) {
+    alert(
+      error?.message ||
+      'Não foi possível excluir o desafio.'
+    );
+  }
+
+  return;
+}
+
+
 
   if (a === 'sel') {
     sel = id;
@@ -2282,11 +3355,11 @@ function render() {
 
               </div>
 
-              ${
+                  ${
                 tab === 'des'
                   ? `
-                    <div class="empty">
-                      🏆 Os desafios serão adicionados em breve.
+                    <div class="challenge-panel">
+                      ${challengeInfo(t.id)}
                     </div>
                   `
                   : `

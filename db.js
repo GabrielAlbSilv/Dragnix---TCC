@@ -99,7 +99,8 @@ const migrations = [
 
     // PROGRESS
     "ALTER TABLE progress ADD COLUMN perfect INTEGER DEFAULT 0",
-    "ALTER TABLE progress ADD COLUMN done_at TEXT"
+    "ALTER TABLE progress ADD COLUMN done_at TEXT",
+"   ALTER TABLE progress ADD COLUMN review_count INTEGER NOT NULL DEFAULT 1"
 ];
 
 for (const sql of migrations) {
@@ -230,6 +231,553 @@ db.exec(`
         day TEXT NOT NULL
     );
 `);
+
+
+/* ============================================================
+   DESAFIOS — ESTRUTURA DO BANCO DE DADOS
+   ============================================================ */
+
+db.exec(`
+    -- ========================================================
+    -- CONFIGURAÇÃO DOS DESAFIOS
+    -- ========================================================
+
+    CREATE TABLE IF NOT EXISTS challenges (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        track_id INTEGER NOT NULL UNIQUE
+            REFERENCES tracks(id) ON DELETE CASCADE,
+
+        title TEXT NOT NULL,
+        description TEXT NOT NULL DEFAULT '',
+
+        type TEXT NOT NULL DEFAULT 'tempo'
+            CHECK(type IN ('tempo')),
+
+        enabled INTEGER NOT NULL DEFAULT 0
+            CHECK(enabled IN (0, 1)),
+
+        question TEXT NOT NULL,
+
+        options TEXT NOT NULL DEFAULT '[]',
+
+        correct_answer INTEGER NOT NULL DEFAULT 0
+            CHECK(correct_answer >= 0),
+
+        time_limit INTEGER NOT NULL DEFAULT 30
+            CHECK(time_limit BETWEEN 5 AND 3600),
+
+        xp_reward INTEGER NOT NULL DEFAULT 1000
+            CHECK(xp_reward BETWEEN 0 AND 100000),
+
+        badge_code TEXT NOT NULL,
+        badge_name TEXT NOT NULL,
+        badge_description TEXT NOT NULL DEFAULT '',
+        badge_icon TEXT NOT NULL DEFAULT 'trophy',
+
+        max_attempts INTEGER NOT NULL DEFAULT 1
+            CHECK(max_attempts BETWEEN 1 AND 100),
+
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_challenges_enabled
+        ON challenges(enabled);
+
+    -- ========================================================
+    -- TENTATIVAS DOS ALUNOS
+    -- ========================================================
+
+    CREATE TABLE IF NOT EXISTS challenge_attempts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        challenge_id INTEGER NOT NULL
+            REFERENCES challenges(id) ON DELETE CASCADE,
+
+        user_id INTEGER NOT NULL
+            REFERENCES users(id) ON DELETE CASCADE,
+
+        started_at INTEGER NOT NULL,
+        deadline_at INTEGER NOT NULL,
+
+        finished_at INTEGER,
+
+        selected_answer INTEGER,
+
+        status TEXT NOT NULL DEFAULT 'in_progress'
+            CHECK(status IN (
+                'in_progress',
+                'won',
+                'lost',
+                'expired'
+            )),
+
+        CHECK(deadline_at > started_at)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_challenge_attempts_user
+        ON challenge_attempts(user_id, challenge_id);
+
+    CREATE UNIQUE INDEX IF NOT EXISTS
+        idx_challenge_one_active_attempt
+        ON challenge_attempts(user_id, challenge_id)
+        WHERE status = 'in_progress';
+
+    -- ========================================================
+    -- RECOMPENSAS ÚNICAS
+    -- ========================================================
+
+    CREATE TABLE IF NOT EXISTS challenge_rewards (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+        challenge_id INTEGER NOT NULL
+            REFERENCES challenges(id) ON DELETE CASCADE,
+
+        user_id INTEGER NOT NULL
+            REFERENCES users(id) ON DELETE CASCADE,
+
+        attempt_id INTEGER NOT NULL UNIQUE
+            REFERENCES challenge_attempts(id),
+
+        xp_awarded INTEGER NOT NULL DEFAULT 0
+            CHECK(xp_awarded >= 0),
+
+        badge_code TEXT NOT NULL,
+
+        awarded_at INTEGER NOT NULL,
+
+        UNIQUE(user_id, challenge_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_challenge_rewards_user
+        ON challenge_rewards(user_id);
+`);
+
+
+/* ============================================================
+   MIGRAÇÃO — DESAFIOS COM MÚLTIPLOS TIPOS
+   ============================================================ */
+
+function migrateChallengeTypes() {
+    const allowedTypes = [
+        'tempo',
+        'precisao',
+        'quebra_cabeca',
+        'resistencia'
+    ];
+
+    const challengeSchema = db.prepare(`
+        SELECT sql
+        FROM sqlite_master
+        WHERE type = 'table'
+          AND name = 'challenges'
+    `).get()?.sql || '';
+
+    if (!challengeSchema) {
+        throw new Error(
+            'Tabela challenges não encontrada.'
+        );
+    }
+
+    const challengeColumns = db.prepare(`
+        PRAGMA table_info(challenges)
+    `).all();
+
+    const hasConfigJson = challengeColumns.some(
+        column => column.name === 'config_json'
+    );
+
+    const hasOldUniqueTrack = /track_id\s+INTEGER\s+NOT\s+NULL\s+UNIQUE/i
+        .test(challengeSchema);
+
+    const supportsAllTypes = allowedTypes.every(
+        type => challengeSchema.includes(`'${type}'`)
+    );
+
+    const needsRebuild =
+        hasOldUniqueTrack || !supportsAllTypes;
+
+    const attemptColumns = db.prepare(`
+        PRAGMA table_info(challenge_attempts)
+    `).all().map(column => column.name);
+
+    // O SQLite exige desativar as chaves estrangeiras
+    // antes de iniciar a transação de reconstrução.
+    if (db.inTransaction) {
+        throw new Error(
+            'Não é possível migrar desafios dentro de outra transação.'
+        );
+    }
+
+    db.exec('PRAGMA foreign_keys = OFF');
+
+    try {
+        db.exec('BEGIN IMMEDIATE');
+
+        if (needsRebuild) {
+            db.exec(`
+                CREATE TABLE challenges_new (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                    track_id INTEGER NOT NULL
+                        REFERENCES tracks(id)
+                        ON DELETE CASCADE,
+
+                    title TEXT NOT NULL,
+
+                    description TEXT NOT NULL DEFAULT '',
+
+                    type TEXT NOT NULL DEFAULT 'tempo'
+                        CHECK(type IN (
+                            'tempo',
+                            'precisao',
+                            'quebra_cabeca',
+                            'resistencia'
+                        )),
+
+                    enabled INTEGER NOT NULL DEFAULT 0
+                        CHECK(enabled IN (0, 1)),
+
+                    question TEXT NOT NULL,
+
+                    options TEXT NOT NULL DEFAULT '[]',
+
+                    correct_answer INTEGER NOT NULL DEFAULT 0
+                        CHECK(correct_answer >= 0),
+
+                    time_limit INTEGER NOT NULL DEFAULT 30
+                        CHECK(time_limit BETWEEN 5 AND 3600),
+
+                    xp_reward INTEGER NOT NULL DEFAULT 1000
+                        CHECK(xp_reward BETWEEN 0 AND 100000),
+
+                    badge_code TEXT NOT NULL,
+
+                    badge_name TEXT NOT NULL,
+
+                    badge_description TEXT NOT NULL DEFAULT '',
+
+                    badge_icon TEXT NOT NULL DEFAULT 'trophy',
+
+                    max_attempts INTEGER NOT NULL DEFAULT 1
+                        CHECK(max_attempts BETWEEN 1 AND 100),
+
+                    config_json TEXT NOT NULL DEFAULT '{}',
+
+                    created_at TEXT NOT NULL
+                        DEFAULT CURRENT_TIMESTAMP,
+
+                    updated_at TEXT NOT NULL
+                        DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            db.exec(`
+                INSERT INTO challenges_new (
+                    id,
+                    track_id,
+                    title,
+                    description,
+                    type,
+                    enabled,
+                    question,
+                    options,
+                    correct_answer,
+                    time_limit,
+                    xp_reward,
+                    badge_code,
+                    badge_name,
+                    badge_description,
+                    badge_icon,
+                    max_attempts,
+                    config_json,
+                    created_at,
+                    updated_at
+                )
+                SELECT
+                    id,
+                    track_id,
+                    title,
+                    description,
+                    type,
+                    enabled,
+                    question,
+                    options,
+                    correct_answer,
+                    time_limit,
+                    xp_reward,
+                    badge_code,
+                    badge_name,
+                    badge_description,
+                    badge_icon,
+                    max_attempts,
+                    ${
+                        hasConfigJson
+                            ? 'config_json'
+                            : "'{}'"
+                    },
+                    created_at,
+                    updated_at
+                FROM challenges
+            `);
+
+            db.exec('DROP TABLE challenges');
+
+            db.exec(`
+                ALTER TABLE challenges_new
+                RENAME TO challenges
+            `);
+
+            db.exec(`
+                CREATE INDEX IF NOT EXISTS
+                    idx_challenges_enabled
+                ON challenges(enabled)
+            `);
+
+            db.exec(`
+                CREATE INDEX IF NOT EXISTS
+                    idx_challenges_track
+                ON challenges(track_id)
+            `);
+        } else if (!hasConfigJson) {
+            db.exec(`
+                ALTER TABLE challenges
+                ADD COLUMN config_json TEXT
+                NOT NULL DEFAULT '{}'
+            `);
+        }
+
+        // Cada desafio pode ter várias questões.
+        db.exec(`
+            CREATE TABLE IF NOT EXISTS challenge_questions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                challenge_id INTEGER NOT NULL
+                    REFERENCES challenges(id)
+                    ON DELETE CASCADE,
+
+                question_type TEXT NOT NULL DEFAULT 'multipla'
+                    CHECK(question_type IN (
+                        'multipla',
+                        'ordenar'
+                    )),
+
+                prompt TEXT NOT NULL,
+
+                options TEXT NOT NULL DEFAULT '[]',
+
+                correct_answer INTEGER NOT NULL DEFAULT 0,
+
+                difficulty INTEGER NOT NULL DEFAULT 1
+                    CHECK(difficulty BETWEEN 1 AND 10),
+
+                position INTEGER NOT NULL DEFAULT 0,
+
+                created_at TEXT NOT NULL
+                    DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        db.exec(`
+            CREATE INDEX IF NOT EXISTS
+                idx_challenge_questions_order
+            ON challenge_questions(
+                challenge_id,
+                position,
+                id
+            )
+        `);
+
+        // Preserva os desafios antigos:
+        // a pergunta original vira a primeira questão.
+        db.exec(`
+            INSERT INTO challenge_questions (
+                challenge_id,
+                question_type,
+                prompt,
+                options,
+                correct_answer,
+                difficulty,
+                position
+            )
+            SELECT
+                c.id,
+                'multipla',
+                c.question,
+                c.options,
+                c.correct_answer,
+                1,
+                0
+            FROM challenges c
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM challenge_questions q
+                WHERE q.challenge_id = c.id
+            )
+        `);
+
+        // Estado de execução de desafios com várias questões.
+        if (!attemptColumns.includes('current_question')) {
+            db.exec(`
+                ALTER TABLE challenge_attempts
+                ADD COLUMN current_question INTEGER
+                NOT NULL DEFAULT 0
+            `);
+        }
+
+        if (!attemptColumns.includes('mistakes')) {
+            db.exec(`
+                ALTER TABLE challenge_attempts
+                ADD COLUMN mistakes INTEGER
+                NOT NULL DEFAULT 0
+            `);
+        }
+
+        if (!attemptColumns.includes('state_json')) {
+            db.exec(`
+                ALTER TABLE challenge_attempts
+                ADD COLUMN state_json TEXT
+                NOT NULL DEFAULT '{}'
+            `);
+        }
+
+        // Verifica se a migração preservou os vínculos.
+        const errors = db.prepare(`
+            PRAGMA foreign_key_check
+        `).all();
+
+        if (errors.length) {
+            throw new Error(
+                'Falha de integridade na migração dos desafios: ' +
+                JSON.stringify(errors.slice(0, 5))
+            );
+        }
+
+        db.exec('COMMIT');
+
+        console.log(
+            '[DRAGNIX] Banco preparado para desafios multitipos.'
+        );
+
+    } catch (error) {
+        try {
+            db.exec('ROLLBACK');
+        } catch {}
+
+        throw error;
+
+    } finally {
+        db.exec('PRAGMA foreign_keys = ON');
+    }
+}
+
+migrateChallengeTypes();
+
+
+/* ============================================================
+   MIGRAÇÃO — CONTROLE ADMINISTRATIVO DOS DESAFIOS
+   ============================================================ */
+
+function migrateChallengeAdministration() {
+  const columns = db.prepare(`
+    PRAGMA table_info(challenges)
+  `).all().map(column => column.name);
+
+  if (!columns.includes('deleted_at')) {
+    db.exec(`
+      ALTER TABLE challenges
+      ADD COLUMN deleted_at TEXT DEFAULT NULL
+    `);
+  }
+
+  if (!columns.includes('revision')) {
+    db.exec(`
+      ALTER TABLE challenges
+      ADD COLUMN revision INTEGER NOT NULL DEFAULT 1
+    `);
+  }
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS
+      idx_challenges_deleted_at
+    ON challenges(deleted_at)
+  `);
+
+  console.log(
+    '[DRAGNIX] Controle administrativo dos desafios preparado.'
+  );
+}
+
+migrateChallengeAdministration();
+
+/* ============================================================
+   MIGRAÇÃO — VERSIONAMENTO DAS QUESTÕES DOS DESAFIOS
+   ============================================================ */
+
+function migrateChallengeQuestionVersions() {
+  const columns = db.prepare(`
+    PRAGMA table_info(challenge_questions)
+  `).all().map(column => column.name);
+
+  if (!columns.includes('revision')) {
+    db.exec(`
+      ALTER TABLE challenge_questions
+      ADD COLUMN revision INTEGER NOT NULL DEFAULT 1
+    `);
+  }
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS
+      idx_challenge_questions_revision
+    ON challenge_questions(
+      challenge_id,
+      revision,
+      position
+    )
+  `);
+
+  console.log(
+    '[DRAGNIX] Versionamento das questões preparado.'
+  );
+}
+
+migrateChallengeQuestionVersions();
+
+
+/* ============================================================
+   MIGRAÇÃO — REVISÃO UTILIZADA EM CADA TENTATIVA
+   ============================================================ */
+
+function migrateChallengeAttemptVersions() {
+  const columns = db.prepare(`
+    PRAGMA table_info(challenge_attempts)
+  `).all().map(column => column.name);
+
+  if (!columns.includes('challenge_revision')) {
+    db.exec(`
+      ALTER TABLE challenge_attempts
+      ADD COLUMN challenge_revision INTEGER NOT NULL DEFAULT 1
+    `);
+  }
+
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS
+      idx_challenge_attempts_revision
+    ON challenge_attempts(
+      challenge_id,
+      challenge_revision
+    )
+  `);
+
+  console.log(
+    '[DRAGNIX] Revisões das tentativas preparadas.'
+  );
+}
+
+migrateChallengeAttemptVersions();
+
+
 
 // ============================================================
 // VALORES PADRÃO PARA DADOS ANTIGOS
