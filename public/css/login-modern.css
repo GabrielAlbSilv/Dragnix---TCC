@@ -1,3 +1,133 @@
+/* ============================================================
+   DRAGNIX — MENU SUPERIOR
+   Tudo fica dentro de .site-header para não afetar o resto da página
+   ============================================================ */
+
+.site-header {
+    --nav-bg: #7A36B3;
+    --nav-bg-hover: color-mix(in srgb, var(--fg) 18%, var(--bg));
+
+    position: relative;
+    z-index: 50;
+    padding-block: 7px 30px;   /* 1º = espaço acima do menu | 2º = espaço entre o menu e o login */
+
+    /* tira qualquer linha/sombra/fundo que venha do style.css */
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+}
+
+.site-header,
+.site-header * {
+    box-sizing: border-box;
+}
+
+.site-header ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.site-header a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.site-header .wrap {
+    width: 100%;
+    max-width: 1920px;
+    margin: 0 auto;
+    padding-inline: clamp(16px, 2vw, 40px);
+}
+
+.site-header .nav {
+    position: relative;
+    display: flex;
+    align-items: center;
+    flex-direction: column;        /* logo em cima, botão do menu embaixo */
+    align-items: flex-start;       /* tudo alinhado à esquerda */
+    gap: 10px;
+}
+
+/* LOGO (sempre à esquerda, acima do menu lateral) */
+.site-header .logo {
+    order: -1;
+    display: flex;
+    align-items: center;
+    flex: none;
+}
+
+.site-header .logo img {
+    display: block;
+    width: auto;
+    max-width: none;
+    height: clamp(40px, 3.4vw, 56px);
+}
+
+/* MENU (computador) */
+.site-header .menu {
+    display: flex;
+    gap: clamp(12px, 1.4vw, 28px);
+}
+
+ /*---configurações de botão----*/
+.site-header .button {
+    display: inline-block;
+    padding: 6px clamp(28px, 3vw, 58px);
+    border-radius: 999px;
+    background: #7A36B3;
+    color: var(--fg);
+    font-size: clamp(13px, 1vw, 22px);
+    text-align: center;
+    transition: background .2s, transform .2s;
+}
+
+ /*-fim configurações de botão-*/
+
+.site-header .button:hover {
+    background: #7A36B3;
+    transform: translateY(-2px);
+}
+
+
+/* MENU (celular) */
+@media (max-width: 760px) {
+
+    .site-header {
+        padding-block: 14px 18px;
+    }
+
+    .site-header .burger {
+        display: flex;
+    }
+
+    .site-header .menu {
+        display: none;
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        right: 0;
+        z-index: 60;
+        flex-direction: column;
+        gap: 8px;
+        padding: 12px;
+        border: 1px solid var(--bd);
+        border-radius: 18px;
+        background: var(--bg);
+        box-shadow: 0 12px 30px rgba(0, 0, 0, .25);
+    }
+
+    .site-header .menu.open {
+        display: flex;
+    }
+
+    .site-header .button {
+        display: block;
+        padding: 12px;
+    }
+}
+
+
 
 /* ============================================================
    DRAGNIX — LOGIN MODERNO
@@ -22,7 +152,7 @@
 
 .dragnix-login .login-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     min-height: 100vh;
     min-height: 100dvh;
     width: 100%;
@@ -68,7 +198,7 @@
     height: auto;
     max-height: 68vh;
     object-fit: contain;
-    filter: drop-shadow(0 20px 35px rgba(0,0,0,.08));
+    filter: drop-shadow(0 20px 35px rgba(0, 0, 0, .08));
 }
 
 .dragnix-login .login-visual-caption {
@@ -95,10 +225,10 @@
 
 .dragnix-login .login-content {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     min-width: 0;
-    padding: 76px 40px 36px;
+    padding: 1px 1px 1px;
     background: var(--bg);
 }
 
@@ -109,7 +239,7 @@
     width: 100%;
     max-width: 440px;
     min-width: 0;
-    margin: auto;
+    margin: 0 auto;
 }
 
 /* ============================================================
@@ -199,13 +329,13 @@
     border-radius: 18px;
     background: var(--bg);
 
-    box-shadow: 0 12px 35px rgba(0,0,0,.07);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, .07);
 }
 
 /* CAMPOS */
 
-.dragnix-login .login-card > input,
-.dragnix-login .senha-box > input {
+.dragnix-login .login-card>input,
+.dragnix-login .senha-box>input {
     width: 100%;
     min-width: 0;
     min-height: 46px;
@@ -305,38 +435,6 @@
 
 .dragnix-login .login-footer .footer-separator {
     opacity: .5;
-}
-
-/* ============================================================
-   BOTÃO DE TEMA
-   ============================================================ */
-
-.dragnix-login .index-theme-toggle {
-    position: fixed;
-    top: 20px;
-    right: 22px;
-    z-index: 1000;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    width: 44px;
-    height: 44px;
-    padding: 0;
-
-    border: 1px solid var(--bd);
-    border-radius: 12px;
-    background: var(--bg);
-    color: var(--fg);
-
-    cursor: pointer;
-    box-shadow: 0 4px 16px rgba(0,0,0,.08);
-}
-
-.dragnix-login .index-theme-toggle svg {
-    width: 21px;
-    height: 21px;
 }
 
 /* ============================================================
@@ -461,117 +559,202 @@
     .dragnix-login .login-footer .footer-link {
         font-size: 11px;
     }
-
-    .dragnix-login .index-theme-toggle {
-        top: 12px;
-        right: 12px;
-        width: 40px;
-        height: 40px;
-    }
 }
 
-
-
-/* ============================================================
-   DRAGNIX — LOGIN COMPACTO
-   Ajustes para caber na altura da tela
-   ============================================================ */
-
-/* Layout ocupa a tela */
-.dragnix-login .login-layout {
-    min-height: 100dvh;
-}
-
-/* Dragão um pouco menor */
-.dragnix-login .login-visual {
-    padding: 20px 35px;
-}
-
-.dragnix-login .login-visual-inner {
-    gap: 12px;
-}
-
-.dragnix-login .login-dragon {
-    width: min(100%, 440px);
-    max-height: 58dvh;
-}
-
-/* Área direita mais compacta */
+/*LOGIN COMPACTO=======*/
+/* Área do formulário: centralizada na largura e perto do topo */
 .dragnix-login .login-content {
-    padding: 35px 30px 20px;
+    grid-column: 1 / -1;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 10px 30px 30px;      /* 1º valor = espaço acima do formulário */
 }
 
 .dragnix-login .login-content-inner {
-    max-width: 400px;
+    max-width: 520px;             /* LARGURA do formulário (era 400px) */
+    margin: 0 auto;
 }
 
 /* Logo do nome Dragnix */
 .dragnix-login .login-brand {
-    gap: 5px;
-    margin-bottom: 18px;
+    gap: 8px;
+    margin-bottom: 22px;
 }
 
 .dragnix-login .login-name-logo {
-    width: min(100%, 250px);
-    max-height: 75px;
+    width: min(100%, 320px);
+    max-height: 110px;
 }
 
 .dragnix-login .login-brand-description {
-    font-size: 12px;
+    font-size: 14px;
 }
 
 /* Título e descrição */
 .dragnix-login .login-form-heading {
-    margin-bottom: 12px;
+    margin-bottom: 16px;
 }
 
 .dragnix-login .login-form-heading h1 {
-    font-size: 23px;
-    margin-bottom: 4px;
+    font-size: 30px;
+    margin-bottom: 6px;
 }
 
 .dragnix-login .login-form-heading p {
-    font-size: 12px;
+    font-size: 14px;
 }
 
 /* Abas */
 .dragnix-login .login-tabs {
-    margin-bottom: 10px;
-    gap: 8px;
+    margin-bottom: 14px;
+    gap: 10px;
 }
 
 .dragnix-login .login-tabs .btn {
-    min-height: 38px;
+    min-height: 50px;
+    font-size: 15px;
 }
 
 /* Caixa do formulário */
 .dragnix-login .login-card {
-    padding: 18px;
-    gap: 10px;
-    border-radius: 15px;
+    padding: 28px;
+    gap: 14px;
+    border-radius: 18px;
 }
 
 /* Campos */
-.dragnix-login .login-card > input,
-.dragnix-login .senha-box > input {
-    min-height: 40px;
-    font-size: 13px;
+.dragnix-login .login-card>input,
+.dragnix-login .senha-box>input {
+    min-height: 52px;
+    font-size: 15px;
 }
 
 /* Botão principal */
 .dragnix-login #go {
-    min-height: 42px;
-    font-size: 14px;
+    min-height: 54px;
+    font-size: 16px;
 }
 
 /* Links inferiores */
 .dragnix-login .login-footer {
-    margin-top: 15px;
+    margin-top: 20px;
 }
 
 .dragnix-login .login-footer .footer-link {
-    font-size: 11px;
-    padding: 4px 2px;
+    font-size: 12px;
+    padding: 6px 2px;
+}
+/* ============================================================
+   DRAGNIX — FUNDO COM BLURS ANIMADOS (ROXO E VERDE)
+   ============================================================ */
+
+.dragnix-login {
+    position: relative;
+    isolation: isolate;
+    background: var(--bg);
+}
+
+.dragnix-login::before,
+.dragnix-login::after {
+    content: "";
+    position: fixed;
+    z-index: -1;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(110px);
+    will-change: transform;
+}
+
+/* Blur roxo */
+.dragnix-login::before {
+    top: -140px;
+    left: -140px;
+    width: 520px;
+    height: 520px;
+    background: #8b5cf6;
+    opacity: .45;
+    animation: blobRoxo 22s ease-in-out infinite alternate;
+}
+
+/* Blur verde */
+.dragnix-login::after {
+    bottom: -160px;
+    right: -140px;
+    width: 560px;
+    height: 560px;
+    background: var(--g, #58cc02);
+    opacity: .40;
+    animation: blobVerde 26s ease-in-out infinite alternate;
+}
+
+@keyframes blobRoxo {
+    0% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    33% {
+        transform: translate(35vw, 12vh) scale(1.15);
+    }
+
+    66% {
+        transform: translate(15vw, 45vh) scale(0.9);
+    }
+
+    100% {
+        transform: translate(45vw, 25vh) scale(1.1);
+    }
+}
+
+@keyframes blobVerde {
+    0% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    33% {
+        transform: translate(-35vw, -15vh) scale(0.9);
+    }
+
+    66% {
+        transform: translate(-15vw, -45vh) scale(1.15);
+    }
+
+    100% {
+        transform: translate(-45vw, -20vh) scale(1);
+    }
+}
+
+.dragnix-login .login-visual,
+.dragnix-login .login-content {
+    background: transparent;
+}
+
+.dragnix-login .login-layout {
+    position: relative;
+    z-index: 1;
+}
+
+/* Celular: blurs menores e movimento mais curto */
+@media (max-width: 760px) {
+    .dragnix-login::before {
+        width: 320px;
+        height: 320px;
+        filter: blur(80px);
+    }
+
+    .dragnix-login::after {
+        width: 340px;
+        height: 340px;
+        filter: blur(80px);
+    }
+}
+
+/* Respeita quem desativa animações no sistema */
+@media (prefers-reduced-motion: reduce) {
+
+    .dragnix-login::before,
+    .dragnix-login::after {
+        animation: none;
+    }
 }
 
 /* ============================================================
@@ -616,6 +799,8 @@
    ============================================================ */
 
 @media (max-width: 760px) {
+
+    /* o menu mobile agora fica no começo do arquivo (.site-header) */
 
     .dragnix-login .login-layout {
         min-height: 100dvh;
@@ -690,3 +875,557 @@
         gap: 7px;
     }
 }
+
+/* ============================================================
+   AJUSTE: o menu ocupa o topo, então o login preenche o resto
+   ============================================================ */
+
+.dragnix-login {
+    display: flex;
+    flex-direction: column;
+}
+
+.dragnix-login .login-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+@media (max-width: 760px) {
+    .dragnix-login .login-visual {
+        padding-top: 12px;
+    }
+}
+
+
+/* ============================================================
+   DRAGNIX — RODAPÉ
+   ============================================================ */
+
+.dragnix-login .dgx-footer {
+
+    /* >>> TAMANHOS QUE VOCÊ PODE MUDAR <<< */
+    --social-size: 22px;   /* tamanho do ícone/imagem das redes sociais */
+    --social-box: 44px;    /* tamanho do quadrado de cada rede social   */
+    --badge-height: 34px;  /* altura dos selos e formas de pagamento    */
+
+    position: relative;
+    z-index: 1;
+    flex: none;
+    width: 100%;
+    padding: clamp(32px, 4vw, 64px) clamp(16px, 2vw, 40px) 0;
+
+    border-top: 1px solid var(--bd);
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: var(--fg);
+}
+
+.dragnix-login .dgx-footer,
+.dragnix-login .dgx-footer * {
+    box-sizing: border-box;
+}
+
+.dragnix-login .dgx-footer-inner {
+    width: 100%;
+    max-width: 1920px;
+    margin: 0 auto;
+}
+
+/* GRADE DE COLUNAS */
+
+.dragnix-login .dgx-footer-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr 1fr 1.2fr;
+    gap: clamp(28px, 3vw, 64px);
+}
+
+.dragnix-login .dgx-footer-col {
+    min-width: 0;
+}
+
+.dragnix-login .dgx-footer ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dragnix-login .dgx-footer a {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* ÍCONES */
+
+.dragnix-login .dgx-footer .dgx-ico {
+    display: block;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* TÍTULOS */
+
+.dragnix-login .dgx-footer-title {
+    margin: 0 0 16px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--mut);
+}
+
+.dragnix-login .dgx-footer-sub {
+    margin: 18px 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--mut);
+}
+
+.dragnix-login .dgx-footer-sub:first-of-type {
+    margin-top: 0;
+}
+
+/* MARCA */
+
+.dragnix-login .dgx-footer-logo {
+    display: block;
+    width: auto;
+    height: 40px;
+    max-width: 100%;
+    margin-bottom: 14px;
+    object-fit: contain;
+}
+
+.dragnix-login .dgx-footer-text {
+    margin: 0 0 24px;
+    max-width: 34ch;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--mut);
+}
+
+/* REDES SOCIAIS */
+
+.dragnix-login .dgx-social {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.dragnix-login .dgx-social-link {
+    display: grid;
+    place-items: center;
+    width: var(--social-box);
+    height: var(--social-box);
+    border: 1px solid var(--bd);
+    border-radius: 12px;
+    color: var(--fg);
+    transition: transform .2s, border-color .2s, color .2s;
+}
+
+.dragnix-login .dgx-social-link:hover,
+.dragnix-login .dgx-social-link:focus-visible {
+    transform: translateY(-2px);
+    border-color: var(--g, #58cc02);
+    color: var(--g, #58cc02);
+}
+
+.dragnix-login .dgx-footer .dgx-social-link .dgx-ico {
+    width: var(--social-size);
+    height: var(--social-size);
+}
+
+.dragnix-login .dgx-social-img {
+    display: block;
+    width: var(--social-size);
+    height: var(--social-size);
+    object-fit: contain;
+}
+
+/* CONTATO */
+
+.dragnix-login .dgx-contact {
+    display: grid;
+    gap: 16px;
+}
+
+.dragnix-login .dgx-contact li {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.dragnix-login .dgx-contact .dgx-ico {
+    margin-top: 2px;
+    color: var(--g, #58cc02);
+}
+
+.dragnix-login .dgx-contact-label {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 12px;
+    color: var(--mut);
+}
+
+.dragnix-login .dgx-contact a:hover {
+    text-decoration: underline;
+}
+
+/* LINKS INSTITUCIONAIS */
+
+.dragnix-login .dgx-footer-links {
+    display: grid;
+    gap: 12px;
+    font-size: 14px;
+}
+
+.dragnix-login .dgx-footer-links a {
+    display: inline-block;
+    transition: color .2s, transform .2s;
+}
+
+.dragnix-login .dgx-footer-links a:hover,
+.dragnix-login .dgx-footer-links a:focus-visible {
+    color: var(--g, #58cc02);
+    transform: translateX(3px);
+}
+
+/* SELOS E FORMAS DE PAGAMENTO */
+
+.dragnix-login .dgx-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.dragnix-login .dgx-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: var(--badge-height);
+    padding: 0 12px;
+    border: 1px solid var(--bd);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.dragnix-login .dgx-footer .dgx-badge .dgx-ico {
+    width: 16px;
+    height: 16px;
+}
+
+.dragnix-login .dgx-badge-img {
+    display: block;
+    width: auto;
+    height: calc(var(--badge-height) - 12px);
+    object-fit: contain;
+}
+
+/* DIREITOS AUTORAIS */
+
+.dragnix-login .dgx-footer-bottom {
+    margin-top: clamp(28px, 3vw, 48px);
+    padding: 18px 0 22px;
+    border-top: 1px solid var(--bd);
+    text-align: center;
+}
+
+.dragnix-login .dgx-footer-bottom p {
+    margin: 0;
+    font-size: 13px;
+    color: var(--mut);
+}
+
+/* TABLET */
+
+@media (max-width: 1050px) {
+    .dragnix-login .dgx-footer-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 36px 32px;
+    }
+}
+
+/* CELULAR */
+
+@media (max-width: 760px) {
+    .dragnix-login .dgx-footer-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 32px;
+    }
+
+    .dragnix-login .dgx-footer-text {
+        max-width: none;
+    }
+}
+
+
+/* ============================================================
+   DRAGNIX — MENU LATERAL (login)
+   ============================================================ */
+
+/* o .layout fica ao lado do login, abaixo do cabeçalho */
+.dragnix-login .layout {
+    position: relative;
+    z-index: auto;               /* a gaveta do celular precisa ficar por cima do cabeçalho */
+    display: flex;
+    flex: 1 1 auto;
+    width: 100%;
+    min-height: 0;
+}
+
+.dragnix-login .layout > .login-layout {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+/* BOTÃO QUE ABRE/FECHA (fica no cabeçalho) */
+.site-header .side-toggle {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 46px;
+    height: 46px;
+    padding: 0;
+    border: 0;
+    border-radius: 14px;
+    background: var(--nav-bg);
+    color: var(--fg);
+    cursor: pointer;
+    transition: background .2s, transform .2s;
+}
+
+.site-header .side-toggle:hover {
+    background: var(--nav-bg-hover);
+    transform: translateY(-2px);
+}
+
+.site-header .side-toggle svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* MENU LATERAL (computador) */
+
+
+.side-menu {
+    --side-w: 250px;
+    --side-w-mini: 76px;
+    --side-art: url("images/dragao_menu.png");   /* imagem do rodapé do menu */
+    position: sticky;
+    top: 0;
+    align-self: flex-start;
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: var(--side-w);
+    height: calc(100dvh - 20px);
+    margin: 0 0 0 clamp(16px, 2vw, 40px);
+    padding: 16px 12px;
+    overflow: hidden;
+
+    border: 1px solid var(--bd);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--bg) 82%, transparent);
+    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
+    color: var(--fg);
+    transition: width .25s ease;
+}
+
+.side-menu,
+.side-menu * {
+    box-sizing: border-box;
+}
+
+.side-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 6px;
+}
+
+.side-title {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--mut);
+    white-space: nowrap;
+}
+
+.side-close {
+    display: none;                /* só aparece no celular */
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--fg);
+    font-size: 26px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.side-nav {
+    display: grid;
+    gap: 6px;
+}
+
+.side-link {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 12px;
+    color: var(--fg);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background .2s, color .2s;
+}
+
+.side-link:hover,
+.side-link:focus-visible {
+    background: color-mix(in srgb, var(--g, #58cc02) 16%, transparent);
+    color: var(--g, #58cc02);
+}
+
+.side-link__icon {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--bd);
+}
+
+.side-ico {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* imagem do dragão no rodapé do menu */
+.side-art {
+    flex: 1 1 auto;
+    min-height: 160px;
+    margin-top: auto;
+    background-image: var(--side-art);
+    background-size: cover;            /* "contain" mostra o dragão inteiro, sem cortar */
+    background-position: center 22%;
+    background-repeat: no-repeat;
+    opacity: .6;                       /* mais baixo = mais apagada (0 a 1) */
+    /* esfumaça o topo e a base da imagem */
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 40%, #000 70%, transparent 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 40%, #000 70%, transparent 100%);
+}
+
+/* RECOLHIDO (computador): só os ícones */
+.layout.side-collapsed .side-menu {
+    width: var(--side-w-mini);
+}
+
+.layout.side-collapsed .side-title,
+.layout.side-collapsed .side-link > span:not(.side-link__icon) {
+    display: none;
+}
+
+.layout.side-collapsed .side-link {
+    justify-content: center;
+    padding: 8px 0;
+}
+
+.layout.side-collapsed .side-art {
+    display: none;
+}
+
+/* FUNDO ESCURO (só celular) */
+.side-overlay {
+    display: none;
+}
+
+/* CELULAR: vira gaveta */
+@media (max-width: 760px) {
+
+    .side-menu {
+        position: fixed;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        z-index: 100;
+        width: min(280px, 82vw);
+        height: 100dvh;
+        margin: 0;
+        border-radius: 0 18px 18px 0;
+        background: var(--bg);
+        transform: translateX(-105%);
+        transition: transform .25s ease;
+    }
+
+    .side-menu.is-open {
+        transform: translateX(0);
+    }
+
+    .side-close {
+        display: block;
+    }
+
+    .side-overlay {
+        display: block;
+        position: fixed;
+        inset: 0;
+        z-index: 90;
+        background: rgba(0, 0, 0, .5);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity .25s ease;
+    }
+
+    .side-overlay.is-open {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* no celular o "recolhido" não se aplica */
+    .layout.side-collapsed .side-menu {
+        width: min(280px, 82vw);
+    }
+
+    .layout.side-collapsed .side-title,
+    .layout.side-collapsed .side-link > span:not(.side-link__icon) {
+        display: initial;
+    }
+
+    .layout.side-collapsed .side-link {
+        justify-content: flex-start;
+        padding: 10px;
+    }
+}
+
+body.side-locked {
+    overflow: hidden;
+}
+

@@ -1,0 +1,139 @@
+/* ===== Cards de trilha (visual "Começando do Zero") ===== */
+.tcard {
+    --c: #58cc02;
+    position: relative;
+    overflow: hidden;
+    margin: 18px 0;
+    padding: 22px;
+    border-radius: 22px;
+    color: #fff;
+    background:
+        radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--c) 38%, transparent), transparent 60%),
+        linear-gradient(165deg, #0f1a14 0%, #09110d 100%);
+    border: 1.5px solid color-mix(in srgb, var(--c) 75%, transparent);
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--c) 20%, transparent) inset,
+        0 0 26px color-mix(in srgb, var(--c) 35%, transparent);
+}
+
+.tcard .tc-body {
+    position: relative;
+    z-index: 1;
+    max-width: 62%;
+}
+
+.tcard .tc-art {
+    position: absolute;
+    right: 14px;
+    top: 14px;
+    width: 38%;
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    font-size: clamp(64px, 18vw, 120px);
+    filter: drop-shadow(0 0 22px color-mix(in srgb, var(--c) 80%, transparent));
+    pointer-events: none;
+}
+
+.tcard .tc-art img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.tcard .tc-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: #eafff0;
+    background: color-mix(in srgb, var(--c) 45%, #0a120e);
+    border: 1px solid color-mix(in srgb, var(--c) 80%, transparent);
+}
+
+.tcard .tc-title {
+    margin: 12px 0 8px;
+    font-size: clamp(26px, 6vw, 34px);
+    line-height: 1.1;
+    font-weight: 800;
+}
+
+.tcard .tc-title span {
+    color: color-mix(in srgb, var(--c) 70%, #fff);
+}
+
+.tcard .tc-desc {
+    margin: 0 0 16px;
+    font-size: 15px;
+    line-height: 1.45;
+    color: #c9d6ce;
+}
+
+.tcard .tc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    margin-bottom: 14px;
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.tcard .tc-prog {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.tcard .tc-bar {
+    flex: 1;
+    height: 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .12);
+    overflow: hidden;
+}
+
+.tcard .tc-bar > div {
+    height: 100%;
+    border-radius: 8px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--c) 80%, #000), var(--c));
+    box-shadow: 0 0 10px var(--c);
+    transition: width .4s;
+}
+
+.tcard .tc-prog b {
+    font-size: 14px;
+    color: color-mix(in srgb, var(--c) 70%, #fff);
+}
+
+.tcard .tc-btn {
+    width: 100%;
+    padding: 16px 18px;
+    border: 0;
+    border-radius: 16px;
+    cursor: pointer;
+    font: inherit;
+    font-weight: 800;
+    font-size: 17px;
+    color: #06210f;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--c) 55%, #fff), var(--c));
+    box-shadow: 0 0 22px color-mix(in srgb, var(--c) 55%, transparent);
+    transition: transform .15s, box-shadow .15s;
+}
+
+.tcard .tc-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 30px color-mix(in srgb, var(--c) 75%, transparent);
+}
+
+.tcard .mut {
+    color: #9fb0a6;
+}
+
+@media (max-width: 460px) {
+    .tcard .tc-body { max-width: 100%; }
+    .tcard .tc-art { opacity: .25; }
+}

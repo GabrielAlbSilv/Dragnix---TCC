@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nome do Site</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Ícone de imagem reutilizável -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-img" viewBox="0 0 24 24">
+    <path d="M3 5h2v14h14v2H5a2 2 0 0 1-2-2V5Z"/>
+    <path d="M8 3h13a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Zm1.5 12.5h10l-3.2-4.3-2.4 3-1.7-2.1-2.7 3.4ZM17 6.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/>
+  </symbol>
+</svg>
+
+<header>
+  <div class="wrap">
+    <nav class="nav">
+      <a href="#" class="logo">
+        <span class="ph"><svg class="ico"><use href="#i-img"/></svg></span>
+      </a>
+
+      <button class="burger" id="burger" aria-label="Abrir menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
+
+      <ul class="menu" id="menu">
+        <li><a class="pill" href="#sobre">Text</a></li>
+        <li><a class="pill" href="#destaques">Text</a></li>
+        <li><a class="pill" href="#ranking">Text</a></li>
+        <li><a class="pill" href="#entrar">Entrar</a></li>
+      </ul>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <!-- HERO -->
+  <section class="wrap">
+    <div class="hero">
+      <div>
+        <h1>Text Text Text</h1>
+        <p>Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text</p>
+        <a href="#" class="btn">Text</a>
+      </div>
+      <div class="ph hero-img"><svg class="ico"><use href="#i-img"/></svg></div>
+    </div>
+  </section>
+
+  <!-- SOBRE -->
+  <section class="wrap about" id="sobre">
+    <div class="ph"></div>
+    <div>
+      <h2>Text Text</h2>
+      <p>Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text</p>
+    </div>
+  </section>
+
+  <!-- DESTAQUES -->
+  <section class="features" id="destaques">
+    <div class="wrap">
+      <ul>
+        <li class="feat"><div class="ph"></div><h3>Text Text</h3><p>Text Text Text Text</p></li>
+        <li class="feat"><div class="ph"></div><h3>Text Text</h3><p>Text Text Text Text</p></li>
+        <li class="feat"><div class="ph"></div><h3>Text Text</h3><p>Text Text Text Text</p></li>
+        <li class="feat"><div class="ph"></div><h3>Text Text</h3><p>Text Text Text Text</p></li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- TICKET + RANKING -->
+  <section class="wrap showcase" id="ranking">
+    <div class="ticket-block">
+      <h2>Text Text</h2>
+      <p>Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text Text</p>
+      <div class="ticket"><svg class="ico"><use href="#i-img"/></svg></div>
+    </div>
+
+    <ol class="rank">
+      <li class="row top">
+        <span class="badge-ico"><svg class="ico"><use href="#i-img"/></svg></span>
+        <span class="t">Text Text Text</span>
+        <span class="n">N°</span>
+      </li>
+      <li class="row">
+        <span class="badge-ico"><svg class="ico"><use href="#i-img"/></svg></span>
+        <span class="t">Text Text Text</span><span class="n">N°</span>
+      </li>
+      <li class="row">
+        <span class="badge-ico"><svg class="ico"><use href="#i-img"/></svg></span>
+        <span class="t">Text Text Text</span><span class="n">N°</span>
+      </li>
+      <li class="row">
+        <span class="badge-ico"><svg class="ico"><use href="#i-img"/></svg></span>
+        <span class="t">Text Text Text</span><span class="n">N°</span>
+      </li>
+      <li class="row">
+        <span class="badge-ico"><svg class="ico"><use href="#i-img"/></svg></span>
+        <span class="t">Text Text Text</span><span class="n">N°</span>
+      </li>
+    </ol>
+  </section>
+
+  <!-- CARROSSEL -->
+  <section class="wrap carousel-sec">
+    <h2>Text Text</h2>
+    <div class="carousel">
+      <button class="arrow prev" aria-label="Anterior"><svg viewBox="0 0 24 24"><path d="M19 4v16L5 12z"/></svg></button>
+      <div class="track" id="track">
+        <article class="card-c"><div class="ph"></div></article>
+        <article class="card-c"><div class="ph"></div></article>
+        <article class="card-c"><div class="ph"></div></article>
+        <article class="card-c"><div class="ph"></div></article>
+        <article class="card-c"><div class="ph"></div></article>
+        <article class="card-c"><div class="ph"></div></article>
+      </div>
+      <button class="arrow next" aria-label="Próximo"><svg viewBox="0 0 24 24"><path d="M5 4v16l14-8z"/></svg></button>
+    </div>
+  </section>
+
+  <!-- CARDS -->
+  <section class="wrap cards" id="entrar">
+    <article class="card-l"><div class="ph"></div></article>
+    <article class="card-l"><div class="ph"></div></article>
+    <article class="card-l"><div class="ph"></div></article>
+  </section>
+</main>
+
+<footer></footer>
+
+<script src="script.js"></script>
+</body>
+</html>

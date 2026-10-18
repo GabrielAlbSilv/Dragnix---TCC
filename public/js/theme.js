@@ -1,277 +1,235 @@
 /* ============================================================
    DRAGNIX — SISTEMA GLOBAL DE TEMA
    ============================================================ */
-
+ 
 (function () {
-
+ 
     const STORAGE_KEY = 'dragnix-theme';
-
-
+ 
+ 
     /* ========================================================
        DETECTAR TEMA DO SISTEMA
        ======================================================== */
-
+ 
     function getSystemTheme() {
-
+ 
         return window.matchMedia &&
             window.matchMedia('(prefers-color-scheme: dark)').matches
             ? 'dark'
             : 'light';
-
+ 
     }
-
-
+ 
+ 
     /* ========================================================
        OBTER TEMA ATUAL
        ======================================================== */
-
+ 
     function getTheme() {
-
+ 
         const savedTheme = localStorage.getItem(STORAGE_KEY);
-
+ 
         if (savedTheme === 'dark' || savedTheme === 'light') {
             return savedTheme;
         }
-
+ 
         return getSystemTheme();
-
+ 
     }
-
-
+ 
+ 
     /* ========================================================
        APLICAR TEMA
        ======================================================== */
-
+ 
     
 /* ========================================================
    APLICAR TEMA
    ======================================================== */
-
+ 
 function applyTheme(theme) {
-
+ 
     document.documentElement.setAttribute(
         'data-theme',
         theme
     );
-
+ 
     updateThemeButtons(theme);
     updateThemeLogos(theme);
-
+ 
 }
-
+ 
 /* ========================================================
    ATUALIZAR LOGOS CONFORME O TEMA
    ======================================================== */
-
+ 
     function updateThemeLogos(theme) {
-
+ 
         const logos = document.querySelectorAll(
             'img[data-logo-light][data-logo-dark]'
         );
-
+ 
         logos.forEach(function (logo) {
-
+ 
             const newSrc = theme === 'dark'
                 ? logo.dataset.logoDark
                 : logo.dataset.logoLight;
-
+ 
             if (logo.getAttribute('src') !== newSrc) {
                 logo.setAttribute('src', newSrc);
             }
-
+ 
         });
-
+ 
     }
-
-
-
+ 
+ 
+ 
     /* ========================================================
        ATUALIZAR BOTÕES
        ======================================================== */
-
+ 
     function updateThemeButtons(theme) {
-
+ 
         const buttons = document.querySelectorAll(
             '[data-theme-toggle]'
         );
-
+ 
         buttons.forEach(button => {
-
+ 
             const icon = button.querySelector(
                 '.theme-button-icon'
             );
-
+ 
             const text = button.querySelector(
                 '.theme-button-text'
             );
-
-
+ 
+ 
             if (theme === 'dark') {
-
+ 
                 if (icon) {
                     icon.textContent = '☀️';
                 }
-
+ 
                 if (text) {
                     text.textContent = 'Modo claro';
                 }
-
+ 
                 button.setAttribute(
                     'aria-label',
                     'Ativar modo claro'
                 );
-
+ 
                 button.setAttribute(
                     'title',
                     'Ativar modo claro'
                 );
-
+ 
             } else {
-
+ 
                 if (icon) {
                     icon.textContent = '🌙';
                 }
-
+ 
                 if (text) {
                     text.textContent = 'Modo escuro';
                 }
-
+ 
                 button.setAttribute(
                     'aria-label',
                     'Ativar modo escuro'
                 );
-
+ 
                 button.setAttribute(
                     'title',
                     'Ativar modo escuro'
                 );
-
+ 
             }
-
+ 
         });
-
+ 
     }
-
-
+ 
+ 
     /* ========================================================
        ALTERNAR TEMA
        ======================================================== */
-
+ 
     function toggleTheme() {
-
+ 
         const currentTheme =
             document.documentElement.getAttribute('data-theme')
             || getTheme();
-
+ 
         const newTheme =
             currentTheme === 'dark'
                 ? 'light'
                 : 'dark';
-
-
+ 
+ 
         localStorage.setItem(
             STORAGE_KEY,
             newTheme
         );
-
-
+ 
+ 
         applyTheme(newTheme);
-
+ 
     }
-
-
+ 
+ 
     /* ========================================================
        INICIALIZAÇÃO
        ======================================================== */
-
+ 
     const initialTheme = getTheme();
-
+ 
     applyTheme(initialTheme);
-
-
+ 
+ 
     /* ========================================================
        DISPONIBILIZAR GLOBALMENTE
        ======================================================== */
-
+ 
     window.toggleTheme = toggleTheme;
-
-
+ 
+ 
     /* ========================================================
        ACOMPANHAR TEMA DO COMPUTADOR
        ======================================================== */
-
+ 
     const mediaQuery = window.matchMedia(
         '(prefers-color-scheme: dark)'
     );
-
-
+ 
+ 
     mediaQuery.addEventListener('change', function (event) {
-
+ 
         const savedTheme =
             localStorage.getItem(STORAGE_KEY);
-
-
+ 
+ 
         /*
          * Se o usuário já escolheu manualmente,
          * respeitamos a escolha dele.
          */
-
+ 
         if (savedTheme) {
             return;
         }
-
-
+ 
+ 
         applyTheme(
             event.matches ? 'dark' : 'light'
         );
-
+ 
     });
-
+ 
         document.addEventListener('DOMContentLoaded', function () {
             updateThemeLogos(getTheme());
         });
-
+ 
         
-/* ============================================================
-   BOTÃO DE TEMA — INDEX
-   ============================================================ */
-
-function iniciarBotaoTemaIndex() {
-    const botao = document.getElementById('indexThemeToggle');
-
-    if (!botao) return;
-
-    function atualizarIcone() {
-        const tema = document.documentElement.getAttribute('data-theme');
-        const nomeIcone = tema === 'dark' ? 'sun' : 'moon';
-
-        const icone = botao.querySelector('svg, i');
-
-        if (!icone) return;
-
-        if (window.lucide && window.lucide.icons) {
-            botao.innerHTML = window.lucide.icons[nomeIcone].toSvg({
-                width: 22,
-                height: 22
-            });
-        } else {
-            botao.textContent = tema === 'dark' ? '☀' : '☾';
-        }
-    }
-
-    botao.addEventListener('click', function () {
-        toggleTheme();
-        atualizarIcone();
-    });
-
-    atualizarIcone();
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', iniciarBotaoTemaIndex);
-} else {
-    iniciarBotaoTemaIndex();
-}
-
-
 })();
