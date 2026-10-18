@@ -123,6 +123,1012 @@ const refresh = () => {
   return api('/tracks').then(setStats);
 };
 
+
+
+/* ============================================================
+   DRAGNIX — DESAFIOS DO ALUNO
+   ============================================================ */
+
+const studentChallenges = new Map();
+let challengeTimer = null;
+let challengeBusy = false;
+
+function challengeStopTimer() {
+  if (challengeTimer !== null) {
+    clearInterval(challengeTimer);
+    challengeTimer = null;
+  }
+}
+
+function challengeOverlay(html) {
+  challengeStopTimer();
+
+  document.getElementById('studentChallengeOverlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'studentChallengeOverlay';
+  overlay.className = 'student-challenge-overlay';
+
+  overlay.innerHTML = `
+    <div class="student-challenge-dialog"
+         role="dialog"
+         aria-modal="true"
+         aria-label="Desafio da trilha">
+      <button class="student-challenge-close"
+              type="button"
+              aria-label="Fechar"
+              onclick="challengeClose()">×</button>
+      <div id="studentChallengeContent">
+        ${html}
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function challengeClose() {
+  challengeStopTimer();
+  document.getElementById('studentChallengeOverlay')?.remove();
+}
+
+
+async function challengeGet(trackId, force = false) {
+  if (!force && studentChallenges.has(trackId)) {
+    return studentChallenges.get(trackId);
+  }
+
+  try {
+    const data = await api(
+      `/tracks/${Number(trackId)}/challenges`
+    );
+
+    const challenges = Array.isArray(data.challenges)
+      ? data.challenges
+      : [];
+
+    studentChallenges.set(trackId, challenges);
+
+    return challenges;
+  } catch (error) {
+    console.error(
+      `Erro ao carregar desafios da trilha ${trackId}:`,
+      error
+    );
+
+    throw error;
+  }
+}
+
+
+
+async function challengeOpen(trackId, challengeId) {
+  if (challengeBusy) return;
+
+  challengeOverlay(`
+    <div class="student-challenge-loading">
+      ${icon('loader-circle')}
+      <p>Carregando desafio...</p>
+    </div>
+  `);
+
+  try {
+    const challenges = await challengeGet(trackId, true);
+
+    const challenge = challenges.find(
+      item => Number(item.id) === Number(challengeId)
+    );
+
+    if (!challenge) {
+      throw new Error(
+        'Este desafio não está disponível.'
+      );
+    }
+
+    const typeNames = {
+      tempo: '⚡ Contra o tempo',
+      precisao: '🎯 Precisão',
+      quebra_cabeca: '🧩 Quebra-cabeça',
+      resistencia: '🔥 Resistência'
+    };
+
+    const completed = Boolean(challenge.completed);
+    const remaining = Number(challenge.remaining ?? 0);
+    const active = Boolean(challenge.active);
+
+    challengeOverlay(`
+      <div class="student-challenge-intro">
+        <div class="student-challenge-hero-icon">
+          ${completed ? '🏆' : '🎮'}
+        </div>
+
+        <span class="student-challenge-kicker">
+          ${esc(typeNames[challenge.type] || 'Desafio especial')}
+        </span>
+
+        <h2>${esc(challenge.title)}</h2>
+
+        <p>${esc(challenge.description || '')}</p>
+
+        <div class="student-challenge-rewards">
+          <div>
+            ${icon('star')}
+            <strong>
+              ${Number(challenge.xp_reward || 0)
+                .toLocaleString('pt-BR')}
+            </strong>
+            <small>XP</small>
+          </div>
+
+          <div>
+            ${icon('target')}
+            <strong>${remaining}</strong>
+            <small>Tentativas restantes</small>
+          </div>
+
+          ${
+            challenge.type === 'tempo'
+              ? `
+                <div>
+                  ${icon('timer')}
+                  <strong>
+                    ${Number(challenge.time_limit)}s
+                  </strong>
+                  <small>Tempo</small>
+                </div>
+              `
+              : ''
+          }
+        </div>
+
+        <div class="student-challenge-achievement">
+          ${icon(challenge.badge_icon || 'trophy')}
+
+          <div>
+            <strong>
+              ${esc(challenge.badge_name || 'Conquista especial')}
+            </strong>
+            <small>
+              ${esc(challenge.badge_description || '')}
+            </small>
+          </div>
+        </div>
+
+        ${
+          completed
+            ? `
+              <p class="student-challenge-success">
+                🏆 Você já conquistou esta recompensa!
+              </p>
+            `
+            : !active && remaining <= 0
+              ? `
+                <p class="student-challenge-warning">
+                  Você esgotou suas tentativas.
+                </p>
+              `
+              : `
+                <p class="mut">
+                  Este desafio é opcional.
+                  Suas tentativas e recompensas são
+                  registradas individualmente.
+                </p>
+              `
+        }
+
+       <div class="student-challenge-buttons">
+            ${
+              !completed && (remaining > 0 || active)
+                ? `
+                  <button
+                    type="button"
+                    class="btn"
+                    onclick="challengeStart(${Number(trackId)}, ${Number(challengeId)})"
+                  >
+                    ${active ? 'Continuar tentativa' : 'Iniciar desafio'}
+                  </button>
+                `
+                : ''
+            }
+
+            <button
+              type="button"
+              class="btn sm"
+              onclick="challengeClose()"
+            >
+              Voltar à trilha
+            </button>
+          </div>
+    `);
+
+  } catch (error) {
+    challengeShowError(error);
+  }
+}
+
+
+/* ============================================================
+   DRAGNIX — EXECUÇÃO DOS DESAFIOS MULTITIPOS
+============================================================ */
+
+const CHALLENGE_PLAY_TYPES = {
+  tempo: {
+    icon: '⚡',
+    name: 'Contra o tempo'
+  },
+  precisao: {
+    icon: '🎯',
+    name: 'Precisão'
+  },
+  quebra_cabeca: {
+    icon: '🧩',
+    name: 'Quebra-cabeça'
+  },
+  resistencia: {
+    icon: '🔥',
+    name: 'Resistência'
+  }
+};
+
+async function challengeStart(trackId, challengeId) {
+  if (challengeBusy) return;
+
+  challengeBusy = true;
+
+  challengeOverlay(`
+    <div class="student-challenge-loading">
+      ${icon('loader-circle')}
+      <p>Preparando desafio...</p>
+    </div>
+  `);
+
+  try {
+    const data = await api(
+      `/challenges/${Number(challengeId)}/start`,
+      'POST'
+    );
+
+    challengeShowQuestion(trackId, challengeId, data);
+  } catch (error) {
+    challengeShowError(error);
+  } finally {
+    challengeBusy = false;
+  }
+}
+
+function challengeShowQuestion(trackId, challengeId, data) {
+  const type = data.type || 'tempo';
+  const typeInfo = CHALLENGE_PLAY_TYPES[type] || {
+    icon: '🏆',
+    name: 'Desafio especial'
+  };
+
+  const options = Array.isArray(data.options)
+    ? data.options
+    : Array.isArray(data.question?.options)
+      ? data.question.options
+      : [];
+
+  const questionText =
+    typeof data.question === 'string'
+      ? data.question
+      : data.question?.prompt || '';
+
+  const questionType = data.question?.question_type || 'multipla';
+
+  const puzzle = questionType === 'ordenar';
+  const timed = type === 'tempo';
+  const attemptId = Number(data.attempt_id);
+
+  
+if (!['multipla', 'ordenar'].includes(questionType)) {
+  challengeShowError(
+    new Error('Tipo de questão não reconhecido.')
+  );
+  return;
+}
+
+if (type === 'quebra_cabeca' && questionType !== 'ordenar') {
+  challengeShowError(
+    new Error('O quebra-cabeça precisa de uma questão de ordenação.')
+  );
+  return;
+}
+
+if (type !== 'quebra_cabeca' && questionType !== 'multipla') {
+  challengeShowError(
+    new Error('Este desafio precisa de uma questão de múltipla escolha.')
+  );
+  return;
+}
+
+
+  if (!Number.isSafeInteger(attemptId) || attemptId <= 0) {
+    challengeShowError(
+      new Error('Identificador da tentativa inválido.')
+    );
+    return;
+  }
+
+  if (!options.length || !questionText) {
+    challengeShowError(
+      new Error('A questão não foi recebida corretamente.')
+    );
+    return;
+  }
+
+  let selected = null;
+  let submitted = false;
+  let puzzleOrder = [];
+
+  const deadline = Number(data.deadline_at);
+  const serverTime = Number(data.server_time);
+
+  const hasClock =
+    timed &&
+    Number.isFinite(deadline) &&
+    Number.isFinite(serverTime);
+
+  const offset = hasClock
+    ? serverTime - Date.now()
+    : 0;
+
+  const totalMs = hasClock
+    ? Math.max(1, deadline - serverTime)
+    : 1;
+
+  const currentQuestion =
+    Number(data.current_question ?? 0) + 1;
+
+  const mistakes = Number(data.mistakes || 0);
+  const tempoErrorsRemaining =
+  Math.max(0, 3 - mistakes);
+  const livesRemaining =
+    data.lives_remaining == null
+      ? null
+      : Number(data.lives_remaining);
+
+  challengeOverlay(`
+    <div class="student-challenge-play">
+
+      <div class="student-challenge-play-header">
+        <span>
+          ${typeInfo.icon}
+          ${esc(typeInfo.name.toUpperCase())}
+        </span>
+
+        ${
+          hasClock
+            ? `<strong id="challengeClock">--:--</strong>`
+            : `<strong>Questão ${currentQuestion}</strong>`
+        }
+      </div>
+
+      ${
+        hasClock
+          ? `
+            <div class="student-challenge-progress">
+              <div id="challengeProgressBar"></div>
+            </div>
+          `
+          : ''
+      }
+
+      ${
+        type === 'resistencia'
+          ? `
+            <p class="mut">
+              ❤️ Vidas restantes:
+              <strong>${Math.max(0, livesRemaining ?? 0)}</strong>
+              · Erros: ${mistakes}
+            </p>
+          `
+          : ''
+      }
+
+      ${
+        type === 'precisao'
+          ? `
+            <p class="mut">
+              🎯 Acerte todas as questões.
+              Um erro encerra a tentativa.
+            </p>
+          `
+          : ''
+      }
+      ${
+          timed
+            ? `
+              <p class="mut">
+                ⚡ Erros: <strong>${mistakes}/3</strong>
+                · Restantes:
+                <strong>${tempoErrorsRemaining}</strong>
+              </p>
+            `
+            : ''
+        }
+
+      <h2>${esc(questionText)}</h2>
+
+      ${
+        puzzle
+          ? `
+            <p class="student-challenge-hint">
+              Toque nos itens na ordem correta.
+              Toque novamente em um item selecionado
+              para removê-lo da sequência.
+            </p>
+
+            <div
+              id="challengePuzzleSelected"
+              class="student-challenge-options"
+            ></div>
+
+            <p class="mut">Itens disponíveis</p>
+          `
+          : ''
+      }
+
+      <div
+        id="challengeOptions"
+        class="student-challenge-options"
+      ></div>
+
+      <p
+        class="student-challenge-hint"
+        id="challengeHint"
+      >
+        ${
+          puzzle
+            ? 'Organize todos os itens para confirmar.'
+            : timed
+              ? 'Escolha uma alternativa antes do tempo acabar.'
+              : 'Selecione uma alternativa e confirme.'
+        }
+      </p>
+
+      <button
+        type="button"
+        class="btn student-challenge-submit"
+        id="challengeSubmit"
+        disabled
+      >
+        Confirmar resposta
+      </button>
+
+    </div>
+  `);
+
+  const content = document.getElementById(
+    'studentChallengeContent'
+  );
+
+  const optionsBox = content.querySelector(
+    '#challengeOptions'
+  );
+
+  const submitButton = content.querySelector(
+    '#challengeSubmit'
+  );
+
+  function renderOptions() {
+    if (submitted) return;
+
+    if (puzzle) {
+      const selectedBox = content.querySelector(
+        '#challengePuzzleSelected'
+      );
+
+      selectedBox.innerHTML = puzzleOrder.length
+        ? puzzleOrder.map((index, position) => `
+            <button
+              type="button"
+              class="student-challenge-option selected"
+              data-puzzle-remove="${position}"
+            >
+              <strong>${position + 1}.</strong>
+              <span>${esc(options[index])}</span>
+              <span>×</span>
+            </button>
+          `).join('')
+        : `
+            <p class="mut">
+              Nenhum item selecionado.
+            </p>
+          `;
+
+      selectedBox.querySelectorAll(
+        '[data-puzzle-remove]'
+      ).forEach(button => {
+        button.onclick = () => {
+          puzzleOrder.splice(
+            Number(button.dataset.puzzleRemove),
+            1
+          );
+          renderOptions();
+        };
+      });
+
+      optionsBox.innerHTML = options.map(
+        (option, index) => {
+          if (puzzleOrder.includes(index)) return '';
+
+          return `
+            <button
+              type="button"
+              class="student-challenge-option"
+              data-puzzle-add="${index}"
+            >
+              <span>${esc(option)}</span>
+            </button>
+          `;
+        }
+      ).join('');
+
+      optionsBox.querySelectorAll(
+        '[data-puzzle-add]'
+      ).forEach(button => {
+        button.onclick = () => {
+          puzzleOrder.push(
+            Number(button.dataset.puzzleAdd)
+          );
+          renderOptions();
+        };
+      });
+
+      submitButton.disabled =
+        puzzleOrder.length !== options.length;
+
+      return;
+    }
+
+    optionsBox.innerHTML = options.map(
+      (option, index) => `
+        <button
+          type="button"
+          class="student-challenge-option
+            ${selected === index ? 'selected' : ''}"
+          data-challenge-option="${index}"
+        >
+          <span class="student-challenge-option-letter">
+            ${String.fromCharCode(65 + index)}
+          </span>
+          <span>${esc(option)}</span>
+        </button>
+      `
+    ).join('');
+
+    optionsBox.querySelectorAll(
+      '[data-challenge-option]'
+    ).forEach(button => {
+      button.onclick = () => {
+        selected = Number(
+          button.dataset.challengeOption
+        );
+        renderOptions();
+      };
+    });
+
+    submitButton.disabled = selected === null;
+  }
+
+  async function submitAnswer() {
+    if (submitted || challengeBusy) return;
+
+    if (puzzle && puzzleOrder.length !== options.length) {
+      return;
+    }
+
+    if (!puzzle && selected === null) {
+      return;
+    }
+
+    submitted = true;
+    challengeBusy = true;
+    challengeStopTimer();
+
+    submitButton.disabled = true;
+    submitButton.textContent = 'Verificando...';
+
+    const body = puzzle
+      ? { selected_order: [...puzzleOrder] }
+      : { selected_answer: selected };
+
+    try {
+      const result = await api(
+        `/challenges/attempts/${attemptId}/answer`,
+        'POST',
+        body
+      );
+
+      studentChallenges.delete(trackId);
+
+     if (result.status === 'in_progress') {
+          if (type === 'tempo') {
+            // Avança diretamente para a próxima pergunta.
+            // O prazo continua sendo o mesmo.
+            challengeShowQuestion(
+              trackId,
+              challengeId,
+              result
+            );
+          } else {
+            challengeShowProgress(
+              trackId,
+              challengeId,
+              result
+            );
+          }
+        } else {
+          challengeShowResult(trackId, result);
+        }
+
+    } catch (error) {
+      if (error.status === 409) {
+        challengeShowError(
+          new Error(
+            'Esta tentativa já foi encerrada. ' +
+            'Volte à trilha para consultar o desafio.'
+          )
+        );
+      } else {
+        // A resposta pode não ter chegado ao servidor.
+        // Não reenviar automaticamente para evitar
+        // duplicação ou avanço indevido.
+        challengeShowError(error);
+      }
+    } finally {
+      challengeBusy = false;
+    }
+  }
+
+  submitButton.onclick = submitAnswer;
+
+  renderOptions();
+
+  if (!timed) {
+    return;
+  }
+
+  if (!hasClock) {
+    challengeShowError(
+      new Error('O servidor não informou o prazo do desafio.')
+    );
+    return;
+  }
+
+  function updateClock() {
+    if (submitted) return;
+
+    const remaining = Math.max(
+      0,
+      deadline - (Date.now() + offset)
+    );
+
+    const seconds = Math.ceil(remaining / 1000);
+
+    const minutesPart = Math.floor(seconds / 60);
+    const secondsPart = seconds % 60;
+
+    const clock = document.getElementById(
+      'challengeClock'
+    );
+
+    const bar = document.getElementById(
+      'challengeProgressBar'
+    );
+
+    if (!clock || !bar) {
+      challengeStopTimer();
+      return;
+    }
+
+    clock.textContent =
+      `${String(minutesPart).padStart(2, '0')}:` +
+      `${String(secondsPart).padStart(2, '0')}`;
+
+    bar.style.width =
+      `${Math.max(0, remaining / totalMs) * 100}%`;
+
+    const urgent = remaining <= 10000;
+
+    clock.classList.toggle('urgent', urgent);
+    bar.classList.toggle('urgent', urgent);
+
+    if (remaining === 0) {
+      submitted = true;
+      challengeStopTimer();
+      studentChallenges.delete(trackId);
+
+      challengeOverlay(`
+        <div class="student-challenge-result">
+          <div class="student-challenge-result-icon">⌛</div>
+          <h2>O tempo acabou!</h2>
+          <p>
+            O prazo da tentativa terminou.
+            O servidor confirmará a expiração
+            quando o desafio for consultado novamente.
+          </p>
+
+          <button
+            class="btn"
+            onclick="challengeOpen(${Number(trackId)}, ${Number(challengeId)})"
+          >
+            Voltar ao desafio
+          </button>
+        </div>
+      `);
+    }
+  }
+
+  updateClock();
+
+  if (!submitted) {
+    challengeTimer = setInterval(updateClock, 100);
+  }
+}
+
+/* ============================================================
+   PROGRESSO ENTRE QUESTÕES
+============================================================ */
+
+function challengeShowProgress(trackId, challengeId, result) {
+  const correct = Boolean(result.correct);
+
+  challengeOverlay(`
+    <div class="student-challenge-result">
+      <div class="student-challenge-result-icon">
+        ${correct ? '✅' : '❤️'}
+      </div>
+
+      <h2>
+        ${correct
+          ? 'Resposta correta!'
+          : 'Resposta incorreta!'}
+      </h2>
+
+      <p>
+        ${esc(
+          result.message ||
+          'Continue para a próxima questão.'
+        )}
+      </p>
+
+      ${
+        result.lives_remaining != null
+          ? `
+            <p>
+              ❤️ Vidas restantes:
+              <strong>
+                ${Number(result.lives_remaining)}
+              </strong>
+            </p>
+          `
+          : ''
+      }
+
+      <p class="mut">
+        O desafio ainda não terminou.
+        A recompensa será concedida
+        somente após a vitória.
+      </p>
+
+      <button
+        type="button"
+        class="btn"
+        id="challengeNextQuestion"
+      >
+        Próxima questão →
+      </button>
+    </div>
+  `);
+
+  document.getElementById(
+    'challengeNextQuestion'
+  ).onclick = () => {
+    challengeShowQuestion(
+      trackId,
+      challengeId,
+      result
+    );
+  };
+}
+
+/* ============================================================
+   RESULTADO FINAL DOS DESAFIOS
+============================================================ */
+
+function challengeShowResult(trackId, result) {
+  const status = result.status;
+
+  const won = status === 'won';
+  const lost = status === 'lost';
+  const expired = status === 'expired';
+
+  const gained = Math.max(
+    0,
+    Number(result.gained || 0)
+  );
+
+  const badgeCode = result.badge_code || null;
+
+  const resultInfo = won
+    ? {
+        icon: '🏆',
+        title: 'Desafio conquistado!',
+        description:
+          'Parabéns! Você concluiu o desafio com sucesso.'
+      }
+    : expired
+      ? {
+          icon: '⌛',
+          title: 'Tempo esgotado!',
+          description:
+            'O prazo terminou antes da conclusão do desafio.'
+        }
+      : {
+          icon: '💔',
+          title: 'Tentativa encerrada!',
+          description:
+            'Você não conseguiu concluir o desafio desta vez.'
+        };
+
+  studentChallenges.delete(trackId);
+
+  challengeOverlay(`
+    <div class="student-challenge-result
+      ${won ? 'victory' : 'defeat'}">
+
+      <div class="student-challenge-result-icon">
+        ${resultInfo.icon}
+      </div>
+
+      <h2>${resultInfo.title}</h2>
+
+      <p>${resultInfo.description}</p>
+
+      ${
+        result.message
+          ? `
+            <p class="mut">
+              ${esc(result.message)}
+            </p>
+          `
+          : ''
+      }
+
+      ${
+        won
+          ? `
+            <div class="student-challenge-win-xp">
+              ${icon('star')}
+              +${gained.toLocaleString('pt-BR')} XP
+            </div>
+
+            ${
+              badgeCode
+                ? `
+                  <div class="student-challenge-achievement">
+                    ${icon('trophy')}
+                    <div>
+                      <strong>
+                        Conquista desbloqueada!
+                      </strong>
+                      <small>
+                        Sua conquista foi registrada.
+                      </small>
+                    </div>
+                  </div>
+                `
+                : ''
+            }
+
+            ${
+              gained === 0
+                ? `
+                  <p class="mut">
+                    Nenhum XP adicional foi concedido
+                    nesta tentativa.
+                  </p>
+                `
+                : ''
+            }
+          `
+          : `
+            <p class="mut">
+              ${icon('info')}
+              Nenhum XP foi concedido.
+            </p>
+          `
+      }
+
+      ${
+        result.lives_remaining != null && !won
+          ? `
+            <p class="mut">
+              ❤️ Vidas restantes:
+              ${Math.max(0, Number(result.lives_remaining))}
+            </p>
+          `
+          : ''
+      }
+
+      ${
+        result.mistakes != null
+          ? `
+            <p class="mut">
+              Erros registrados:
+              ${Math.max(0, Number(result.mistakes))}
+            </p>
+          `
+          : ''
+      }
+
+      <div class="student-challenge-buttons">
+
+        <button
+          type="button"
+          class="btn"
+          onclick="challengeFinish()"
+        >
+          ${icon('arrow-left')}
+          Voltar às trilhas
+        </button>
+
+        ${
+          lost || expired
+            ? `
+              <button
+                type="button"
+                class="btn sm sec"
+                onclick="challengeFinish()"
+              >
+                Consultar tentativas restantes
+              </button>
+            `
+            : ''
+        }
+
+      </div>
+
+    </div>
+  `);
+
+  if (won) {
+    refresh().catch(error => {
+      console.error(
+        'Erro ao atualizar XP após o desafio:',
+        error
+      );
+    });
+  }
+}
+
+
+
+async function challengeFinish() {
+  challengeClose();
+  studentChallenges.clear();
+
+  try {
+    await home();
+  } catch (error) {
+    console.error(
+      'Erro ao atualizar as trilhas:',
+      error
+    );
+
+    alert(
+      'Não foi possível atualizar as trilhas. ' +
+      'Tente novamente.'
+    );
+  }
+}
+
+
+
+
 // ============================================================
 // HOME / TRILHAS
 // ============================================================
@@ -153,6 +1159,24 @@ async function home() {
 
   window.TRACKS =
     tracks;
+
+  
+  // Carregar os desafios disponíveis sem bloquear
+  // a exibição das trilhas em caso de erro.
+  await Promise.all(
+    tracks.map(async track => {
+      try {
+        track.challengeData = await challengeGet(track.id, true);
+      } catch (error) {
+        console.warn(
+          `Erro ao carregar desafio da trilha ${track.id}:`,
+          error
+        );
+        track.challengeData = [];
+      }
+    })
+  );
+
 
 
   // ==========================================================
@@ -771,43 +1795,88 @@ async function home() {
                          DESAFIOS
                     ========================================= -->
 
-                    <div
-                      style="
-                        text-align:center;
-                        opacity:.5
-                      "
-                    >
+                                      
+                  ${
+                    Array.isArray(t.challengeData) &&
+                    t.challengeData.length
+                      ? t.challengeData.map(challenge => {
+                          const challengeId = Number(challenge.id);
+                          const completed = Boolean(challenge.completed);
+                          const remaining = Number(challenge.remaining ?? 0);
+                          const active = Boolean(challenge.active);
 
-                      <button
-                        class="node"
-                        style="
-                          background:var(--bd)
-                        "
-                        onclick="
-                          alert(
-                            'Os desafios chegam em breve!'
-                          )
-                        "
-                      >
+                          const types = {
+                            tempo: {
+                              name: 'Contra o tempo',
+                              icon: 'zap'
+                            },
+                            precisao: {
+                              name: 'Precisão',
+                              icon: 'target'
+                            },
+                            quebra_cabeca: {
+                              name: 'Quebra-cabeça',
+                              icon: 'puzzle'
+                            },
+                            resistencia: {
+                              name: 'Resistência',
+                              icon: 'flame'
+                            }
+                          };
 
-                        ${icon('trophy')}
+                          const type = types[challenge.type] || {
+                            name: 'Desafio especial',
+                            icon: 'trophy'
+                          };
 
-                      </button>
+                          return `
+                            <div class="student-challenge-node-wrap">
+                              <button
+                                type="button"
+                                class="node student-challenge-node
+                                  ${completed ? 'completed' : ''}"
+                                onclick="challengeOpen(
+                                  ${Number(t.id)},
+                                  ${challengeId}
+                                )"
+                                title="${esc(challenge.title)}"
+                                ${t.locked ? 'disabled' : ''}
+                              >
+                                ${icon(completed ? 'trophy' : type.icon)}
+                              </button>
 
+                              <div class="mut">
+                                <strong>
+                                    ${esc(challenge.title)}
+                                  </strong>
 
-                      <div class="mut">
+                                  <br>
 
-                        Desafios
+                                  <small>
+                                    ${esc(type.name)}
+                                  </small>
 
-                        <br>
+                                  <br>
 
-                        <small>
-                          em breve
-                        </small>
+                                  <small>
+                                    ${
+                                      completed
+                                        ? '🏆 Conquistado'
+                                        : active
+                                          ? '▶ Em andamento'
+                                          : remaining > 0
+                                            ? `+${Number(challenge.xp_reward || 0)
+                                                .toLocaleString('pt-BR')} XP`
+                                            : '🔒 Tentativas esgotadas'
+                                    }
+                                  </small>
+                                </div>
+                              </div>
+                            `;
+                          }).join('')
+                        : ''
+                    }
 
-                      </div>
-
-                    </div>
 
 
                     <!-- ========================================
@@ -1703,7 +2772,15 @@ async function profile() {
               title="${esc(b.desc)}"
             >
               <span>
-                ${b.icon}
+        
+              ${
+                [
+                  'trophy', 'zap', 'crown', 'flame',
+                  'medal', 'star', 'gem', 'award'
+                ].includes(b.icon)
+                  ? icon(b.icon)
+                  : esc(b.icon || '🏆')
+              }
               </span>
 
               <small>
@@ -1802,7 +2879,15 @@ async function badges() {
             >
 
               <span>
-                ${b.icon}
+               
+              ${
+                [
+                  'trophy', 'zap', 'crown', 'flame',
+                  'medal', 'star', 'gem', 'award'
+                ].includes(b.icon)
+                  ? icon(b.icon)
+                  : esc(b.icon || '🏆')
+              }
               </span>
 
               <b>
@@ -2378,18 +3463,54 @@ async function openLesson(id) {
           ${esc(lesson.title || 'Módulo')}
         </h1>
 
+                
+        ${lesson.done ? `
+          <div class="card" role="status" style="
+            margin: 14px 0;
+            padding: 16px;
+            border: 1px solid #e7b85b;
+            background: rgba(231,184,91,.10);
+            text-align: left;
+          ">
+            <strong>
+              ${icon('info')} Você está revisando este módulo!
+            </strong>
+
+            <p style="margin: 8px 0 0;">
+              Você já concluiu este conteúdo anteriormente.
+              Nesta tentativa, receberá apenas
+              <strong>${
+                (lesson.completionCount || 1) === 1 ? 50 :
+                (lesson.completionCount || 1) === 2 ? 30 :
+                20
+              }% do XP calculado.</strong>
+            </p>
+
+            <p class="mut" style="margin-top: 8px;">
+              Continue praticando para reforçar seus conhecimentos!
+            </p>
+          </div>
+        ` : ''}
+
+
         ${
-          lesson.description
+          lesson.presentation.length
             ? `
-              <p>
-                ${esc(lesson.description)}
-              </p>
+              <div class="lesson-content">
+                ${lesson.presentation.map(block).join('')}
+              </div>
             `
-            : `
-              <p class="mut">
-                Prepare-se para iniciar este módulo.
-              </p>
-            `
+            : lesson.description
+              ? `
+                <div class="intro">
+                  ${esc(lesson.description)}
+                </div>
+              `
+              : `
+                <p class="mut">
+                  Este módulo ainda não possui uma apresentação.
+                </p>
+              `
         }
 
         ${
@@ -3066,26 +4187,56 @@ const finish = async (lessonId, lesson) => {
         ${r.hits}/${r.total}
       </p>
 
-      ${
-        r.gained
-          ? `
-            <p>
+      
+${
+  r.gained
+    ? `
+      <p>
+        ${icon('star')} +${r.gained} XP
 
-              ${icon('star')} +${r.gained} XP
+        ·
 
-              ·
+        ${icon('coins')} +${r.coins} moedas
+      </p>
+    `
+    : `
+      <p class="mut">
+        Nenhum XP recebido nesta tentativa.
+      </p>
+    `
+}
 
-              ${icon('coins')} +${r.coins} moedas
+${
+  r.repeated
+    ? `
+      <div class="card" style="
+        margin-top: 14px;
+        padding: 14px;
+        border: 1px solid #e7b85b;
+        background: rgba(231,184,91,.10);
+        text-align: center;
+      ">
+        <strong>
+          ${icon('info')} Revisão concluída!
+        </strong>
 
-            </p>
-          `
-          : `
-            <p class="mut">
-              Revisão:
-              sem XP extra.
-            </p>
-          `
-      }
+        <p style="margin: 8px 0 0;">
+          Esta foi sua
+          <strong>${r.completionNumber}ª conclusão</strong>
+          deste módulo.
+        </p>
+
+        <p style="margin: 8px 0 0;">
+          Você recebeu
+          <strong>
+            ${Math.round((r.xpMultiplier ?? 0.5) * 100)}%
+          </strong>
+          do XP calculado nesta tentativa.
+        </p>
+      </div>
+    `
+    : ''
+}
 
       <p>
 
@@ -3115,7 +4266,15 @@ const finish = async (lessonId, lesson) => {
 
                 ${icon('award')} Nova conquista:
 
-                ${b.icon}
+               
+              ${
+                [
+                  'trophy', 'zap', 'crown', 'flame',
+                  'medal', 'star', 'gem', 'award'
+                ].includes(b.icon)
+                  ? icon(b.icon)
+                  : esc(b.icon || '🏆')
+              }
 
                 <b>
                   ${esc(b.name)}

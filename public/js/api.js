@@ -2,13 +2,8 @@ const logout = () => {
     const user = JSON.parse(localStorage.getItem('user') || 'null');
     const nome = user?.name ? user.name.split(' ')[0] : '';
 
-    if (!confirm(`Deseja sair, ${nome}?`)) {
-        return;
-    }
-
     localStorage.clear();
 
-    // Redireciona para a splash page com a flag de logout e username
     location.replace(
         'splash.html?logout=1&nome=' + encodeURIComponent(nome)
     );
@@ -36,8 +31,17 @@ async function api(path, method = 'GET', body) {
     }
 
     if (!r.ok) {
-        throw new Error(d.error || 'Erro inesperado');
-    }
+    const error = new Error(
+        d.error || 'Erro inesperado'
+    );
+
+    error.status = r.status;
+    error.code = d.code;
+    error.remainingAttempts = d.remainingAttempts;
+    error.retryAfterSeconds = d.retryAfterSeconds;
+
+    throw error;
+}
 
     return d;
 }

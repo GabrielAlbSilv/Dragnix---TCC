@@ -405,12 +405,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
             } catch (e) {
 
-                console.error(e);
+    console.error(e);
 
-                err.textContent =
-                    e.message ||
-                    'Erro ao realizar operação.';
-            }
+    if (e.code === 'LOGIN_BLOCKED') {
+        const seconds = Math.max(
+            1,
+            Number(e.retryAfterSeconds) || 600
+        );
+
+        const minutes = Math.ceil(seconds / 60);
+
+        err.textContent =
+            '🔒 Login temporariamente bloqueado! ' +
+            'Por segurança, este e-mail está bloqueado. ' +
+            'Tente novamente em aproximadamente ' +
+            minutes + ' minuto(s).';
+
+    } else if (e.code === 'INVALID_CREDENTIALS') {
+
+        const remaining = Number(e.remainingAttempts);
+
+        err.textContent =
+            '⚠️ E-mail ou senha incorretos. ' +
+            (
+                Number.isFinite(remaining)
+                    ? 'Restam ' + remaining +
+                      ' tentativa(s) antes do bloqueio.'
+                    : 'Verifique suas credenciais.'
+            );
+
+    } else {
+
+        err.textContent =
+            e.message || 'Erro ao realizar operação.';
+
+    }
+}
 
         }
     );

@@ -82,7 +82,26 @@ const REQUIRED_TABLES = [
 
 // Tabelas que podem não existir em backups antigos (feitos antes de
 // a tabela ser criada). Ao restaurar um backup sem elas, ficam vazias.
-const OPTIONAL_TABLES = ['doubts'];
+
+
+const OPTIONAL_TABLES = [
+  'doubts',
+
+  // Sistema de desafios
+  'challenges',
+  'challenge_questions',
+  'challenge_attempts',
+  'challenge_rewards',
+
+  // Segurança de autenticação
+  'login_attempts',
+
+  // Avaliações
+  'lesson_evaluations',
+  'track_evaluations',
+  'evaluations'
+];
+
 
 // ============================================================
 // UTILITÁRIOS
@@ -1044,61 +1063,106 @@ function validateBackup(
       );
     }
 
-    const currentColumns =
-      db
-        .prepare(
-          `PRAGMA table_info(${quoteIdentifier(
-            table.name
-          )})`
-        )
-        .all()
-        .map(
-          column =>
-            column.name
-        );
+   
+    // ----------------------------------------------------------
+    // COMPATIBILIDADE ENTRE VERSÕES DAS COLUNAS
+    // ----------------------------------------------------------
 
-    const backupColumns =
-      table.columns.map(
-        column =>
-          column.name
-      );
+    const currentColumns = db.prepare(
+      `PRAGMA table_info(${quoteIdentifier(table.name)})`
+    ).all();
 
-    const currentSorted =
-      [...currentColumns]
-        .sort();
+    const backupColumns = table.columns.map(
+      column => column.name
+    );
 
-    const backupSorted =
-      [...backupColumns]
-        .sort();
+    const currentColumnNames = new Set(
+      currentColumns.map(column => column.name)
+    );
 
-    if (
-      JSON.stringify(
-        currentSorted
-      ) !==
-      JSON.stringify(
-        backupSorted
-      )
-    ) {
+    // Impede importar colunas que não existem no banco atual.
+    const unknownColumns = backupColumns.filter(
+      name => !currentColumnNames.has(name)
+    );
+
+    if (unknownColumns.length > 0) {
       throw new Error(
-        `A estrutura da tabela "${table.name}" é incompatível com a versão atual do banco.`
+        `A tabela "${table.name}" contém colunas desconhecidas: ` +
+        unknownColumns.join(', ')
       );
     }
 
-    for (
-      const row of table.rows
-    ) {
+    // Impede nomes duplicados no cabeçalho do backup.
+    if (new Set(backupColumns).size !== backupColumns.length) {
+      throw new Error(
+        `A tabela "${table.name}" possui colunas duplicadas.`
+      );
+    }
+
+    // Verifica se as colunas novas podem receber
+    // valores padrão ou NULL.
+    const missingRequiredColumns = currentColumns.filter(
+      column =>
+        !backupColumns.includes(column.name) &&
+        column.notnull === 1 &&
+        column.dflt_value === null &&
+        column.pk === 0
+    );
+
+    if (missingRequiredColumns.length > 0) {
+      throw new Error(
+        `O backup não possui colunas obrigatórias na tabela ` +
+        `"${table.name}": ` +
+        missingRequiredColumns.map(
+          column => column.name
+        ).join(', ')
+      );
+    }
+
+
+    // ----------------------------------------------------------
+    // VALIDAR REGISTROS DO BACKUP
+    // ----------------------------------------------------------
+
+    for (const row of table.rows) {
+
       if (
         !row ||
-        typeof row !==
-          'object' ||
+        typeof row !== 'object' ||
         Array.isArray(row)
       ) {
         throw new Error(
           `Registro inválido na tabela "${table.name}".`
         );
       }
+
+      // Impede campos não declarados no backup.
+      const unexpectedFields = Object.keys(row).filter(
+        name => !backupColumns.includes(name)
+      );
+
+      if (unexpectedFields.length > 0) {
+        throw new Error(
+          `Registro da tabela "${table.name}" contém ` +
+          `campos inesperados: ${unexpectedFields.join(', ')}`
+        );
+      }
+
+      // Impede registros sem os campos declarados.
+      const absentFields = backupColumns.filter(
+        name => !Object.prototype.hasOwnProperty.call(row, name)
+      );
+
+      if (absentFields.length > 0) {
+        throw new Error(
+          `Registro incompleto na tabela "${table.name}": ` +
+          absentFields.join(', ')
+        );
+      }
     }
   }
+
+
 
   // ----------------------------------------------------------
   // ADM
@@ -1254,7 +1318,8 @@ function backupSummary(
 
 function restoreDatabase(
   db,
-  data
+  data,
+  restoreFiles = null
 ) {
   validateBackup(
     data,
@@ -1306,6 +1371,83 @@ function restoreDatabase(
     );
   }
 
+  
+  // ==========================================================
+  // PROTEÇÃO DE DESAFIOS EM BACKUPS ANTIGOS
+  // ==========================================================
+
+  
+  const challengeTables = [
+    'challenges',
+    'challenge_questions',
+    'challenge_attempts',
+    'challenge_rewards'
+  ];
+
+  const missingChallengeTables = challengeTables.filter(
+    name => !backupTables.includes(name)
+  );
+
+  const tablesWithExistingData = missingChallengeTables.filter(
+    name => {
+      const exists = db.prepare(`
+        SELECT 1
+        FROM sqlite_master
+        WHERE type = 'table' AND name = ?
+      `).get(name);
+
+      if (!exists) return false;
+
+      const row = db.prepare(
+        `SELECT COUNT(*) AS total FROM "${name}"`
+      ).get();
+
+      return Number(row.total) > 0;
+    }
+  );
+
+  if (tablesWithExistingData.length) {
+    throw new Error(
+      'Este backup é anterior ao sistema de desafios e ' +
+      'não contém dados para as seguintes tabelas: ' +
+      tablesWithExistingData.join(', ') + '. ' +
+      'A restauração foi bloqueada para evitar perda ' +
+      'de desafios, tentativas ou recompensas. ' +
+      'Faça primeiro um backup atualizado.'
+    );
+  }
+
+
+  // ==========================================================
+  // PROTEÇÃO GERAL DAS TABELAS OPCIONAIS
+  // ==========================================================
+
+  const missingOptionalTables = OPTIONAL_TABLES.filter(
+    name =>
+      currentTables.includes(name) &&
+      !backupTables.includes(name)
+  );
+
+  const missingTablesWithData = missingOptionalTables.filter(
+    name => {
+      const row = db.prepare(
+        `SELECT COUNT(*) AS total
+         FROM ${quoteIdentifier(name)}`
+      ).get();
+
+      return Number(row?.total || 0) > 0;
+    }
+  );
+
+  if (missingTablesWithData.length > 0) {
+    throw new Error(
+      'Restauração bloqueada: o backup não contém ' +
+      'as seguintes tabelas que possuem dados atuais: ' +
+      missingTablesWithData.join(', ') + '. ' +
+      'Faça um backup atualizado antes de continuar.'
+    );
+  }
+
   const foreignKeys =
     db
       .prepare(
@@ -1328,13 +1470,24 @@ function restoreDatabase(
     // LIMPAR BANCO
     // --------------------------------------------------------
 
-    for (
-      const tableName of currentTables
-    ) {
+    
+    // --------------------------------------------------------
+    // LIMPAR APENAS AS TABELAS PRESENTES NO BACKUP
+    // --------------------------------------------------------
+
+    // Tabelas opcionais ausentes no backup não serão
+    // apagadas automaticamente.
+    //
+    // A verificação de integridade no final da transação
+    // continua obrigatória.
+
+    for (const tableName of currentTables) {
+      if (!backupTables.includes(tableName)) {
+        continue;
+      }
+
       db.exec(
-        `DELETE FROM ${quoteIdentifier(
-          tableName
-        )}`
+        `DELETE FROM ${quoteIdentifier(tableName)}`
       );
     }
 
@@ -1416,9 +1569,55 @@ function restoreDatabase(
       );
     }
 
-    db.exec(
-      'COMMIT'
-    );
+    
+    // --------------------------------------------------------
+    // RESTAURAR MÍDIAS ANTES DE CONFIRMAR O BANCO
+    // --------------------------------------------------------
+
+    // --------------------------------------------------------
+    // COORDENAR BANCO E MÍDIAS
+    // --------------------------------------------------------
+
+    let mediaOperation = null;
+
+    try {
+      if (typeof restoreFiles === 'function') {
+        mediaOperation = restoreFiles();
+      }
+
+      // Confirma o banco somente após instalar as mídias.
+      db.exec('COMMIT');
+
+    } catch (error) {
+
+      // Reverte a troca das mídias, se ela já ocorreu.
+      if (mediaOperation?.rollback) {
+        try {
+          mediaOperation.rollback();
+        } catch (mediaError) {
+          console.error(
+            'Falha ao recuperar mídias originais:',
+            mediaError
+          );
+        }
+      }
+
+      throw error;
+    }
+
+    // O banco já foi confirmado.
+    // A limpeza das mídias antigas é uma operação secundária.
+    if (mediaOperation?.commit) {
+      try {
+        mediaOperation.commit();
+      } catch (cleanupError) {
+        console.error(
+          'Falha ao remover cópia antiga dos uploads:',
+          cleanupError
+        );
+      }
+    }
+
 
     if (foreignKeys) {
       db.exec(
@@ -1450,156 +1649,220 @@ function restoreDatabase(
 // RESTAURAR MÍDIAS
 // ============================================================
 
-function restoreMedia(
-  media
-) {
-  // CORREÇÃO:
-  // aceita tanto array quanto objeto { files: [] }.
-  const files =
-    getMediaFiles(
-      media
-    ) || [];
 
-  // Garante que a pasta exista.
-  fs.mkdirSync(
-    UPLOAD_DIR,
-    {
-      recursive: true
-    }
+function restoreMedia(media) {
+  // Backups antigos sem seção de mídias não alteram uploads.
+  if (media === undefined || media === null) {
+    return {
+      commit() {},
+      rollback() {}
+    };
+  }
+
+  validateMedia(media);
+
+  const files = getMediaFiles(media) || [];
+  const liveDir = path.resolve(UPLOAD_DIR);
+  const parentDir = path.dirname(liveDir);
+
+  fs.mkdirSync(parentDir, { recursive: true });
+
+  // Preparação e recuperação ficam em diretório temporário.
+  // Não movemos nem renomeamos a pasta uploads.
+  const os = require('os');
+  const workDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'dragnix-restore-')
   );
 
-  // ----------------------------------------------------------
-  // LIMPA MÍDIAS ATUAIS
-  // ----------------------------------------------------------
+  const stagingDir = path.join(workDir, 'staging');
+  const rollbackDir = path.join(workDir, 'rollback');
 
-  function removeExistingMedia(
-    currentDir
-  ) {
-    if (
-      !fs.existsSync(
-        currentDir
-      )
-    ) {
-      return;
+  fs.mkdirSync(stagingDir);
+  fs.mkdirSync(rollbackDir);
+
+  let changesStarted = false;
+  let finalized = false;
+
+  function assertSafeTree(directory) {
+    if (!fs.existsSync(directory)) return;
+
+    const stat = fs.lstatSync(directory);
+
+    if (stat.isSymbolicLink() || !stat.isDirectory()) {
+      throw new Error(
+        'Diretório de uploads inválido: ' + directory
+      );
     }
 
-    const entries =
-      fs.readdirSync(
-        currentDir,
-        {
-          withFileTypes: true
-        }
-      );
+    for (const entry of fs.readdirSync(directory, {
+      withFileTypes: true
+    })) {
+      const target = path.join(directory, entry.name);
 
-    for (
-      const entry of entries
-    ) {
-
-      const absolutePath =
-        path.join(
-          currentDir,
-          entry.name
+      if (entry.isSymbolicLink()) {
+        throw new Error(
+          'Link simbólico não permitido: ' + target
         );
-
-      if (
-        entry.isSymbolicLink()
-      ) {
-        continue;
       }
 
-      if (
-        entry.isDirectory()
-      ) {
-        removeExistingMedia(
-          absolutePath
-        );
-
-        continue;
-      }
-
-      if (
-        entry.isFile() &&
-        isMediaFile(
-          entry.name
-        )
-      ) {
-        fs.unlinkSync(
-          absolutePath
+      if (entry.isDirectory()) {
+        assertSafeTree(target);
+      } else if (!entry.isFile()) {
+        throw new Error(
+          'Tipo de arquivo não permitido: ' + target
         );
       }
     }
   }
 
-  removeExistingMedia(
-    UPLOAD_DIR
-  );
+  function listMedia(directory, relative = '', result = []) {
+    if (!fs.existsSync(directory)) return result;
 
-  // ----------------------------------------------------------
-  // RESTAURA ARQUIVOS
-  // ----------------------------------------------------------
+    for (const entry of fs.readdirSync(directory, {
+      withFileTypes: true
+    })) {
+      const relativePath = relative
+        ? path.join(relative, entry.name)
+        : entry.name;
 
-  for (
-    const file of files
-  ) {
+      const absolutePath = path.join(directory, relativePath);
 
-    const relativePath =
-      normalizeRelativePath(
-        file.path
-      );
+      if (entry.isDirectory()) {
+        listMedia(directory, relativePath, result);
+      } else if (entry.isFile() && isMediaFile(entry.name)) {
+        result.push(relativePath);
+      }
+    }
 
-    const targetPath =
-      path.resolve(
-        UPLOAD_DIR,
+    return result;
+  }
+
+  function copyMedia(source, destination) {
+    for (const relativePath of listMedia(source)) {
+      const from = path.join(source, relativePath);
+      const to = path.join(destination, relativePath);
+
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      fs.copyFileSync(from, to);
+    }
+  }
+
+  function removeMedia(directory) {
+    for (const relativePath of listMedia(directory)) {
+      fs.unlinkSync(path.join(directory, relativePath));
+    }
+  }
+
+  function installMedia(source, destination) {
+    for (const relativePath of listMedia(source)) {
+      const from = path.join(source, relativePath);
+      const to = path.join(destination, relativePath);
+
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      fs.copyFileSync(from, to);
+    }
+  }
+
+  function cleanup() {
+    if (!finalized) {
+      fs.rmSync(workDir, {
+        recursive: true,
+        force: true
+      });
+
+      finalized = true;
+    }
+  }
+
+  function rollback() {
+    if (finalized) return;
+
+    if (changesStarted) {
+      // Retira as mídias instaladas e recupera as anteriores.
+      removeMedia(liveDir);
+      installMedia(rollbackDir, liveDir);
+    }
+
+    cleanup();
+  }
+
+  try {
+    assertSafeTree(liveDir);
+
+    // Guarda cópia das mídias atuais.
+    copyMedia(liveDir, rollbackDir);
+
+    // Prepara todas as mídias do backup antes de alterar uploads.
+    for (const file of files) {
+      const relativePath = normalizeRelativePath(file.path);
+
+      const targetPath = path.resolve(
+        stagingDir,
         ...relativePath.split('/')
       );
 
-    // Proteção contra path traversal.
-    if (
-      !isPathInsideBase(
-        UPLOAD_DIR,
-        targetPath
-      )
-    ) {
-      throw new Error(
-        `Caminho de mídia fora do diretório permitido: ${file.path}`
-      );
-    }
-
-    if (
-      !isMediaFile(
-        relativePath
-      )
-    ) {
-      throw new Error(
-        `Tipo de mídia não permitido: ${relativePath}`
-      );
-    }
-
-    const buffer =
-      Buffer.from(
-        file.data,
-        'base64'
-      );
-
-    const parentDir =
-      path.dirname(
-        targetPath
-      );
-
-    fs.mkdirSync(
-      parentDir,
-      {
-        recursive: true
+      if (
+        targetPath === stagingDir ||
+        !isPathInsideBase(stagingDir, targetPath) ||
+        !isMediaFile(relativePath)
+      ) {
+        throw new Error(
+          'Caminho de mídia inválido: ' + file.path
+        );
       }
-    );
 
-    fs.writeFileSync(
-      targetPath,
-      buffer
-    );
+      fs.mkdirSync(path.dirname(targetPath), {
+        recursive: true
+      });
+
+      fs.writeFileSync(
+        targetPath,
+        Buffer.from(file.data, 'base64'),
+        { flag: 'wx' }
+      );
+    }
+
+    fs.mkdirSync(liveDir, { recursive: true });
+
+    changesStarted = true;
+
+    // Substitui somente os arquivos de mídia.
+    removeMedia(liveDir);
+    installMedia(stagingDir, liveDir);
+
+    return {
+      commit() {
+        try {
+          cleanup();
+        } catch (error) {
+          console.error(
+            'Falha ao limpar arquivos temporários:',
+            error
+          );
+        }
+      },
+
+      rollback
+    };
+
+  } catch (error) {
+    try {
+      rollback();
+    } catch (rollbackError) {
+      console.error(
+        'ERRO CRÍTICO: falha ao recuperar uploads:',
+        rollbackError
+      );
+
+      throw new Error(
+        'Falha na restauração das mídias e na recuperação ' +
+        'dos arquivos anteriores. Verifique os logs. ' +
+        'Erro original: ' + error.message
+      );
+    }
+
+    throw error;
   }
-
-  return true;
 }
 
 // ============================================================
@@ -2410,25 +2673,29 @@ function registerBackupRoutes(
           backupSummary(
             backup
           );
-
+          
         // ------------------------------------------------------
-        // RESTAURA BANCO
+        // PRÉ-VALIDAÇÃO DAS MÍDIAS
         // ------------------------------------------------------
 
+        // Verifica o conteúdo das mídias antes de alterar
+        // qualquer registro do banco de dados.
+        validateMedia(backup.media);
+
+     
+        // ------------------------------------------------------
+        // RESTAURAR BANCO E MÍDIAS
+        // ------------------------------------------------------
+
+                
         restoreDatabase(
           db,
-          backup
+          backup,
+          () => {
+            return restoreMedia(backup.media);
+          }
         );
 
-        // ------------------------------------------------------
-        // RESTAURA MÍDIAS
-        // ------------------------------------------------------
-
-        restoreMedia(
-          backup.media?.files ||
-          backup.media ||
-          []
-        );
 
         console.log(
           `Backup restaurado por ${req.user.email}: ${summary.totalRows} registros | mídias: ${summary.media.files}`
