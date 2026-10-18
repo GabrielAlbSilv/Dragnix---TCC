@@ -1,0 +1,734 @@
+:root {
+    --bg: #050505;
+    --bg-alt: #111111;
+    --panel: #666666;
+    --panel-dark: #5e5e5e;
+    --light: #b3b3b3;
+    --white: #ffffff;
+    --radius: 24px;
+    --gutter: clamp(16px, 2vw, 40px);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0
+}
+
+html {
+    scroll-behavior: smooth
+}
+
+body {
+    background: var(--bg);
+    color: var(--white);
+    font-family: "Inter", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+}
+
+img {
+    max-width: 100%;
+    display: block
+}
+
+a {
+    color: inherit;
+    text-decoration: none
+}
+
+.wrap {
+    width: 100%;
+    max-width: 1920px;
+    margin: 0 auto;
+    padding-inline: var(--gutter)
+}
+
+.ico {
+    width: 1em;
+    height: 1em;
+    fill: currentColor;
+    flex: none
+}
+
+/* ---------- Placeholders de imagem (troque por <img>) ---------- */
+.ph {
+    background: var(--light);
+    display: grid;
+    place-items: center;
+    color: #000;
+    overflow: hidden
+}
+
+.ph .ico {
+    width: clamp(48px, 8vw, 170px);
+    height: auto;
+    aspect-ratio: 1
+}
+
+.ph img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover
+}
+
+/* ---------- Header ---------- */
+header {
+    padding-block: 8px 14px
+}
+
+/* 1º valor = espaço acima do menu; diminua para subir mais */
+.nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    position: relative
+}
+
+.logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--panel);
+    border-radius: 20px;
+    padding: 10px 20px 10px 14px;
+    font-size: clamp(18px, 1.4vw, 26px);
+}
+
+.logo .ph {
+    width: 52px;
+    height: 46px;
+    border-radius: 12px;
+    background: #d9d9d9
+}
+
+.logo .ph .ico {
+    width: 30px
+}
+
+.menu {
+    display: flex;
+    gap: clamp(12px, 1.4vw, 28px);
+    list-style: none
+}
+
+.pill {
+    display: inline-block;
+    background: var(--panel);
+    color: #e6e6e6;
+    border-radius: 999px;
+    padding: 8px clamp(28px, 3vw, 58px);
+    font-size: clamp(16px, 1.2vw, 24px);
+    text-align: center;
+    transition: background .2s, transform .2s;
+}
+
+.pill:hover {
+    background: #808080;
+    transform: translateY(-2px)
+}
+
+.burger {
+    display: none;
+    background: var(--panel);
+    border: 0;
+    color: #fff;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    cursor: pointer;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+.burger span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: #fff;
+    border-radius: 2px
+}
+
+/* ---------- Hero ---------- */
+.hero {
+    position: relative;
+    background: var(--panel);
+    border-radius: var(--radius);
+    /* IMAGEM DE FUNDO: tire os comentários da linha abaixo e coloque o caminho da sua imagem */
+    /* background-image:linear-gradient(#0006,#0006), url("imagens/fundo-hero.jpg"); */
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    /* altura limitada pela altura da tela: assim o bloco de baixo já aparece na 1ª tela */
+    min-height: clamp(380px, min(39vw, 58vh), 750px);
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: center;
+    padding: clamp(24px, 4vw, 100px);
+    /* reserva o espaço da imagem à direita para o texto não ficar por baixo dela */
+    padding-right: calc(8% + clamp(220px, 27vw, 520px) + 24px);
+    margin-bottom: min(3.3vw, 64px);
+    /* espaço do trecho da imagem que vaza para baixo */
+}
+
+.hero h1 {
+    font-size: clamp(34px, 4vw, 92px);
+    line-height: 1.1;
+    font-weight: 600;
+    text-transform: uppercase;
+    max-width: 9ch;
+    margin-bottom: clamp(16px, 1.6vw, 32px);
+}
+
+.hero p {
+    font-size: clamp(16px, 1.3vw, 26px);
+    max-width: 34ch;
+    margin-bottom: clamp(20px, 2vw, 40px);
+    color: #f2f2f2
+}
+
+.btn {
+    display: inline-block;
+    background: var(--light);
+    color: #fff;
+    border-radius: 999px;
+    padding: 8px clamp(32px, 3vw, 60px);
+    font-size: clamp(16px, 1.2vw, 24px);
+    transition: background .2s, transform .2s;
+}
+
+.btn:hover {
+    background: #999;
+    transform: translateY(-2px)
+}
+
+.hero-img {
+    /* a imagem começa dentro do painel e vaza para fora pela parte de baixo, como no protótipo */
+    position: absolute;
+    z-index: 2;
+    top: min(4vw, 77px);
+    bottom: calc(-1 * min(3.3vw, 64px));
+    right: 8%;
+    width: clamp(220px, 27vw, 520px);
+    border-radius: var(--radius);
+    box-shadow: 0 20px 50px #0008;
+}
+
+/* ---------- Sobre ---------- */
+.about {
+    display: grid;
+    grid-template-columns: minmax(0, .95fr) minmax(0, 1fr);
+    gap: clamp(24px, 4vw, 90px);
+    align-items: start;
+    padding-block: clamp(16px, 1.8vw, 36px) clamp(60px, 8vw, 160px);
+    /* bem perto do hero, aparece na 1ª tela */
+    padding-inline: clamp(0px, 1.5vw, 40px);
+}
+
+.about .ph {
+    width: 100%;
+    aspect-ratio: 810/600;
+    border-radius: var(--radius)
+}
+
+.about h2 {
+    font-size: clamp(28px, 2.8vw, 64px);
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: clamp(14px, 1.4vw, 28px);
+    margin-top: clamp(0px, 1vw, 30px)
+}
+
+.about p {
+    font-size: clamp(16px, 1.3vw, 26px);
+    max-width: 44ch;
+    color: #f0f0f0
+}
+
+/* ---------- Destaques (faixa) ---------- */
+.features {
+    background: var(--bg-alt);
+    padding-block: clamp(36px, 4vw, 80px)
+}
+
+.features ul {
+    list-style: none;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: clamp(16px, 2vw, 40px)
+}
+
+.feat {
+    text-align: center
+}
+
+.feat .ph {
+    width: clamp(110px, 12.5vw, 272px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    margin: 0 auto clamp(16px, 1.6vw, 32px)
+}
+
+.feat h3 {
+    font-size: clamp(18px, 1.6vw, 34px);
+    text-transform: uppercase;
+    font-weight: 600
+}
+
+.feat p {
+    font-size: clamp(13px, 1.1vw, 22px);
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #ddd;
+    max-width: 20ch;
+    margin: 8px auto 0
+}
+
+/* ---------- Ticket + Ranking ---------- */
+.showcase {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(32px, 5vw, 120px);
+    align-items: start;
+    padding-block: clamp(60px, 7vw, 140px);
+}
+
+.ticket-block {
+    text-align: center
+}
+
+.ticket-block h2 {
+    font-size: clamp(28px, 2.8vw, 64px);
+    text-transform: uppercase;
+    font-weight: 600
+}
+
+.ticket-block p {
+    font-size: clamp(15px, 1.2vw, 24px);
+    max-width: 42ch;
+    margin: 6px auto clamp(18px, 2vw, 40px);
+    color: #f0f0f0
+}
+
+.ticket {
+    width: 100%;
+    max-width: 880px;
+    aspect-ratio: 880/445;
+    margin-inline: auto;
+    background: var(--light);
+    border-radius: 24px;
+    display: grid;
+    place-items: center;
+    color: #000;
+    -webkit-mask:
+        radial-gradient(circle clamp(18px, 2.2vw, 44px) at left center, #0000 97%, #000) left/51% 100% no-repeat,
+        radial-gradient(circle clamp(18px, 2.2vw, 44px) at right center, #0000 97%, #000) right/51% 100% no-repeat;
+    mask:
+        radial-gradient(circle clamp(18px, 2.2vw, 44px) at left center, #0000 97%, #000) left/51% 100% no-repeat,
+        radial-gradient(circle clamp(18px, 2.2vw, 44px) at right center, #0000 97%, #000) right/51% 100% no-repeat;
+}
+
+.ticket .ico {
+    width: clamp(56px, 7vw, 160px);
+    height: auto;
+    aspect-ratio: 1
+}
+
+.ticket img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover
+}
+
+.badge-ico {
+    overflow: hidden
+}
+
+.badge-ico img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover
+}
+
+.rank {
+    background: var(--panel);
+    border-radius: 28px;
+    padding: clamp(40px, 3.4vw, 70px) clamp(16px, 1.6vw, 32px) clamp(16px, 1.6vw, 32px);
+    margin-top: clamp(0px, .8vw, 16px);
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(10px, 1vw, 20px);
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: clamp(10px, 1vw, 20px);
+    background: var(--light);
+    color: #222;
+    border-radius: 18px;
+    padding: clamp(8px, .7vw, 14px) clamp(10px, 1vw, 20px) clamp(8px, .7vw, 14px) clamp(8px, .7vw, 14px);
+    font-size: clamp(15px, 1.2vw, 24px);
+}
+
+.row .badge-ico {
+    width: clamp(34px, 3vw, 60px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: #d6d6d6;
+    display: grid;
+    place-items: center;
+    color: #000;
+    flex: none;
+}
+
+.row .badge-ico .ico {
+    width: 60%
+}
+
+.row span.t {
+    flex: 1
+}
+
+.row .n {
+    background: var(--panel);
+    color: #e8e8e8;
+    border-radius: 999px;
+    padding: 4px clamp(14px, 1.2vw, 26px);
+    font-size: clamp(14px, 1.1vw, 22px);
+}
+
+.row.top {
+    margin: calc(-1 * clamp(64px, 5.4vw, 106px)) calc(-1 * clamp(16px, 1.6vw, 32px)) 0;
+    padding: clamp(12px, 1vw, 20px) clamp(14px, 1.4vw, 28px);
+    border-radius: 22px;
+    font-size: clamp(16px, 1.35vw, 28px);
+    background: #a8a8a8;
+}
+
+.row.top .badge-ico {
+    width: clamp(40px, 3.6vw, 72px)
+}
+
+.row.top .n {
+    padding: clamp(8px, .8vw, 16px) clamp(16px, 1.8vw, 36px);
+    border-radius: 20px;
+    font-size: clamp(16px, 1.4vw, 28px)
+}
+
+.row:not(.top):hover {
+    background: #c4c4c4
+}
+
+/* ---------- Carrossel ---------- */
+.carousel-sec {
+    padding-block: clamp(30px, 4vw, 80px) clamp(50px, 6vw, 120px)
+}
+
+.carousel-sec h2 {
+    text-align: center;
+    font-size: clamp(28px, 2.8vw, 64px);
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: clamp(50px, 5vw, 100px)
+}
+
+.carousel {
+    position: relative
+}
+
+.track {
+    display: flex;
+    gap: clamp(14px, 2vw, 46px);
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    padding: clamp(50px, 4vw, 90px) clamp(40px, 5vw, 110px) 10px;
+    scroll-padding-inline: clamp(40px, 5vw, 110px);
+}
+
+.track::-webkit-scrollbar {
+    display: none
+}
+
+.card-c {
+    position: relative;
+    flex: 0 0 calc((100% - 3 * clamp(14px, 2vw, 46px)) / 4);
+    scroll-snap-align: start;
+    background: var(--panel);
+    border-radius: 18px;
+    aspect-ratio: 445/395;
+}
+
+.card-c .ph {
+    position: absolute;
+    top: calc(-1 * clamp(24px, 2.4vw, 50px));
+    left: 50%;
+    transform: translateX(-50%);
+    width: clamp(54px, 5.2vw, 110px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+}
+
+.card-c .ph .ico {
+    width: 50%
+}
+
+.arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-30%);
+    width: clamp(40px, 3.8vw, 80px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    background: #e6e6e6;
+    border: 0;
+    color: #000;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    z-index: 3;
+    transition: background .2s, transform .2s;
+}
+
+.arrow:hover {
+    background: #fff;
+    transform: translateY(-30%) scale(1.06)
+}
+
+.arrow svg {
+    width: 36%;
+    fill: #000
+}
+
+.arrow.prev {
+    left: 0
+}
+
+.arrow.next {
+    right: 0
+}
+
+/* ---------- Cards grandes ---------- */
+.cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: clamp(16px, 2vw, 60px);
+    padding-block: clamp(60px, 6vw, 120px) clamp(70px, 9vw, 180px);
+}
+
+.card-l {
+    position: relative;
+    background: var(--panel-dark);
+    border-radius: 20px;
+    aspect-ratio: 560/745;
+    transition: transform .25s;
+}
+
+.card-l:hover {
+    transform: translateY(-6px)
+}
+
+.card-l .ph {
+    position: absolute;
+    top: calc(-1 * clamp(30px, 3.4vw, 76px));
+    left: clamp(36px, 5vw, 118px);
+    width: clamp(70px, 7.8vw, 210px);
+    aspect-ratio: 210/160;
+    border-radius: 16px;
+}
+
+.card-l .ph .ico {
+    width: 40%
+}
+
+/* ---------- Rodapé ---------- */
+footer {
+    background: var(--panel);
+    min-height: clamp(120px, 13vw, 300px)
+}
+
+/* ================= TABLET ================= */
+@media (max-width:1100px) {
+    .hero {
+        min-height: clamp(380px, 50vw, 560px)
+    }
+
+    .features ul {
+        grid-template-columns: repeat(2, 1fr);
+        row-gap: 40px
+    }
+
+    .showcase {
+        grid-template-columns: 1fr
+    }
+
+    .rank {
+        max-width: 760px;
+        width: 100%;
+        margin-inline: auto
+    }
+
+    .card-c {
+        flex-basis: calc((100% - clamp(14px, 2vw, 46px)) / 2)
+    }
+
+    .cards {
+        grid-template-columns: repeat(2, 1fr);
+        row-gap: 90px
+    }
+}
+
+/* ================= CELULAR ================= */
+@media (max-width:720px) {
+    header {
+        padding-block: 8px 12px
+    }
+
+    .burger {
+        display: flex
+    }
+
+    .menu {
+        display: none;
+        position: absolute;
+        top: calc(100% + 10px);
+        right: 0;
+        left: 0;
+        z-index: 20;
+        flex-direction: column;
+        background: #161616;
+        border-radius: 18px;
+        padding: 14px;
+        gap: 10px;
+        box-shadow: 0 12px 30px #000a;
+    }
+
+    .menu.open {
+        display: flex
+    }
+
+    .menu .pill {
+        display: block;
+        padding: 12px
+    }
+
+    .logo {
+        padding: 8px 16px 8px 10px;
+        font-size: 18px
+    }
+
+    .logo .ph {
+        width: 42px;
+        height: 38px
+    }
+
+    .hero {
+        padding: 28px 22px 0;
+        gap: 24px;
+        min-height: 0;
+        margin-bottom: 60px
+    }
+
+    .hero h1 {
+        max-width: none
+    }
+
+    .hero-img {
+        position: relative;
+        top: auto;
+        right: auto;
+        bottom: auto;
+        justify-self: center;
+        width: min(70%, 300px);
+        aspect-ratio: 520/735;
+        margin-block: 0 -60px
+    }
+
+    .about {
+        grid-template-columns: 1fr;
+        padding-top: 24px;
+        padding-bottom: 60px
+    }
+
+    .about h2 {
+        margin-top: 0
+    }
+
+    .features ul {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 32px 12px
+    }
+
+    .feat .ph {
+        width: min(100%, 130px)
+    }
+
+    .showcase {
+        padding-block: 50px
+    }
+
+    .ticket {
+        aspect-ratio: 880/520
+    }
+
+    .row.top {
+        margin-top: -58px
+    }
+
+    .carousel-sec h2 {
+        margin-bottom: 60px
+    }
+
+    .track {
+        padding-inline: 20px;
+        scroll-padding-inline: 20px
+    }
+
+    .card-c {
+        flex-basis: 72%;
+        aspect-ratio: 4/3.4
+    }
+
+    .arrow {
+        width: 38px;
+        top: auto;
+        bottom: -52px;
+        transform: none
+    }
+
+    .arrow:hover {
+        transform: scale(1.06)
+    }
+
+    .arrow.prev {
+        left: calc(50% - 50px)
+    }
+
+    .arrow.next {
+        right: calc(50% - 50px)
+    }
+
+    .carousel-sec {
+        padding-bottom: 110px
+    }
+
+    .cards {
+        grid-template-columns: 1fr;
+        row-gap: 70px;
+        padding-top: 70px
+    }
+
+    .card-l {
+        aspect-ratio: 560/520
+    }
+
+    .card-l .ph {
+        left: 28px;
+        width: 110px
+    }
+}

@@ -1,275 +1,453 @@
-
 <!doctype html>
 <html lang="pt-BR">
 
 <head>
-    <meta charset="utf-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1"
-    >
+<meta charset="utf-8">
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1"
+>
 
-    <meta
-        name="theme-color"
-        content="#111827"
-    >
+<meta
+name="theme-color"
+content="#111827"
+>
 
-    <title>Dragnix — Entrar</title>
+<title>Dragnix — Entrar</title>
 
-    <link
-        rel="icon"
-        href="css/images/dranix_icon_white_nobackground.png"
-        type="image/png"
-    >
+<link
+rel="icon"
+href="css/images/dranix_icon_white_nobackground.png"
+type="image/png"
+>
 
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/login-modern.css">
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/login-modern.css">
 
 </head>
 
 <body class="login-page dragnix-login">
 
-    <!-- BOTÃO DE TEMA -->
-    <button
-        type="button"
-        id="indexThemeToggle"
-        class="index-theme-toggle"
-        aria-label="Alternar tema"
-        title="Alternar tema"
-    >
-        <i data-lucide="moon"></i>
+<!--MENU HORIZONTAL-->
+
+<header class="site-header">
+<div class="wrap">
+<nav class="nav">
+    <a href="#" class="logo">
+        <img src="uploads/3876be936bd3b5ea.png" alt="Logo dragão">
+    </a>
+    <!-- botão do MENU LATERAL (no celular abre a gaveta; no computador recolhe/expande) -->
+    <button class="side-toggle" id="sideToggle" type="button"
+            aria-label="Abrir navegação" aria-controls="sideMenu" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
     </button>
 
-    <!-- ESTRUTURA PRINCIPAL -->
-    <main class="login-layout">
+</nav>
+</div>
+</header>
+<!--FIM DO MENU HORIZONTAL-->
 
-        <!-- LADO ESQUERDO: DRAGÃO -->
-        <section
-            class="login-visual"
-            aria-label="Identidade visual Dragnix"
+<!-- ================= MENU LATERAL + CONTEÚDO ================= -->
+<div class="layout">
+
+<aside class="side-menu" id="sideMenu" aria-label="Navegação financeira">
+
+    <!-- ícones do menu lateral (não precisa mexer) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <symbol id="side-i-wallet" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
+        <symbol id="side-i-cap" viewBox="0 0 24 24"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></symbol>
+        <symbol id="side-i-bank" viewBox="0 0 24 24"><path d="M10 18v-7"/><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></symbol>
+    </svg>
+
+    <div class="side-head">
+        <p class="side-title">Finanças</p>
+        <button class="side-close" id="sideClose" type="button" aria-label="Fechar navegação">&times;</button>
+    </div>
+
+    <!-- Troque cada href pelo endereço da página.
+         A página em que você está fica destacada sozinha. -->
+    <nav class="side-nav">
+        <a class="side-link" href="controle-financeiro.html">
+            <span class="side-link__icon"><svg class="side-ico" aria-hidden="true"><use href="#side-i-wallet"/></svg></span>
+            <span>Controle financeiro</span>
+        </a>
+        <a class="side-link" href="educacao-financeira.html">
+            <span class="side-link__icon"><svg class="side-ico" aria-hidden="true"><use href="#side-i-cap"/></svg></span>
+            <span>Educação financeira</span>
+        </a>
+        <a class="side-link" href="cdb.html">
+            <span class="side-link__icon"><svg class="side-ico" aria-hidden="true"><use href="#side-i-bank"/></svg></span>
+            <span>CDB</span>
+        </a>
+    </nav>
+
+    <!-- RODAPÉ DO MENU: imagem de fundo (troque no CSS, em --side-art) -->
+    <div class="side-art" aria-hidden="true"></div>
+
+</aside>
+
+<div class="side-overlay" id="sideOverlay"></div>
+
+
+<!-- ESTRUTURA PRINCIPAL -->
+<main class="login-layout">
+
+<!-- LADO DIREITO: AUTENTICAÇÃO -->
+<section class="login-content">
+
+<div class="login-content-inner">
+
+    <!-- LOGO COM O NOME -->
+    <header class="login-brand">
+
+        <img
+            src="css/images/dranix_name_black_nobackground.png"
+            data-logo-light="css/images/dranix_name_black_nobackground.png"
+            data-logo-dark="css/images/dranix_name_white_nobackground.png"
+            alt="Dragnix"
+            class="login-name-logo"
         >
 
-            <div class="login-visual-inner">
+        <p class="login-brand-description">
+            Sua jornada de aprendizado começa aqui.
+        </p>
 
-                <div class="login-dragon-container">
+    </header>
 
-                    <img
-                        src="css/images/dragnix_dragon_black_nobackground.png"
-                        data-logo-light="css/images/dragnix_dragon_black_nobackground.png"
-                        data-logo-dark="css/images/dranix_icon_white_nobackground.png"
-                        alt="Dragão Dragnix"
-                        class="login-dragon"
-                    >
+    <!-- ÁREA DO FORMULÁRIO -->
+    <div class="login-form-area">
 
-                </div>
+        <div class="login-form-heading">
+            <h1>Bem-vindo à DRAGNIX</h1>
+            <p>Entre na sua conta ou comece sua jornada financeira.</p>
+        </div>
 
-                <div class="login-visual-caption">
-                    <span class="login-visual-line"></span>
-                    <span>Aprenda. Evolua. Conquiste.</span>
-                </div>
+        <!-- ABAS -->
+        <div
+            class="tabs login-tabs"
+            aria-label="Escolha a forma de acesso"
+        >
 
-            </div>
+            <button
+                type="button"
+                class="btn"
+                id="tl"
+            >
+                Entrar
+            </button>
 
-        </section>
+            <button
+                type="button"
+                class="btn sec"
+                id="tr"
+            >
+                Criar conta
+            </button>
 
-        <!-- LADO DIREITO: AUTENTICAÇÃO -->
-        <section class="login-content">
+        </div>
 
-            <div class="login-content-inner">
+        <!-- FORMULÁRIO ORIGINAL -->
+        <div class="card login-card">
 
-                <!-- LOGO COM O NOME -->
-                <header class="login-brand">
+            <!-- NOME -->
+            <input
+                id="name"
+                class="hide"
+                type="text"
+                placeholder="Nome"
+                autocomplete="name"
+                aria-label="Nome"
+            >
 
-                    <img
-                        src="css/images/dranix_name_black_nobackground.png"
-                        data-logo-light="css/images/dranix_name_black_nobackground.png"
-                        data-logo-dark="css/images/dranix_name_white_nobackground.png"
-                        alt="Dragnix"
-                        class="login-name-logo"
-                    >
+            <!-- E-MAIL -->
+            <input
+                id="email"
+                type="email"
+                placeholder="E-mail"
+                autocomplete="email"
+                aria-label="E-mail"
+            >
 
-                    <p class="login-brand-description">
-                        Sua jornada de aprendizado começa aqui.
-                    </p>
+            <!-- SENHA -->
+            <div class="senha-box">
 
-                </header>
+                <input
+                    id="pass"
+                    type="password"
+                    placeholder="Senha (mín. 6 caracteres)"
+                    autocomplete="current-password"
+                    aria-label="Senha"
+                >
 
-                <!-- ÁREA DO FORMULÁRIO -->
-                <div class="login-form-area">
-
-                    <div class="login-form-heading">
-                        <h1>Bem-vindo à Dragnix</h1>
-                        <p>Entre na sua conta ou comece sua jornada.</p>
-                    </div>
-
-                    <!-- ABAS -->
-                    <div
-                        class="tabs login-tabs"
-                        aria-label="Escolha a forma de acesso"
-                    >
-
-                        <button
-                            type="button"
-                            class="btn"
-                            id="tl"
-                        >
-                            Entrar
-                        </button>
-
-                        <button
-                            type="button"
-                            class="btn sec"
-                            id="tr"
-                        >
-                            Criar conta
-                        </button>
-
-                    </div>
-
-                    <!-- FORMULÁRIO ORIGINAL -->
-                    <div class="card login-card">
-
-                        <!-- NOME -->
-                        <input
-                            id="name"
-                            class="hide"
-                            type="text"
-                            placeholder="Nome"
-                            autocomplete="name"
-                            aria-label="Nome"
-                        >
-
-                        <!-- E-MAIL -->
-                        <input
-                            id="email"
-                            type="email"
-                            placeholder="E-mail"
-                            autocomplete="email"
-                            aria-label="E-mail"
-                        >
-
-                        <!-- SENHA -->
-                        <div class="senha-box">
-
-                            <input
-                                id="pass"
-                                type="password"
-                                placeholder="Senha (mín. 6 caracteres)"
-                                autocomplete="current-password"
-                                aria-label="Senha"
-                            >
-
-                            <button
-                                type="button"
-                                class="senha-btn"
-                                onclick="mostrarSenha('pass', this)"
-                                aria-label="Mostrar senha"
-                            >
-                                <i data-lucide="eye"></i>
-                            </button>
-
-                        </div>
-
-                        <!-- CONFIRMAR SENHA -->
-                        <div
-                            class="senha-box hide"
-                            id="passConfirmBox"
-                        >
-
-                            <input
-                                id="passConfirm"
-                                type="password"
-                                placeholder="Confirmar senha"
-                                autocomplete="new-password"
-                                aria-label="Confirmar senha"
-                            >
-
-                            <button
-                                type="button"
-                                class="senha-btn"
-                                onclick="mostrarSenha('passConfirm', this)"
-                                aria-label="Mostrar senha"
-                            >
-                                <i data-lucide="eye"></i>
-                            </button>
-
-                        </div>
-
-                        <!-- ERROS -->
-                        <div
-                            class="err"
-                            id="err"
-                            role="alert"
-                            aria-live="polite"
-                        ></div>
-
-                        <!-- ENTRAR / CADASTRAR -->
-                        <button
-                            class="btn"
-                            id="go"
-                            type="button"
-                        >
-                            Entrar
-                        </button>
-
-                    </div>
-
-                </div>
-
-                <!-- LINKS INFERIORES -->
-                <footer class="site-footer login-footer">
-
-                    <div class="site-footer-inner">
-
-                        <button
-                            type="button"
-                            class="footer-link"
-                        >
-                            <i data-lucide="info"></i>
-                            Sobre
-                        </button>
-
-                        <span
-                            class="footer-separator"
-                            aria-hidden="true"
-                        >•</span>
-
-                        <button
-                            type="button"
-                            class="footer-link"
-                        >
-                            <i data-lucide="users"></i>
-                            Equipe
-                        </button>
-
-                        <span
-                            class="footer-separator"
-                            aria-hidden="true"
-                        >•</span>
-
-                        <button
-                            type="button"
-                            class="footer-link"
-                        >
-                            <i data-lucide="message-square"></i>
-                            Feedback / Contato
-                        </button>
-
-                    </div>
-
-                </footer>
+                <button
+                    type="button"
+                    class="senha-btn"
+                    onclick="mostrarSenha('pass', this)"
+                    aria-label="Mostrar senha"
+                >
+                    <i data-lucide="eye"></i>
+                </button>
 
             </div>
 
-        </section>
+            <!-- CONFIRMAR SENHA -->
+            <div
+                class="senha-box hide"
+                id="passConfirmBox"
+            >
 
-    </main>
+                <input
+                    id="passConfirm"
+                    type="password"
+                    placeholder="Confirmar senha"
+                    autocomplete="new-password"
+                    aria-label="Confirmar senha"
+                >
 
-    <!-- SCRIPTS ORIGINAIS -->
-    <script src="js/icons.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/loginsplash.js"></script>
-    <script src="js/theme.js"></script>
+                <button
+                    type="button"
+                    class="senha-btn"
+                    onclick="mostrarSenha('passConfirm', this)"
+                    aria-label="Mostrar senha"
+                >
+                    <i data-lucide="eye"></i>
+                </button>
+
+            </div>
+
+            <!-- ERROS -->
+            <div
+                class="err"
+                id="err"
+                role="alert"
+                aria-live="polite"
+            ></div>
+
+            <!-- ENTRAR / CADASTRAR -->
+            <button
+                class="btn"
+                id="go"
+                type="button"
+            >
+                Entrar
+            </button>
+
+        </div>
+
+    </div>
+
+
+</div>
+
+</section>
+
+</main>
+
+</div><!-- fim .layout -->
+
+<!-- ============================================================
+RODAPÉ
+============================================================ -->
+<footer class="dgx-footer" aria-label="Rodapé">
+
+<!-- Ícones usados no rodapé (não precisa mexer) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+<symbol id="dgx-i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+<symbol id="dgx-i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+<symbol id="dgx-i-whatsapp" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+<symbol id="dgx-i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+<symbol id="dgx-i-instagram" viewBox="0 0 24 24"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></symbol>
+<symbol id="dgx-i-linkedin" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></symbol>
+<symbol id="dgx-i-facebook" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></symbol>
+<symbol id="dgx-i-youtube" viewBox="0 0 24 24"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></symbol>
+<symbol id="dgx-i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+<symbol id="dgx-i-card" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></symbol>
+<symbol id="dgx-i-award" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></symbol>
+</svg>
+
+<div class="dgx-footer-inner">
+
+<div class="dgx-footer-grid">
+
+    <!-- ===== 1) MARCA + REDES SOCIAIS ===== -->
+    <section class="dgx-footer-col dgx-footer-brand">
+
+        <img
+            class="dgx-footer-logo"
+            src="css/images/dranix_name_black_nobackground.png"
+            data-logo-light="css/images/dranix_name_black_nobackground.png"
+            data-logo-dark="css/images/dranix_name_white_nobackground.png"
+            alt="Dragnix"
+        >
+
+        <p class="dgx-footer-text">
+            Aprenda. Evolua. Conquiste.<br>
+            Trilhas de aprendizado para a sua jornada.
+        </p>
+
+        <h2 class="dgx-footer-title">Redes sociais</h2>
+
+        <!--
+            REDES SOCIAIS
+            • Troque o "#" de cada link pelo endereço do seu perfil.
+            • Para usar SUA imagem no lugar do ícone: apague a linha <svg ...> e
+                tire os comentários da linha <img ...> logo acima dela.
+            • Para mudar o TAMANHO: edite --social-size (imagem) e
+                --social-box (quadrado do botão) em css/login-modern.css, em ".dgx-footer".
+            • Não usa uma rede? É só apagar o <li> inteiro dela.
+        -->
+        <ul class="dgx-social">
+            <li>
+                <a class="dgx-social-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="Instagram da Dragnix">
+                    <!-- <img class="dgx-social-img" src="css/images/instagram.png" alt=""> -->
+                    <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-instagram"/></svg>
+                </a>
+            </li>
+            <li>
+                <a class="dgx-social-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn da Dragnix">
+                    <!-- <img class="dgx-social-img" src="css/images/linkedin.png" alt=""> -->
+                    <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-linkedin"/></svg>
+                </a>
+            </li>
+            <li>
+                <a class="dgx-social-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="Facebook da Dragnix">
+                    <!-- <img class="dgx-social-img" src="css/images/facebook.png" alt=""> -->
+                    <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-facebook"/></svg>
+                </a>
+            </li>
+            <li>
+                <a class="dgx-social-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="YouTube da Dragnix">
+                    <!-- <img class="dgx-social-img" src="css/images/youtube.png" alt=""> -->
+                    <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-youtube"/></svg>
+                </a>
+            </li>
+        </ul>
+
+    </section>
+
+    <!-- ===== 2) DADOS DE CONTATO ===== -->
+    <!-- Troque os dados de exemplo pelos reais da sua empresa -->
+    <section class="dgx-footer-col">
+
+        <h2 class="dgx-footer-title">Contato</h2>
+
+        <ul class="dgx-contact">
+            <li>
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-mail"/></svg>
+                <div>
+                    <span class="dgx-contact-label">E-mail de suporte</span>
+                    <a href="mailto:suporte@dragnix.com">suporte@dragnix.com</a>
+                </div>
+            </li>
+            <li>
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-phone"/></svg>
+                <div>
+                    <span class="dgx-contact-label">Telefone</span>
+                    <a href="tel:+551100000000">(11) 0000-0000</a>
+                </div>
+            </li>
+            <li>
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-whatsapp"/></svg>
+                <div>
+                    <span class="dgx-contact-label">WhatsApp</span>
+                    <a href="https://wa.me/5511900000000" target="_blank" rel="noopener noreferrer">(11) 90000-0000</a>
+                </div>
+            </li>
+            <li>
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-clock"/></svg>
+                <div>
+                    <span class="dgx-contact-label">Horário de atendimento</span>
+                    <span>Seg. a Sex., das 9h às 18h</span>
+                </div>
+            </li>
+        </ul>
+
+    </section>
+
+    <!-- ===== 3) LINKS SECUNDÁRIOS ===== -->
+    <!-- Troque cada "#" pelo endereço da página (ex.: quem-somos.html) -->
+    <nav class="dgx-footer-col" aria-label="Links institucionais">
+
+        <h2 class="dgx-footer-title">Institucional</h2>
+
+        <ul class="dgx-footer-links">
+            <li><a href="teste.html">Quem somos</a></li>
+            <li><a href="#">Política de privacidade</a></li>
+            <li><a href="#">Termos de uso</a></li>
+        </ul>
+
+    </nav>
+
+    <!-- ===== 4) SELOS E CERTIFICAÇÕES ===== -->
+    <section class="dgx-footer-col">
+
+        <h2 class="dgx-footer-title">Segurança e pagamento</h2>
+
+        <!--
+            SELOS
+            • Cada selo é um <li class="dgx-badge">. Apague os que não usa.
+            • Para usar uma imagem de selo (ex.: o selo oficial do SSL ou de uma
+                premiação): tire os comentários da linha <img ...>, ajuste o src
+                e apague o <svg> e o <span> se a imagem já tiver o texto.
+            • Para mudar o TAMANHO: edite --badge-height em css/login-modern.css,
+                em ".dgx-footer".
+        -->
+
+        <p class="dgx-footer-sub">Navegação segura</p>
+        <ul class="dgx-badges">
+            <li class="dgx-badge">
+                <!-- <img class="dgx-badge-img" src="css/images/selo-ssl.png" alt="Site seguro SSL"> -->
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-lock"/></svg>
+                <span>Site seguro (SSL)</span>
+            </li>
+        </ul>
+
+        <p class="dgx-footer-sub">Formas de pagamento</p>
+        <ul class="dgx-badges">
+            <li class="dgx-badge">
+                <!-- <img class="dgx-badge-img" src="css/images/pix.png" alt="Pix"> -->
+                <span>Pix</span>
+            </li>
+            <li class="dgx-badge">
+                <!-- <img class="dgx-badge-img" src="css/images/cartao.png" alt="Cartão de crédito"> -->
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-card"/></svg>
+                <span>Cartão</span>
+            </li>
+            <li class="dgx-badge">
+                <!-- <img class="dgx-badge-img" src="css/images/boleto.png" alt="Boleto"> -->
+                <span>Boleto</span>
+            </li>
+        </ul>
+
+        <p class="dgx-footer-sub">Premiações</p>
+        <ul class="dgx-badges">
+            <li class="dgx-badge">
+                <!-- <img class="dgx-badge-img" src="css/images/premio.png" alt="Nome da premiação"> -->
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-award"/></svg>
+                <span>Nome da premiação</span>
+            </li>
+        </ul>
+
+    </section>
+
+</div>
+
+<!-- ===== DIREITOS AUTORAIS ===== -->
+<div class="dgx-footer-bottom">
+    <p>&copy; 2026 Dragnix. Todos os direitos reservados.</p>
+</div>
+
+</div>
+
+</footer>
+
+<!-- SCRIPTS ORIGINAIS -->
+<script src="js/icons.js"></script>
+<script src="js/api.js"></script>
+<script src="js/loginsplash.js"></script>
+<script src="js/theme.js"></script>
+<script src="js/menu.js"></script>
+<script src="js/side-menu.js"></script>
 
 </body>
 </html>
