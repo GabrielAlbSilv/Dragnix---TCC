@@ -382,3 +382,603 @@
             }
         }
 
+/* ==========================================
+   DRAGNIX - VOLTAR AO APP
+========================================== */
+
+.admin-page .admin-back-container {
+    display: flex;
+    align-items: center;
+
+    width: 100%;
+    max-width: 1320px;
+
+    margin: 0 auto;
+    padding: 18px 20px 0;
+}
+
+.admin-page .admin-back-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    min-height: 42px;
+    padding: 10px 16px;
+
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+
+    text-decoration: none;
+    white-space: nowrap;
+
+    transition: transform .2s ease;
+}
+
+.admin-page .admin-back-btn svg {
+    width: 17px;
+    height: 17px;
+    flex-shrink: 0;
+}
+
+.admin-page .admin-back-btn:hover {
+    transform: translateX(-2px);
+}
+
+.admin-page .admin-back-btn:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+}
+
+/* TABLETS E CELULARES */
+
+@media (max-width: 768px) {
+
+    .admin-page .admin-back-container {
+        padding: 12px 14px 0;
+    }
+
+    .admin-page .admin-back-btn {
+        min-height: 44px;
+        padding: 10px 14px;
+        font-size: 13px;
+    }
+}
+
+/* TELAS PEQUENAS */
+
+@media (max-width: 360px) {
+
+    .admin-page .admin-back-btn {
+        padding: 10px 12px;
+        gap: 6px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin-page .admin-back-btn {
+        transition: none;
+    }
+
+    .admin-page .admin-back-btn:hover {
+        transform: none;
+    }
+}
+
+/* ==============================================
+   DRAGNIX — ADMIN DASHBOARD REFINEMENT
+============================================== */
+
+.admin-page {
+  --adm-radius: 16px;
+  --adm-space: clamp(12px, 2vw, 24px);
+  --adm-content-width: 1380px;
+  --adm-border: var(--bd, #d1d5db);
+
+  overflow-x: clip;
+}
+
+/* CABEÇALHO */
+
+.admin-page .admin-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg);
+  border-bottom: 1px solid var(--adm-border);
+}
+
+.admin-page .admin-header-inner {
+  max-width: 1440px;
+  min-height: 72px;
+  margin: auto;
+  padding: 10px 24px;
+  gap: 20px;
+}
+
+.admin-page .admin-brand {
+  min-width: 0;
+}
+
+.admin-page .admin-brand-text .trilhas-title {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: .035em;
+}
+
+.admin-page .admin-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.admin-page .admin-header-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 10px 16px;
+  text-decoration: none;
+}
+
+.admin-page .admin-header-back svg,
+.admin-page .admin-system-shortcut svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+/* ÁREA DE TRABALHO */
+
+.admin-page .admin-workspace {
+  width: min(100%, var(--adm-content-width));
+  margin-inline: auto;
+  padding: clamp(16px, 2.5vw, 32px);
+  min-width: 0;
+}
+
+.admin-page .admin-page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+
+  padding: clamp(20px, 3vw, 32px);
+  margin-bottom: 24px;
+
+  border: 1px solid var(--adm-border);
+  border-radius: 20px;
+
+  background: var(--theme-surface, var(--bg));
+}
+
+.admin-page .admin-heading-text {
+  flex: 1 1 400px;
+  min-width: 0;
+}
+
+.admin-page .admin-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 12px;
+
+  color: var(--mut);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+.admin-page .admin-eyebrow svg {
+  width: 16px;
+  height: 16px;
+}
+
+.admin-page .admin-page-heading h1 {
+  margin: 0 0 10px;
+  font-size: clamp(23px, 3vw, 34px);
+  line-height: 1.2;
+  letter-spacing: -.025em;
+  overflow-wrap: anywhere;
+}
+
+.admin-page .admin-page-heading p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--mut);
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.admin-page .admin-system-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+  min-height: 44px;
+  text-decoration: none;
+}
+
+/* TÍTULO DA SEÇÃO */
+
+.admin-page .admin-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 0 18px;
+}
+
+.admin-page .admin-section-heading h2 {
+  margin: 0 0 5px;
+  font-size: clamp(19px, 2.4vw, 24px);
+}
+
+.admin-page .admin-section-heading p {
+  margin: 0;
+  color: var(--mut);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* CONTEÚDO DINÂMICO */
+
+.admin-page .admin-main {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-page .admin-main > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* ESTATÍSTICAS */
+
+.admin-page .stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.admin-page .stats-row .stat {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius);
+  background: var(--theme-surface, var(--bg));
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .035);
+}
+
+.admin-page .stats-row .stat b {
+  display: block;
+  font-size: clamp(26px, 3vw, 38px);
+  line-height: 1.1;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+/* LISTA DE TRILHAS + EDITOR */
+
+.admin-page .split {
+  display: grid;
+  grid-template-columns:
+    minmax(260px, 320px)
+    minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+
+.admin-page .split > aside {
+  position: sticky;
+  top: 94px;
+
+  min-width: 0;
+  max-height: calc(100dvh - 110px);
+  overflow-y: auto;
+
+  padding: 16px;
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius);
+  background: var(--theme-surface, var(--bg));
+  scrollbar-width: thin;
+}
+
+.admin-page .split > aside > .btn {
+  width: 100%;
+  min-height: 44px;
+  margin-bottom: 16px;
+}
+
+.admin-page .split > aside .tr {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  gap: 12px;
+
+  margin-bottom: 8px;
+  padding: 13px;
+
+  border-radius: 12px;
+  text-align: left;
+}
+
+.admin-page .split > aside .tr b {
+  overflow-wrap: anywhere;
+}
+
+.admin-page .split > aside .tr small {
+  display: block;
+  margin-top: 5px;
+  line-height: 1.45;
+}
+
+.admin-page .split > section {
+  min-width: 0;
+  padding: clamp(16px, 2vw, 26px);
+
+  border: 1px solid var(--adm-border);
+  border-radius: var(--adm-radius);
+  background: var(--theme-surface, var(--bg));
+}
+
+/* CARTÕES E AÇÕES */
+
+.admin-page .card {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-page .card.row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+}
+
+.admin-page .card.row > span {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.admin-page .card.row .btn {
+  min-height: 40px;
+}
+
+.admin-page .row {
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.admin-page button,
+.admin-page select,
+.admin-page input,
+.admin-page textarea {
+  font-family: inherit;
+}
+
+.admin-page .admin-main input,
+.admin-page .admin-main select,
+.admin-page .admin-main textarea {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* MENU */
+
+.admin-page .admin-menu-panel {
+  width: min(300px, calc(100vw - 24px));
+  max-height: calc(100dvh - 90px);
+  overflow-y: auto;
+}
+
+.admin-page .admin-menu-heading {
+  padding: 10px 14px 6px;
+  color: var(--mut);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.admin-page .admin-menu-item {
+  min-height: 46px;
+  gap: 12px;
+}
+
+/* MODAIS */
+
+.admin-page #dlg {
+  width: min(760px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  border-radius: 18px;
+  padding: clamp(16px, 3vw, 28px);
+}
+
+.admin-page #fields {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.admin-page #fields img,
+.admin-page #fields video {
+  max-width: 100%;
+  height: auto;
+}
+
+/* TABLET */
+
+@media (max-width: 1000px) {
+  .admin-page .split {
+    grid-template-columns: minmax(220px, 280px) minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .admin-page .admin-workspace {
+    padding: 20px;
+  }
+}
+
+/* TABLET VERTICAL */
+
+@media (max-width: 800px) {
+  .admin-page .split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .admin-page .split > aside {
+    position: static;
+    max-height: none;
+  }
+
+  .admin-page .split > aside .tr {
+    display: flex;
+    width: 100%;
+    margin-right: 0;
+  }
+
+  .admin-page .admin-page-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-page .admin-system-shortcut {
+    max-width: 100%;
+  }
+}
+
+/* CELULAR */
+
+@media (max-width: 600px) {
+  .admin-page .admin-header-inner {
+    min-height: 60px;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .admin-page .admin-header-actions {
+    gap: 8px;
+  }
+
+  .admin-page .admin-header-back {
+    min-height: 42px;
+    padding: 9px 11px;
+    font-size: 12px;
+  }
+
+  .admin-page .admin-workspace {
+    padding: 14px 12px 32px;
+  }
+
+  .admin-page .admin-page-heading {
+    padding: 18px;
+    margin-bottom: 20px;
+    border-radius: 16px;
+  }
+
+  .admin-page .admin-page-heading p {
+    font-size: 13px;
+  }
+
+  .admin-page .stats-row {
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+
+  .admin-page .stats-row .stat {
+    padding: 13px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+  }
+
+  .admin-page .stats-row .stat b {
+    font-size: clamp(21px, 6vw, 28px);
+  }
+
+  .admin-page .split > aside {
+    padding: 12px;
+  }
+
+  .admin-page .split > section {
+    padding: 14px;
+  }
+
+  .admin-page .card.row {
+    align-items: stretch;
+    padding: 13px;
+  }
+
+  .admin-page .card.row select {
+    width: 100%;
+  }
+
+  .admin-page #dlg {
+    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+  }
+}
+
+/* CELULAR COMPACTO */
+
+@media (max-width: 390px) {
+  .admin-page .admin-header-back span {
+    display: none;
+  }
+
+  .admin-page .admin-header-back {
+    width: 42px;
+    padding: 0;
+  }
+
+  .admin-page .admin-header-back svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .admin-page .admin-brand-text .trilhas-title {
+    font-size: 15px;
+  }
+
+  .admin-page .admin-system-shortcut {
+    width: 100%;
+    justify-content: center;
+    font-size: 12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-page *,
+  .admin-page *::before,
+  .admin-page *::after {
+    scroll-behavior: auto;
+  }
+}
+
+/* SEÇÃO ATIVA DO MENU */
+
+.admin-page .admin-menu-item.is-active {
+  background: var(--bd);
+  font-weight: 700;
+  border-radius: 10px;
+}
+
+.admin-page .admin-menu-item.is-active svg {
+  color: var(--g, currentColor);
+}

@@ -100,9 +100,25 @@ const jsonBackup = express.json({
   limit: '280mb'
 });
 
+// Foto de perfil: o navegador já reduz a imagem, mas a API
+// aceita até ~2 MB de imagem (base64 ocupa ~33% a mais).
+const jsonAvatar = express.json({
+  limit: '8mb'
+});
+
 // Upload pode receber arquivos grandes.
 // Demais requisições usam limite padrão.
 app.use((req, res, next) => {
+  if (
+    (
+      req.path === '/api/me/avatar' ||
+      req.path === '/api/admin/avatars'
+    ) &&
+    req.headers.authorization
+  ) {
+    return jsonAvatar(req, res, next);
+  }
+
   if (
     req.path === '/api/admin/upload' &&
     req.headers.authorization
@@ -191,11 +207,165 @@ const sign = user =>
     }
   );
 
+// ============================================================
+// FOTO DE PERFIL (AVATAR)
+// ============================================================
+//
+// O banco guarda só o nome do arquivo (coluna users.avatar).
+// O arquivo fica direto em UPLOAD_DIR (sem subpastas), por isso
+// é incluído automaticamente no backup e na restauração.
+
+const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
+
+// Nome gerado pelo próprio servidor. Qualquer outro valor
+// (por exemplo, vindo de um backup adulterado) é ignorado.
+// Foto enviada pelo próprio usuário (um arquivo por usuário).
+const AVATAR_FILE_RE =
+  /^avatar_\d+_[a-f0-9]{8,32}\.(jpg|png|webp)$/;
+
+// Avatar da galeria cadastrada pelos administradores
+// (o mesmo arquivo pode ser usado por vários usuários).
+const PRESET_FILE_RE =
+  /^preset_[a-f0-9]{8,32}\.(jpg|png|webp)$/;
+
+const AVATAR_PRESET_MAX = 10;
+const PRESET_LABEL_MAX = 30;
+
+// Valores aceitos para EXIBIÇÃO (foto própria ou da galeria).
+function safeAvatarFile(value) {
+  const file = String(value || '');
+
+  return (
+    AVATAR_FILE_RE.test(file) ||
+    PRESET_FILE_RE.test(file)
+  )
+    ? file
+    : null;
+}
+
+function avatarUrl(user) {
+  const file = safeAvatarFile(user?.avatar);
+
+  return file
+    ? '/uploads/' + file
+    : null;
+}
+
+// Descobre o formato pelo conteúdo real do arquivo,
+// sem confiar no nome ou no tipo informado pelo cliente.
+function detectImageType(buffer) {
+  if (
+    buffer.length > 3 &&
+    buffer[0] === 0xff &&
+    buffer[1] === 0xd8 &&
+    buffer[2] === 0xff
+  ) {
+    return 'jpg';
+  }
+
+  if (
+    buffer.length > 8 &&
+    buffer.subarray(0, 8).equals(
+      Buffer.from([
+        0x89, 0x50, 0x4e, 0x47,
+        0x0d, 0x0a, 0x1a, 0x0a
+      ])
+    )
+  ) {
+    return 'png';
+  }
+
+  if (
+    buffer.length > 12 &&
+    buffer.subarray(0, 4).toString('latin1') === 'RIFF' &&
+    buffer.subarray(8, 12).toString('latin1') === 'WEBP'
+  ) {
+    return 'webp';
+  }
+
+  return null;
+}
+
+// Apaga apenas fotos enviadas pelo próprio usuário.
+// Avatares da galeria nunca são apagados por aqui, pois
+// podem estar em uso por outras pessoas.
+function removeAvatarFile(value) {
+  const file = String(value || '');
+
+  if (!AVATAR_FILE_RE.test(file)) return;
+
+  try {
+    fs.unlinkSync(path.join(UPLOAD_DIR, file));
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error(
+        'Falha ao remover foto de perfil:',
+        error.message
+      );
+    }
+  }
+}
+
+// Lê e valida a imagem enviada em { data }.
+// Retorna { buffer, type } ou { status, error }.
+function readImageUpload(body) {
+  let base64 = String(body?.data || '');
+
+  if (base64.includes(',')) {
+    base64 = base64.substring(base64.indexOf(',') + 1);
+  }
+
+  const buffer = Buffer.from(base64, 'base64');
+
+  if (!buffer.length) {
+    return {
+      status: 400,
+      error: 'Nenhuma imagem foi enviada'
+    };
+  }
+
+  if (buffer.length > AVATAR_MAX_BYTES) {
+    return {
+      status: 400,
+      error: 'A foto deve ter no máximo 2 MB'
+    };
+  }
+
+  const type = detectImageType(buffer);
+
+  if (!type) {
+    return {
+      status: 400,
+      error: 'Formato inválido. Use JPG, PNG ou WebP'
+    };
+  }
+
+  return { buffer, type };
+}
+
+function removePresetFile(value) {
+  const file = String(value || '');
+
+  if (!PRESET_FILE_RE.test(file)) return;
+
+  try {
+    fs.unlinkSync(path.join(UPLOAD_DIR, file));
+  } catch (error) {
+    if (error.code !== 'ENOENT') {
+      console.error(
+        'Falha ao remover avatar da galeria:',
+        error.message
+      );
+    }
+  }
+}
+
 const pub = user => ({
   id: user.id,
   name: user.name,
   email: user.email,
-  role: user.role
+  role: user.role,
+  avatar_url: avatarUrl(user)
 });
 
 
@@ -622,6 +792,376 @@ app.get(
     res.json(
       pub(req.user)
     );
+  }
+);
+
+// ============================================================
+// EDITAR PERFIL: NOME E FOTO
+// ============================================================
+
+const NAME_MIN = 2;
+const NAME_MAX = 60;
+
+app.put(
+  '/api/me/name',
+  auth,
+  (req, res) => {
+    try {
+      // Normaliza espaços e remove caracteres de controle.
+      const name = String(req.body?.name ?? '')
+        .replace(/[\u0000-\u001f\u007f]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (name.length < NAME_MIN) {
+        return res.status(400).json({
+          error:
+            `O nome precisa ter pelo menos ${NAME_MIN} caracteres`
+        });
+      }
+
+      if (name.length > NAME_MAX) {
+        return res.status(400).json({
+          error:
+            `O nome pode ter no máximo ${NAME_MAX} caracteres`
+        });
+      }
+
+      db.prepare(
+        'UPDATE users SET name=? WHERE id=?'
+      ).run(name, req.user.id);
+
+      const user = db
+        .prepare('SELECT * FROM users WHERE id=?')
+        .get(req.user.id);
+
+      return res.json({
+        ok: true,
+        user: pub(user)
+      });
+    } catch (error) {
+      console.error('Erro ao alterar nome:', error);
+
+      return res.status(500).json({
+        error: 'Erro ao alterar o nome'
+      });
+    }
+  }
+);
+
+app.post(
+  '/api/me/avatar',
+  auth,
+  (req, res) => {
+    let savedFile = null;
+
+    try {
+      // Aceita base64 puro ou data URL (data:image/jpeg;base64,...).
+      const upload = readImageUpload(req.body);
+
+      if (upload.error) {
+        return res.status(upload.status).json({
+          error: upload.error
+        });
+      }
+
+      const { buffer, type } = upload;
+
+      const filename =
+        `avatar_${req.user.id}_` +
+        crypto.randomBytes(8).toString('hex') +
+        '.' + type;
+
+      fs.writeFileSync(
+        path.join(UPLOAD_DIR, filename),
+        buffer
+      );
+
+      savedFile = filename;
+
+      const previous = req.user.avatar;
+
+      db.prepare(
+        'UPDATE users SET avatar=? WHERE id=?'
+      ).run(filename, req.user.id);
+
+      // Só apaga a foto antiga depois de gravar a nova no banco.
+      if (previous && previous !== filename) {
+        removeAvatarFile(previous);
+      }
+
+      const user = db
+        .prepare('SELECT * FROM users WHERE id=?')
+        .get(req.user.id);
+
+      return res.json({
+        ok: true,
+        user: pub(user)
+      });
+    } catch (error) {
+      console.error('Erro ao salvar foto de perfil:', error);
+
+      // Não deixa arquivo órfão se o banco falhou.
+      if (savedFile) {
+        removeAvatarFile(savedFile);
+      }
+
+      return res.status(500).json({
+        error: 'Erro ao salvar a foto de perfil'
+      });
+    }
+  }
+);
+
+// ============================================================
+// GALERIA DE AVATARES (cadastrada pelos administradores)
+// ============================================================
+
+const presetRows = () =>
+  db
+    .prepare(
+      `SELECT id, file, label
+       FROM avatar_presets
+       ORDER BY position, id`
+    )
+    .all()
+    .filter(
+      row =>
+        PRESET_FILE_RE.test(row.file)
+    )
+    .map(row => ({
+      id: row.id,
+      label: row.label || '',
+      url: '/uploads/' + row.file
+    }));
+
+// Lista para qualquer usuário logado escolher.
+app.get(
+  '/api/avatars',
+  auth,
+  (req, res) => {
+    res.json({
+      max: AVATAR_PRESET_MAX,
+      presets: presetRows()
+    });
+  }
+);
+
+// O usuário escolhe um avatar da galeria.
+app.post(
+  '/api/me/avatar/preset',
+  auth,
+  (req, res) => {
+    try {
+      const id = Number(req.body?.id);
+
+      const preset = Number.isInteger(id)
+        ? db
+            .prepare(
+              'SELECT file FROM avatar_presets WHERE id=?'
+            )
+            .get(id)
+        : null;
+
+      if (!preset || !PRESET_FILE_RE.test(preset.file)) {
+        return res.status(404).json({
+          error: 'Avatar não encontrado'
+        });
+      }
+
+      const previous = req.user.avatar;
+
+      db.prepare(
+        'UPDATE users SET avatar=? WHERE id=?'
+      ).run(preset.file, req.user.id);
+
+      // Se a pessoa tinha uma foto própria, ela deixa de ser usada.
+      removeAvatarFile(previous);
+
+      const user = db
+        .prepare('SELECT * FROM users WHERE id=?')
+        .get(req.user.id);
+
+      return res.json({
+        ok: true,
+        user: pub(user)
+      });
+    } catch (error) {
+      console.error('Erro ao escolher avatar:', error);
+
+      return res.status(500).json({
+        error: 'Erro ao escolher o avatar'
+      });
+    }
+  }
+);
+
+// Administrador adiciona um avatar à galeria (máx. 10).
+app.post(
+  '/api/admin/avatars',
+  auth,
+  adm,
+  (req, res) => {
+    let savedFile = null;
+
+    try {
+      const total = Number(
+        db
+          .prepare('SELECT COUNT(*) AS n FROM avatar_presets')
+          .get().n
+      );
+
+      if (total >= AVATAR_PRESET_MAX) {
+        return res.status(400).json({
+          error:
+            `A galeria já tem ${AVATAR_PRESET_MAX} avatares. ` +
+            'Remova um para adicionar outro.'
+        });
+      }
+
+      const upload = readImageUpload(req.body);
+
+      if (upload.error) {
+        return res.status(upload.status).json({
+          error: upload.error
+        });
+      }
+
+      const label = String(req.body?.label ?? '')
+        .replace(/[\u0000-\u001f\u007f]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, PRESET_LABEL_MAX);
+
+      const filename =
+        'preset_' +
+        crypto.randomBytes(8).toString('hex') +
+        '.' + upload.type;
+
+      fs.writeFileSync(
+        path.join(UPLOAD_DIR, filename),
+        upload.buffer
+      );
+
+      savedFile = filename;
+
+      const position =
+        Number(
+          db
+            .prepare(
+              'SELECT COALESCE(MAX(position), 0) + 1 AS p FROM avatar_presets'
+            )
+            .get().p
+        );
+
+      db.prepare(
+        `INSERT INTO avatar_presets
+           (file, label, position, created_at)
+         VALUES (?, ?, ?, ?)`
+      ).run(
+        filename,
+        label || null,
+        position,
+        new Date().toISOString()
+      );
+
+      return res.json({
+        ok: true,
+        max: AVATAR_PRESET_MAX,
+        presets: presetRows()
+      });
+    } catch (error) {
+      console.error('Erro ao adicionar avatar:', error);
+
+      // Não deixa arquivo órfão se o banco falhou.
+      if (savedFile) {
+        removePresetFile(savedFile);
+      }
+
+      return res.status(500).json({
+        error: 'Erro ao adicionar o avatar'
+      });
+    }
+  }
+);
+
+// Administrador remove um avatar da galeria.
+app.delete(
+  '/api/admin/avatars/:id',
+  auth,
+  adm,
+  (req, res) => {
+    try {
+      const id = Number(req.params.id);
+
+      const preset = Number.isInteger(id)
+        ? db
+            .prepare(
+              'SELECT id, file FROM avatar_presets WHERE id=?'
+            )
+            .get(id)
+        : null;
+
+      if (!preset) {
+        return res.status(404).json({
+          error: 'Avatar não encontrado'
+        });
+      }
+
+      // Quem estava usando este avatar volta a ficar sem foto.
+      db.prepare(
+        'UPDATE users SET avatar=NULL WHERE avatar=?'
+      ).run(preset.file);
+
+      db.prepare(
+        'DELETE FROM avatar_presets WHERE id=?'
+      ).run(preset.id);
+
+      removePresetFile(preset.file);
+
+      return res.json({
+        ok: true,
+        max: AVATAR_PRESET_MAX,
+        presets: presetRows()
+      });
+    } catch (error) {
+      console.error('Erro ao remover avatar:', error);
+
+      return res.status(500).json({
+        error: 'Erro ao remover o avatar'
+      });
+    }
+  }
+);
+
+app.delete(
+  '/api/me/avatar',
+  auth,
+  (req, res) => {
+    try {
+      const previous = req.user.avatar;
+
+      db.prepare(
+        'UPDATE users SET avatar=NULL WHERE id=?'
+      ).run(req.user.id);
+
+      removeAvatarFile(previous);
+
+      const user = db
+        .prepare('SELECT * FROM users WHERE id=?')
+        .get(req.user.id);
+
+      return res.json({
+        ok: true,
+        user: pub(user)
+      });
+    } catch (error) {
+      console.error('Erro ao remover foto de perfil:', error);
+
+      return res.status(500).json({
+        error: 'Erro ao remover a foto de perfil'
+      });
+    }
   }
 );
 
@@ -4695,6 +5235,9 @@ app.get(
         name:
           req.user.name,
 
+        avatar_url:
+          avatarUrl(req.user),
+
         curXp:
           LEVEL_XP(
             state.level
@@ -5154,6 +5697,7 @@ app.get(
             `SELECT
                u.id,
                u.name,
+               u.avatar,
                u.streak,
                u.last_day,
                COALESCE(
@@ -5175,6 +5719,9 @@ app.get(
           row => ({
             name:
               row.name,
+
+            avatar_url:
+              avatarUrl(row),
 
             xp:
               row.xp,
@@ -6052,7 +6599,7 @@ app.delete(
       const user =
         db
           .prepare(
-            `SELECT 1
+            `SELECT avatar
              FROM users
              WHERE id=?`
           )
@@ -6090,6 +6637,9 @@ app.delete(
         `DELETE FROM users
          WHERE id=?`
       ).run(id);
+
+      // Remove também a foto de perfil do usuário excluído.
+      removeAvatarFile(user.avatar);
 
       res.json({
         ok: true
@@ -6171,11 +6721,18 @@ app.get(
                id,
                name,
                email,
-               role
+               role,
+               avatar
              FROM users
              ORDER BY name`
           )
           .all()
+          .map(
+            ({ avatar, ...user }) => ({
+              ...user,
+              avatar_url: avatarUrl({ avatar })
+            })
+          )
       );
     } catch (error) {
       console.error(
@@ -6645,6 +7202,7 @@ const doubtRows = `
     d.created_at,
     u.name AS author_name,
     u.role AS author_role,
+    u.avatar AS author_avatar,
     t.title AS track_title
   FROM doubts d
   JOIN users u ON u.id = d.user_id
@@ -6661,7 +7219,8 @@ const shapeDoubt = (row, viewer, hasReplies) => ({
   author: {
     id: row.user_id,
     name: row.author_name,
-    role: row.author_role
+    role: row.author_role,
+    avatar_url: avatarUrl({ avatar: row.author_avatar })
   },
   mine: row.user_id === viewer.id,
   can_delete:

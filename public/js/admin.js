@@ -28,6 +28,13 @@ if (me()?.role === 'professor') {
   if (usersTab) {
     usersTab.style.display = 'none';
   }
+
+  // A galeria de avatares é gerenciada só por administradores.
+  const avatarsTab = $('t3');
+
+  if (avatarsTab) {
+    avatarsTab.style.display = 'none';
+  }
 }
 
 const dlg = $('dlg');
@@ -3484,7 +3491,11 @@ async function usersView() {
           u => `
             <div class="card row">
 
-              <span>
+              <span style="display:flex;align-items:center;gap:10px">
+
+                ${avatarHtml(u, 'md')}
+
+                <span>
 
                 <b>
                   ${esc(u.name || '')}
@@ -3495,6 +3506,8 @@ async function usersView() {
                 <small class="mut">
                   ${esc(u.email || '')}
                 </small>
+
+                </span>
 
               </span>
 
@@ -3588,6 +3601,178 @@ async function setRole(id, role) {
 
 
 /* ============================================================
+   GALERIA DE AVATARES
+   ============================================================ */
+
+async function avatarsView() {
+  try {
+    const data = await api('/avatars');
+
+    renderAvatarsView(data);
+  } catch (e) {
+    alert(
+      e?.message ||
+      'Não foi possível carregar os avatares.'
+    );
+  }
+}
+
+function renderAvatarsView(data) {
+  const full = data.presets.length >= data.max;
+
+  $('main').innerHTML = `
+    <h2>Avatares</h2>
+
+    <p class="mut">
+      Cadastre até ${data.max} avatares para os usuários escolherem
+      no perfil. Eles também podem enviar a própria foto.
+    </p>
+
+    <div class="card">
+
+      <b>${data.presets.length} de ${data.max} avatares</b>
+
+      <div class="avatar-admin-grid">
+        ${
+          data.presets.length
+            ? data.presets
+                .map(
+                  preset => `
+                    <figure class="avatar-admin-item">
+                      <span class="avatar avatar-lg">
+                        <img
+                          src="${esc(preset.url)}"
+                          alt="${esc(preset.label || 'Avatar')}"
+                        >
+                      </span>
+
+                      <figcaption>
+                        ${esc(preset.label || 'Sem nome')}
+                      </figcaption>
+
+                      <button
+                        class="btn sm red"
+                        type="button"
+                        onclick="deleteAvatarPreset(${preset.id})"
+                      >
+                        🗑️ Remover
+                      </button>
+                    </figure>
+                  `
+                )
+                .join('')
+            : '<p class="mut">Nenhum avatar cadastrado ainda.</p>'
+        }
+      </div>
+    </div>
+
+    <div class="card">
+
+      <b>Adicionar avatar</b>
+
+      ${
+        full
+          ? `<p class="mut">
+               Limite atingido. Remova um avatar para adicionar outro.
+             </p>`
+          : `
+            <div class="avatar-admin-form">
+
+              <input
+                type="text"
+                id="presetLabel"
+                placeholder="Nome (opcional)"
+                maxlength="30"
+                aria-label="Nome do avatar"
+              >
+
+              <input
+                type="file"
+                id="presetFile"
+                accept="image/*"
+                aria-label="Imagem do avatar"
+              >
+
+              <button
+                class="btn"
+                type="button"
+                onclick="addAvatarPreset()"
+              >
+                Adicionar
+              </button>
+
+            </div>
+          `
+      }
+
+    </div>
+  `;
+}
+
+async function addAvatarPreset() {
+  const input = $('presetFile');
+  const label = $('presetLabel');
+  const file = input && input.files && input.files[0];
+
+  if (!file) {
+    return alert('Escolha uma imagem.');
+  }
+
+  if (!file.type.startsWith('image/')) {
+    return alert('Escolha um arquivo de imagem.');
+  }
+
+  if (file.size > AVATAR_ORIGINAL_MAX) {
+    return alert('A imagem é grande demais (máx. 15 MB).');
+  }
+
+  try {
+    const data = await resizeAvatar(file);
+
+    const result = await api(
+      '/admin/avatars',
+      'POST',
+      {
+        data,
+        label: label ? label.value : ''
+      }
+    );
+
+    renderAvatarsView(result);
+  } catch (e) {
+    alert(
+      e?.message ||
+      'Não foi possível adicionar o avatar.'
+    );
+  }
+}
+
+async function deleteAvatarPreset(id) {
+  if (
+    !confirm(
+      'Remover este avatar? Quem o estiver usando ficará sem foto.'
+    )
+  ) {
+    return;
+  }
+
+  try {
+    const result = await api(
+      '/admin/avatars/' + id,
+      'DELETE'
+    );
+
+    renderAvatarsView(result);
+  } catch (e) {
+    alert(
+      e?.message ||
+      'Não foi possível remover o avatar.'
+    );
+  }
+}
+
+
+/* ============================================================
    MENU LATERAL DO PAINEL ADMINISTRATIVO
    ============================================================ */
 
@@ -3676,4 +3861,67 @@ $('t1').onclick = async () => {
 
 $('t2').onclick = usersView;
 
+$('t3').onclick = avatarsView;
+
 load();
+
+/* ==========================================
+   DRAGNIX — TÍTULOS DO PAINEL
+========================================== */
+
+(function () {
+  const sections = {
+    t1: {
+      title: 'Trilhas e módulos',
+      description:
+        'Organize os conteúdos e acompanhe a estrutura de aprendizagem.'
+    },
+    t2: {
+      title: 'Gerenciamento de usuários',
+      description:
+        'Consulte e gerencie os usuários cadastrados na plataforma.'
+    },
+    t3: {
+      title: 'Biblioteca de avatares',
+      description:
+        'Gerencie os avatares disponíveis para personalização dos perfis.'
+    }
+  };
+
+  function updateSection(sectionId) {
+    const section = sections[sectionId];
+    if (!section) return;
+
+    const title = document.getElementById('adminSectionTitle');
+    const description = document.getElementById('adminSectionDescription');
+
+    if (title) title.textContent = section.title;
+    if (description) description.textContent = section.description;
+
+    document.querySelectorAll(
+      '#adminMenuPanel #t1, #adminMenuPanel #t2, #adminMenuPanel #t3'
+    ).forEach(button => {
+      const active = button.id === sectionId;
+
+      button.classList.toggle('is-active', active);
+
+      if (active) {
+        button.setAttribute('aria-current', 'page');
+      } else {
+        button.removeAttribute('aria-current');
+      }
+    });
+  }
+
+  Object.keys(sections).forEach(sectionId => {
+    const button = document.getElementById(sectionId);
+
+    if (!button) return;
+
+    button.addEventListener('click', () => {
+      updateSection(sectionId);
+    });
+  });
+
+  updateSection('t1');
+})();

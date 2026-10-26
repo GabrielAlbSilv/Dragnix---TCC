@@ -1756,10 +1756,11 @@ animation: challengeEnter .3s ease both;
 width: 100%;
 min-width: 0;
 box-sizing: border-box;
-border: 1px solid var(--line, rgba(128,128,128,.25));
+border: 1px solid var(--theme-border);
 border-radius: 18px;
 padding: clamp(16px, 3vw, 26px);
-background: var(--card, transparent);
+background: var(--theme-surface);
+color: var(--theme-text);
 }
 .challenge-card-top {
 display: flex;
@@ -2110,9 +2111,9 @@ transition: none !important;
     box-sizing: border-box;
     border-radius: 22px;
     padding: clamp(20px, 4vw, 38px);
-    background: var(--card, #17212b);
-    color: var(--text, inherit);
-    border: 1px solid var(--line, rgba(128,128,128,.25));
+    background: var(--theme-surface);
+    color: var(--theme-text);
+    border: 1px solid var(--theme-border);
     box-shadow: 0 25px 90px rgba(0,0,0,.3);
     animation: challengePop .3s cubic-bezier(.2,.8,.2,1) both;
 }
@@ -2444,3 +2445,412 @@ transition: none !important;
     }
 }
 
+
+/* ============================================================
+   FOTO DE PERFIL (AVATAR)
+   ============================================================ */
+
+.avatar {
+    position: relative;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    border-radius: 50%;
+    overflow: hidden;
+
+    background: var(--g);
+    color: #fff;
+
+    font-weight: 800;
+    line-height: 1;
+
+    vertical-align: middle;
+    user-select: none;
+}
+
+.avatar img {
+    position: absolute;
+    inset: 0;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+}
+
+.avatar-sm {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+    margin-right: 6px;
+}
+
+.avatar-md {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
+}
+
+.avatar-lg {
+    width: 112px;
+    height: 112px;
+    font-size: 40px;
+
+    border: 3px solid var(--theme-border);
+}
+
+/* Cabeçalho do perfil */
+
+.profile-avatar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+
+    margin-bottom: 6px;
+}
+
+.profile-avatar-actions,
+.profile-name-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+}
+
+.profile-name {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    margin: 10px 0;
+}
+
+.profile-name h2 {
+    margin: 0;
+    overflow-wrap: anywhere;
+}
+
+.profile-name-form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+
+    margin: 10px auto;
+
+    max-width: 340px;
+}
+
+.profile-name-input {
+    width: 100%;
+
+    text-align: center;
+    font-weight: 700;
+
+    background: var(--theme-input);
+    color: var(--theme-text);
+    border: 2px solid var(--theme-border);
+    border-radius: 11px;
+}
+
+.profile-feedback {
+    min-height: 1.2em;
+
+    font-size: 12px;
+    color: var(--theme-text-secondary);
+}
+
+.profile-feedback.error {
+    color: var(--red);
+}
+
+
+/* ============================================================
+   GALERIA DE AVATARES
+   ============================================================ */
+
+.avatar-gallery-box {
+    width: 100%;
+    max-width: 420px;
+}
+
+.avatar-gallery {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+
+    margin-top: 6px;
+}
+
+@media (max-width: 420px) {
+    .avatar-gallery {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+.avatar-option {
+    position: relative;
+
+    aspect-ratio: 1;
+    padding: 0;
+
+    border: 3px solid var(--theme-border);
+    border-radius: 50%;
+    overflow: hidden;
+
+    background: var(--theme-surface);
+    cursor: pointer;
+
+    transition:
+        transform 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.avatar-option img {
+    display: block;
+
+    width: 100%;
+    height: 100%;
+
+    object-fit: cover;
+}
+
+.avatar-option:hover,
+.avatar-option:focus-visible {
+    transform: scale(1.06);
+    border-color: var(--g);
+    outline: none;
+}
+
+.avatar-option.selected {
+    border-color: var(--g);
+    box-shadow: 0 0 0 3px var(--g);
+}
+
+/* Painel do administrador */
+
+.avatar-admin-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 16px;
+
+    margin-top: 14px;
+}
+
+.avatar-admin-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+
+    margin: 0;
+    text-align: center;
+}
+
+.avatar-admin-item figcaption {
+    font-size: 13px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.avatar-admin-form {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+
+    margin-top: 12px;
+}
+
+.avatar-admin-form input[type="text"] {
+    flex: 1 1 180px;
+    width: auto;
+}
+
+/* ==========================================
+   DRAGNIX — BOTÃO VOLTAR RESPONSIVO
+========================================== */
+
+.dragnix-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+
+  min-height: 44px;
+  max-width: 100%;
+
+  padding: 10px 16px;
+
+  border: 1px solid var(--line, #d1d5db);
+  border-radius: 12px;
+
+  background: var(--card, transparent);
+  color: inherit;
+
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+
+  cursor: pointer;
+  text-decoration: none;
+
+  transition:
+    background-color .2s ease,
+    border-color .2s ease,
+    transform .2s ease;
+}
+
+.dragnix-back-btn:hover {
+  background: var(--hover, rgba(127, 127, 127, .10));
+  transform: translateX(-2px);
+}
+
+.dragnix-back-btn:active {
+  transform: scale(.97);
+}
+
+.dragnix-back-btn:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.dragnix-back-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dragnix-back-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+}
+
+.dragnix-back-label {
+  white-space: nowrap;
+}
+
+.dragnix-back-container {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 16px;
+}
+
+/* CELULARES */
+
+@media (max-width: 600px) {
+
+  .dragnix-back-btn {
+    min-height: 44px;
+    padding: 10px 13px;
+    gap: 7px;
+    font-size: 13px;
+    border-radius: 10px;
+  }
+
+  .dragnix-back-icon svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .dragnix-back-container {
+    margin-bottom: 12px;
+  }
+}
+
+/* TELAS MUITO PEQUENAS */
+
+@media (max-width: 360px) {
+
+  .dragnix-back-btn {
+    padding: 10px 12px;
+  }
+}
+
+/* ACESSIBILIDADE */
+
+@media (prefers-reduced-motion: reduce) {
+
+  .dragnix-back-btn {
+    transition: none;
+  }
+
+  .dragnix-back-btn:hover,
+  .dragnix-back-btn:active {
+    transform: none;
+  }
+}
+
+
+/* Melhorias de responsividade do perfil */
+
+.profile-name-form {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-name-input {
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.pf-avatar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.avatar-gallery-box {
+  width: 100%;
+  max-width: 420px;
+  margin-inline: auto;
+}
+
+.avatar-option:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.profile-feedback.error {
+  color: #dc3545;
+}
+
+@media (max-width: 480px) {
+  .pf-avatar-actions {
+    justify-content: center;
+  }
+
+  .pf-avatar-actions .btn {
+    flex: 1 1 130px;
+    justify-content: center;
+  }
+
+  .profile-name-form {
+    width: 100%;
+  }
+
+  .profile-name-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .avatar-gallery {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
+  }
+}

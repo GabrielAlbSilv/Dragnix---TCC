@@ -96,6 +96,9 @@ const OPTIONAL_TABLES = [
   // Segurança de autenticação
   'login_attempts',
 
+  // Galeria de avatares cadastrada pelos administradores
+  'avatar_presets',
+
   // Avaliações
   'lesson_evaluations',
   'track_evaluations',
@@ -170,6 +173,113 @@ function isPathInsideBase(
       base + path.sep
     )
   );
+}
+
+// ============================================================
+// FOTOS DE PERFIL
+// ============================================================
+//
+// users.avatar guarda o nome do arquivo gerado pelo servidor.
+// Os arquivos ficam em UPLOAD_DIR, junto das demais mídias, e por
+// isso já entram no backup. Esta função só aceita nomes no formato
+// esperado, para nunca apagar nada fora do padrão.
+
+const AVATAR_FILE_RE =
+  /^avatar_\d+_[a-f0-9]{8,32}\.(jpg|png|webp)$/;
+
+// Avatares da galeria (compartilhados entre usuários).
+const PRESET_FILE_RE =
+  /^preset_[a-f0-9]{8,32}\.(jpg|png|webp)$/;
+
+// Apaga só fotos próprias; nunca arquivos da galeria.
+function removeAvatarFiles(names) {
+  for (const name of names || []) {
+    const file = String(name || '');
+
+    if (!AVATAR_FILE_RE.test(file)) {
+      continue;
+    }
+
+    try {
+      fs.unlinkSync(
+        path.join(UPLOAD_DIR, file)
+      );
+    } catch (error) {
+      if (error.code !== 'ENOENT') {
+        console.error(
+          'Falha ao remover foto de perfil:',
+          error.message
+        );
+      }
+    }
+  }
+}
+
+// Quantas fotos de perfil e avatares da galeria o backup contém
+// (informativo, exibido na prévia da restauração).
+function avatarSummary(data) {
+  const rowsOf = name =>
+    data.tables.find(
+      table =>
+        table.name === name
+    )?.rows || [];
+
+  const included =
+    new Set(
+      (getMediaFiles(data.media) || [])
+        .map(
+          file =>
+            normalizeRelativePath(
+              file?.path || ''
+            )
+        )
+    );
+
+  const referenced =
+    rowsOf('users')
+      .map(
+        row =>
+          row.avatar
+      )
+      .filter(
+        name =>
+          AVATAR_FILE_RE.test(
+            String(name || '')
+          )
+      );
+
+  const presets =
+    rowsOf('avatar_presets')
+      .map(
+        row =>
+          row.file
+      )
+      .filter(
+        name =>
+          PRESET_FILE_RE.test(
+            String(name || '')
+          )
+      );
+
+  return {
+    users:
+      referenced.length,
+
+    included:
+      referenced.filter(
+        name =>
+          included.has(name)
+      ).length,
+
+    presets:
+      presets.length,
+
+    presetsIncluded:
+      presets.filter(
+        name =>
+          included.has(name)
+      ).length
+  };
 }
 
 // ============================================================
@@ -1308,6 +1418,11 @@ function backupSummary(
         media
       ),
 
+    avatars:
+      avatarSummary(
+        data
+      ),
+
     tables
   };
 }
@@ -1422,8 +1537,13 @@ function restoreDatabase(
   // PROTEÇÃO GERAL DAS TABELAS OPCIONAIS
   // ==========================================================
 
+  // A galeria de avatares não bloqueia a restauração: os arquivos
+  // dela são mídias, que a restauração substitui por completo. Por
+  // isso, ao restaurar um backup sem a galeria, ela também é esvaziada
+  // (evita registros apontando para arquivos que não existem mais).
   const missingOptionalTables = OPTIONAL_TABLES.filter(
     name =>
+      name !== 'avatar_presets' &&
       currentTables.includes(name) &&
       !backupTables.includes(name)
   );
@@ -1482,7 +1602,10 @@ function restoreDatabase(
     // continua obrigatória.
 
     for (const tableName of currentTables) {
-      if (!backupTables.includes(tableName)) {
+      if (
+        !backupTables.includes(tableName) &&
+        tableName !== 'avatar_presets'
+      ) {
         continue;
       }
 
@@ -1716,16 +1839,24 @@ function restoreMedia(media) {
   }
 
   function listMedia(directory, relative = '', result = []) {
-    if (!fs.existsSync(directory)) return result;
+    const currentDir = relative
+      ? path.join(directory, relative)
+      : directory;
 
-    for (const entry of fs.readdirSync(directory, {
+    if (!fs.existsSync(currentDir)) return result;
+
+    // Lê a pasta ATUAL (raiz + subpasta). Antes lia sempre a raiz,
+    // o que causava recursão infinita quando existia qualquer subpasta.
+    for (const entry of fs.readdirSync(currentDir, {
       withFileTypes: true
     })) {
       const relativePath = relative
         ? path.join(relative, entry.name)
         : entry.name;
 
-      const absolutePath = path.join(directory, relativePath);
+      if (entry.isSymbolicLink()) {
+        continue;
+      }
 
       if (entry.isDirectory()) {
         listMedia(directory, relativePath, result);
@@ -1942,6 +2073,22 @@ function registerBackupRoutes(
           });
         }
 
+        // Fotos de perfil dos usuários que serão removidos.
+        // Os arquivos só são apagados depois do COMMIT.
+        const avatarsToRemove =
+          db
+            .prepare(`
+              SELECT avatar
+              FROM users
+              WHERE role <> 'adm'
+              AND avatar IS NOT NULL
+            `)
+            .all()
+            .map(
+              row =>
+                row.avatar
+            );
+
         db.exec(
           'BEGIN IMMEDIATE'
         );
@@ -1995,6 +2142,10 @@ function registerBackupRoutes(
 
           db.exec(
             'COMMIT'
+          );
+
+          removeAvatarFiles(
+            avatarsToRemove
           );
 
           console.log(

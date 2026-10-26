@@ -11,8 +11,15 @@ Configurar acesso em:
 - **Comum**: cadastro público; acessa trilhas, faz lições, ganha XP.
 - **Professor**: Tudo do comum + `/admin.html` (criar/editar/excluir trilhas, lições e questões), Não consegue manipular o banco, excluir ou promover contas
 - **ADM**:
-    Tudo do comum + `/admin.html` (criar/editar/excluir trilhas, lições e questões; promover/rebaixar usuários, gerar e ler backup do banco de dados).
+    Tudo do comum + `/admin.html` (criar/editar/excluir trilhas, lições e questões; promover/rebaixar usuários, gerar e ler backup do banco de dados.
+
+## Login
+
+- E-mail: dragnixtcc@gmail.com
+	Senha   @Nix_953721.
+
 ## Estrutura
+
 - `server.js` API REST (Express + JWT) · `db.js` SQLite e tabelas
 - `public/index.html` login/cadastro · `app.html` trilhas e lições · `admin.html` painel ADM
 

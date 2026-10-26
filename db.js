@@ -78,6 +78,10 @@ const migrations = [
     "ALTER TABLE users ADD COLUMN best_streak INTEGER DEFAULT 0",
     "ALTER TABLE users ADD COLUMN coins INTEGER DEFAULT 0",
 
+    // Foto de perfil: guarda apenas o NOME do arquivo (ex.: avatar_3_ab12cd34.jpg).
+    // O arquivo fica em UPLOAD_DIR e entra no backup junto com as demais mídias.
+    "ALTER TABLE users ADD COLUMN avatar TEXT",
+
     // TRACKS
     "ALTER TABLE tracks ADD COLUMN presentation TEXT DEFAULT '[]'",
     "ALTER TABLE tracks ADD COLUMN conclusion TEXT DEFAULT '[]'",
@@ -206,6 +210,18 @@ db.exec(`
 
     CREATE INDEX IF NOT EXISTS idx_doubts_parent
         ON doubts(parent_id);
+
+    -- Galeria de avatares prontos, cadastrados pelos administradores
+    -- (máximo de 10, controlado pelo servidor). 'file' é o nome do
+    -- arquivo em UPLOAD_DIR; o usuário que escolhe um avatar da galeria
+    -- passa a ter esse mesmo nome em users.avatar.
+    CREATE TABLE IF NOT EXISTS avatar_presets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        file TEXT NOT NULL UNIQUE,
+        label TEXT,
+        position INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+    );
 
     CREATE TABLE IF NOT EXISTS badges (
         user_id INTEGER,

@@ -280,6 +280,36 @@ document.addEventListener(
             ${summary.questions}
           </p>
 
+          ${
+            summary.avatars
+              ? `
+          <p>
+            <strong>Fotos de perfil:</strong>
+            ${summary.avatars.included} de ${summary.avatars.users}
+            incluídas no backup
+          </p>
+
+          <p>
+            <strong>Avatares da galeria:</strong>
+            ${summary.avatars.presetsIncluded || 0} de
+            ${summary.avatars.presets || 0}
+            incluídos no backup
+          </p>
+          `
+              : ''
+          }
+
+          ${
+            summary.media
+              ? `
+          <p>
+            <strong>Arquivos de mídia:</strong>
+            ${summary.media.files}
+          </p>
+          `
+              : ''
+          }
+
           <p>
             <strong>Tabelas:</strong>
             ${summary.totalTables}

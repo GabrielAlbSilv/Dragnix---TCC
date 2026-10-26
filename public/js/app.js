@@ -2633,6 +2633,7 @@ async function rank() {
 
             <span>
               ${n + 1}º
+              ${avatarHtml(u, 'sm')}
               ${esc(u.name)}
 
               <small class="mut">
@@ -2660,180 +2661,700 @@ async function rank() {
 // ============================================================
 // PERFIL
 // ============================================================
+// ---------- Auxiliares da tela de perfil ----------
+
+
+
+
+/* ============================================================
+   AÇÕES DO PERFIL — DRAGNIX
+   ============================================================ */
+
+function profileFeedback(message, error = false) {
+  const el = document.getElementById('profileFeedback');
+  if (!el) return;
+
+  el.textContent = message;
+  el.classList.toggle('error', error);
+}
+
+function updateProfileUser(user) {
+  if (!user) return;
+
+  const current = me() || {};
+  localStorage.setItem('user', JSON.stringify({
+    ...current,
+    ...user
+  }));
+}
+
+// ALTERAR NOME
+
+function editName() {
+  const view = document.getElementById('profileNameView');
+  const form = document.getElementById('profileNameForm');
+  const input = document.getElementById('profileNameInput');
+
+  if (!view || !form || !input) return;
+
+  view.style.display = 'none';
+  form.style.display = 'flex';
+  input.focus();
+  input.select();
+}
+
+function cancelName() {
+  const view = document.getElementById('profileNameView');
+  const form = document.getElementById('profileNameForm');
+
+  if (view) view.style.display = '';
+  if (form) form.style.display = 'none';
+
+  profileFeedback('');
+}
+
+async function saveName() {
+  const input = document.getElementById('profileNameInput');
+  if (!input) return;
+
+  const name = input.value.trim().replace(/\s+/g, ' ');
+
+  if (name.length < 2 || name.length > 60) {
+    profileFeedback(
+      'O nome deve ter entre 2 e 60 caracteres.',
+      true
+    );
+    return;
+  }
+
+  const buttons = document.querySelectorAll(
+    '#profileNameForm button'
+  );
+
+  buttons.forEach(btn => btn.disabled = true);
+  profileFeedback('Salvando nome...');
+
+  try {
+    const result = await api('/me/name', 'PUT', { name });
+
+    updateProfileUser(result.user);
+    await profile();
+
+    profileFeedback('Nome atualizado com sucesso!');
+  } catch (error) {
+    profileFeedback(error.message, true);
+    buttons.forEach(btn => btn.disabled = false);
+  }
+}
+
+// ENVIAR FOTO
+
+async function onAvatarPicked(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+
+  const allowed = [
+    'image/jpeg',
+    'image/png',
+    'image/webp'
+  ];
+
+  if (!allowed.includes(file.type)) {
+    profileFeedback(
+      'Selecione uma imagem JPG, PNG ou WebP.',
+      true
+    );
+    input.value = '';
+    return;
+  }
+
+  const maxSize = 10 * 1024 * 1024;
+
+  if (file.size > maxSize) {
+    profileFeedback(
+      'A imagem original deve ter no máximo 10 MB.',
+      true
+    );
+    input.value = '';
+    return;
+  }
+
+  input.disabled = true;
+  profileFeedback('Otimizando e enviando foto...');
+
+  try {
+    // Usa o redimensionamento já existente em api.js.
+    const data = await resizeAvatar(file);
+
+    const result = await api('/me/avatar', 'POST', {
+      data
+    });
+
+    updateProfileUser(result.user);
+
+    await profile();
+
+    profileFeedback('Foto atualizada com sucesso!');
+  } catch (error) {
+    profileFeedback(error.message, true);
+  } finally {
+    input.disabled = false;
+    input.value = '';
+  }
+}
+// REMOVER FOTO OU AVATAR
+
+async function removeAvatar() {
+  if (!confirm('Deseja remover seu avatar atual?')) return;
+
+  profileFeedback('Removendo avatar...');
+
+  try {
+    const result = await api('/me/avatar', 'DELETE');
+
+    updateProfileUser(result.user);
+    await profile();
+
+    profileFeedback('Avatar removido com sucesso!');
+  } catch (error) {
+    profileFeedback(error.message, true);
+  }
+}
+
+// ABRIR E FECHAR GALERIA
+
+async function toggleAvatarGallery() {
+  const gallery = document.getElementById('avatarGallery');
+  if (!gallery) return;
+
+  if (gallery.style.display !== 'none') {
+    gallery.style.display = 'none';
+    return;
+  }
+
+  gallery.style.display = 'block';
+  gallery.textContent = 'Carregando avatares...';
+
+  try {
+    const result = await api('/avatars');
+    const presets = Array.isArray(result.presets)
+      ? result.presets
+      : [];
+
+    if (!gallery.isConnected ||
+        gallery.style.display === 'none') return;
+
+    if (!presets.length) {
+      gallery.textContent = 'Nenhum avatar disponível.';
+      return;
+    }
+
+    const grid = document.createElement('div');
+    grid.className = 'avatar-gallery';
+
+    presets.forEach(preset => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'avatar-option';
+      button.title = preset.label || 'Selecionar avatar';
+      button.setAttribute('aria-label', button.title);
+
+      const img = document.createElement('img');
+      img.src = preset.url;
+      img.alt = preset.label || 'Avatar';
+      img.loading = 'lazy';
+
+      button.appendChild(img);
+
+      button.addEventListener('click', () => {
+        chooseProfileAvatar(preset.id);
+      });
+
+      grid.appendChild(button);
+    });
+
+    gallery.replaceChildren(grid);
+  } catch (error) {
+    if (gallery.isConnected) {
+      gallery.textContent = 'Erro ao carregar avatares.';
+    }
+    profileFeedback(error.message, true);
+  }
+}
+
+// SELECIONAR AVATAR
+
+async function chooseProfileAvatar(id) {
+  const gallery = document.getElementById('avatarGallery');
+  const buttons = gallery?.querySelectorAll('button') || [];
+
+  buttons.forEach(btn => btn.disabled = true);
+  profileFeedback('Atualizando avatar...');
+
+  try {
+    const result = await api(
+      '/me/avatar/preset',
+      'POST',
+      { id }
+    );
+
+    updateProfileUser(result.user);
+    await profile();
+
+    profileFeedback('Avatar atualizado com sucesso!');
+  } catch (error) {
+    buttons.forEach(btn => btn.disabled = false);
+    profileFeedback(error.message, true);
+  }
+}
+
+
+function profileBadgeIcon(b) {
+  const lucide = [
+    'trophy', 'zap', 'crown', 'flame',
+    'medal', 'star', 'gem', 'award'
+  ];
+
+  return lucide.includes(b.icon)
+    ? icon(b.icon)
+    : esc(b.icon || '🏆');
+}
+
+function profileLocalToday() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
 
 async function profile() {
   const p = await api('/me/profile');
 
   refresh();
 
-  const week = arr(p.week);
+  // ---------- Dados derivados ----------
 
-  const top = Math.max(
-    ...week.map(x => x.xp),
-    1
+  const week = arr(p.week);
+  const missions = arr(p.missions);
+  const badgeList = arr(p.badges);
+
+  const topXp = Math.max(...week.map(x => x.xp), 1);
+  const weekTotal = week.reduce((sum, x) => sum + x.xp, 0);
+
+  const span = (p.nextXp - p.curXp) || 1;
+
+  const levelPct = Math.max(
+    0,
+    Math.min(100, ((p.xp - p.curXp) / span) * 100)
   );
 
+  const xpMissing = Math.max(0, p.nextXp - p.xp);
+
+  const missionsDone = missions.filter(m => m.claimed || m.done).length;
+
+  // Conquistadas primeiro; a ordem original é mantida em cada grupo.
+  const earned = badgeList.filter(b => b.got);
+  const locked = badgeList.filter(b => !b.got);
+  const sortedBadges = [...earned, ...locked];
+
+  const todayKey = profileLocalToday();
+  const weekDays = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+
+  const stats = [
+    { icon: 'flame',       value: p.streak,  label: 'Dias seguidos', cls: 'streak' },
+    { icon: 'coins',       value: p.coins,   label: 'Moedas',        cls: 'coins'  },
+    { icon: 'book',        value: p.lessons, label: 'Lições',        cls: 'lessons' },
+    { icon: 'badge-check', value: p.perfect, label: 'Perfeitas',     cls: 'perfect' },
+    { icon: 'flag',        value: p.tracks,  label: 'Trilhas',       cls: 'tracks' }
+  ];
+
+  const canBuyHearts = Number(p.coins) >= 30;
+
+  // ---------- Tela ----------
+
   main.innerHTML = `
-    <div
-      class="card"
-      style="text-align:center"
-    >
+    <!-- ============ CABEÇALHO ============ -->
+    <section class="card pf-hero" aria-label="Seu perfil">
 
-      <h2>
-        ${esc(p.name)}
-      </h2>
+      <div class="pf-cover" aria-hidden="true"></div>
 
-      <h3>
-        ${icon('medal')} Nível ${p.level}
-      </h3>
+      <div class="pf-hero-body">
 
-      <div class="bar">
+        <div class="pf-avatar-wrap">
+
+          ${avatarHtml(
+            { name: p.name, avatar_url: p.avatar_url },
+            'lg'
+          )}
+
+          <span
+            class="pf-level-chip"
+            title="Nível ${p.level}"
+          >
+            ${icon('medal')} Nv ${p.level}
+          </span>
+
+        </div>
+
         <div
-          style="
-            width:${
-              (p.xp - p.curXp) /
-              (p.nextXp - p.curXp || 1) *
-              100
-            }%
-          "
+          class="profile-name"
+          id="profileNameView"
+        >
+          <h2>${esc(p.name)}</h2>
+
+          <button
+            class="pf-icon-btn"
+            type="button"
+            onclick="editName()"
+            title="Alterar nome"
+            aria-label="Alterar nome"
+          >
+            ${icon('pencil')}
+          </button>
+        </div>
+
+        <div
+          class="profile-name-form"
+          id="profileNameForm"
+          style="display:none"
+        >
+          <input
+            type="text"
+            id="profileNameInput"
+            class="profile-name-input"
+            value="${esc(p.name)}"
+            maxlength="60"
+            autocomplete="name"
+            aria-label="Seu nome"
+            onkeydown="
+              if (event.key === 'Enter') saveName();
+              if (event.key === 'Escape') cancelName();
+            "
+          >
+
+          <div class="profile-name-actions">
+            <button
+              class="btn sm"
+              type="button"
+              onclick="saveName()"
+            >
+              ${icon('check')} Salvar
+            </button>
+
+            <button
+              class="btn sm sec"
+              type="button"
+              onclick="cancelName()"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+
+        <div class="pf-avatar-actions">
+
+          <input
+            type="file"
+            id="avatarInput"
+            accept="image/*"
+            hidden
+            onchange="onAvatarPicked(this)"
+          >
+
+          <button
+            class="btn sm sec"
+            type="button"
+            onclick="document.getElementById('avatarInput').click()"
+          >
+            ${icon('camera')}
+            ${p.avatar_url ? 'Trocar foto' : 'Enviar foto'}
+          </button>
+
+          <button
+            class="btn sm sec"
+            type="button"
+            onclick="toggleAvatarGallery()"
+          >
+            ${icon('smile')} Escolher avatar
+          </button>
+
+          ${
+            p.avatar_url
+              ? `
+                <button
+                  class="btn sm sec pf-danger"
+                  type="button"
+                  onclick="removeAvatar()"
+                >
+                  ${icon('trash-2')} Remover
+                </button>
+              `
+              : ''
+          }
+
+        </div>
+
+        <div
+          id="avatarGallery"
+          class="avatar-gallery-box"
+          style="display:none"
         ></div>
+
+        <div
+          class="profile-feedback"
+          id="profileFeedback"
+          role="status"
+          aria-live="polite"
+        ></div>
+
+        <!-- Progresso de nível -->
+        <div class="pf-level">
+
+          <div class="pf-level-top">
+            <strong>Nível ${p.level}</strong>
+            <span class="mut">
+              ${p.xp} / ${p.nextXp} XP
+            </span>
+          </div>
+
+          <div
+            class="bar pf-bar"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="${Math.round(levelPct)}"
+            aria-label="Progresso para o nível ${p.level + 1}"
+          >
+            <div style="width:${levelPct}%"></div>
+          </div>
+
+          <p class="mut pf-level-hint">
+            Faltam <b>${xpMissing} XP</b>
+            para o nível ${p.level + 1}
+          </p>
+
+        </div>
+
       </div>
 
-      <p class="mut">
-        ${p.xp} / ${p.nextXp} XP
-        para o nível ${p.level + 1}
-      </p>
+    </section>
 
-      <p>
-        ${icon('flame')} ${p.streak} dia(s)
-        · ${icon('coins')} ${p.coins}
-        · ${icon('book')} ${p.lessons} lições
-        · ${icon('badge-check')} ${p.perfect} perfeitas
-        · ${icon('flag')} ${p.tracks} trilhas
-      </p>
 
-      <button
-        class="btn sm"
-        onclick="buyHearts()"
-      >
-        ${icon('heart')} Recarregar vidas (30 ${icon('coins')})
-      </button>
-
-    </div>
-
-    <h3>
-      ${icon('target')} Missões de hoje
-    </h3>
-
-    ${arr(p.missions)
-      .map(
-        m => `
-          <div class="card row">
-
-            <span>
-              ${m.icon}
-              ${m.label}
-
-              <small class="mut">
-                (${m.value}/${m.goal})
-              </small>
-            </span>
-
-            ${
-              m.claimed
-                ? icon('circle-check')
-                : m.done
-                  ? `
-                    <button
-                      class="btn sm"
-                      onclick="claim('${m.code}')"
-                    >
-                      Resgatar +10 ${icon('coins')}
-                    </button>
-                  `
-                  : ''
-            }
-
-          </div>
-        `
-      )
-      .join('')}
-
-    <h3>
-      ${icon('award')} Conquistas
-    </h3>
-
-    <div class="badges">
-      ${arr(p.badges)
+    <!-- ============ ESTATÍSTICAS ============ -->
+    <div class="pf-stats">
+      ${stats
         .map(
-          b => `
-            <div
-              class="bdg ${b.got ? '' : 'off'}"
-              title="${esc(b.desc)}"
-            >
-              <span>
-        
-              ${
-                [
-                  'trophy', 'zap', 'crown', 'flame',
-                  'medal', 'star', 'gem', 'award'
-                ].includes(b.icon)
-                  ? icon(b.icon)
-                  : esc(b.icon || '🏆')
-              }
-              </span>
-
-              <small>
-                ${esc(b.name)}
-              </small>
-
-              <small class="mut">
-                ${esc(b.desc)}
-              </small>
+          s => `
+            <div class="pf-stat pf-stat-${s.cls}">
+              <span class="pf-stat-icon">${icon(s.icon)}</span>
+              <strong>${s.value}</strong>
+              <small>${s.label}</small>
             </div>
           `
         )
         .join('')}
     </div>
 
-    <h3>
-      ${icon('calendar')} XP dos últimos dias
-    </h3>
 
-    <div class="week">
+    <!-- ============ LOJA ============ -->
+    <div class="card pf-shop">
+
+      <span class="pf-shop-icon">${icon('heart')}</span>
+
+      <div class="pf-shop-text">
+        <strong>Recarregar vidas</strong>
+        <small class="mut">
+          Troque 30 moedas por vidas e continue estudando.
+        </small>
+      </div>
+
+      <button
+        class="btn sm"
+        type="button"
+        onclick="buyHearts()"
+        ${canBuyHearts ? '' : 'disabled'}
+        title="${
+          canBuyHearts
+            ? 'Recarregar vidas'
+            : 'Você precisa de 30 moedas'
+        }"
+      >
+        30 ${icon('coins')}
+      </button>
+
+    </div>
+
+
+    <!-- ============ MISSÕES ============ -->
+    <div class="pf-section-head">
+      <h3>${icon('target')} Missões de hoje</h3>
+      <span class="pf-pill">
+        ${missionsDone}/${missions.length}
+      </span>
+    </div>
+
+    ${
+      missions.length
+        ? missions
+            .map(m => {
+              const pct = Math.max(
+                0,
+                Math.min(100, (m.value / (m.goal || 1)) * 100)
+              );
+
+              return `
+                <div class="card pf-mission${m.claimed ? ' is-claimed' : ''}">
+
+                  <span
+                    class="pf-mission-emoji"
+                    aria-hidden="true"
+                  >${m.icon}</span>
+
+                  <div class="pf-mission-body">
+
+                    <div class="pf-mission-title">
+                      <strong>${esc(m.label)}</strong>
+                      <small class="mut">
+                        ${m.value}/${m.goal}
+                      </small>
+                    </div>
+
+                    <div class="bar pf-bar-sm">
+                      <div style="width:${pct}%"></div>
+                    </div>
+
+                  </div>
+
+                  <div class="pf-mission-action">
+                    ${
+                      m.claimed
+                        ? `
+                          <span class="pf-claimed">
+                            ${icon('circle-check')} Resgatado
+                          </span>
+                        `
+                        : m.done
+                          ? `
+                            <button
+                              class="btn sm"
+                              type="button"
+                              onclick="claim('${esc(m.code)}')"
+                            >
+                              +10 ${icon('coins')}
+                            </button>
+                          `
+                          : `<span class="pf-pending mut">Em andamento</span>`
+                    }
+                  </div>
+
+                </div>
+              `;
+            })
+            .join('')
+        : `
+          <div class="card pf-empty">
+            <p class="mut">Nenhuma missão disponível hoje.</p>
+          </div>
+        `
+    }
+
+
+    <!-- ============ CONQUISTAS ============ -->
+    <div class="pf-section-head">
+      <h3>${icon('award')} Conquistas</h3>
+      <span class="pf-pill">
+        ${earned.length}/${badgeList.length}
+      </span>
+    </div>
+
+    ${
+      badgeList.length
+        ? `
+          <div class="badges pf-badges">
+            ${sortedBadges
+              .map(
+                b => `
+                  <div
+                    class="bdg ${b.got ? 'is-got' : 'off'}"
+                    title="${esc(b.desc)}"
+                  >
+                    <span>${profileBadgeIcon(b)}</span>
+
+                    <small><b>${esc(b.name)}</b></small>
+
+                    <small class="mut">${esc(b.desc)}</small>
+                  </div>
+                `
+              )
+              .join('')}
+          </div>
+        `
+        : `
+          <div class="card pf-empty">
+            <p class="mut">Ainda não há conquistas cadastradas.</p>
+          </div>
+        `
+    }
+
+
+    <!-- ============ XP DA SEMANA ============ -->
+    <div class="pf-section-head">
+      <h3>${icon('calendar')} XP dos últimos dias</h3>
+      <span class="pf-pill">${weekTotal} XP</span>
+    </div>
+
+    <div class="card pf-week-card">
       ${
-        week.map(
-          w => `
-            <div>
+        week.length
+          ? `
+            <div class="pf-week">
+              ${week
+                .map(w => {
+                  const date = new Date(w.day + 'T00:00:00');
+                  const label = isNaN(date)
+                    ? ''
+                    : weekDays[date.getDay()];
 
-              <div
-                class="wb"
-                style="
-                  height:${Math.max(
-                    4,
-                    (w.xp / top) * 80
-                  )}px
-                "
-              ></div>
+                  const height = w.xp > 0
+                    ? Math.max(6, (w.xp / topXp) * 100)
+                    : 3;
 
-              <small>
-                ${w.day.slice(8)}/${w.day.slice(5, 7)}
-              </small>
+                  return `
+                    <div
+                      class="pf-day${w.day === todayKey ? ' is-today' : ''}"
+                      role="img"
+                      aria-label="${w.day.slice(8)}/${w.day.slice(5, 7)}: ${w.xp} XP"
+                    >
+                      <span class="pf-day-xp">${w.xp}</span>
 
+                      <div class="pf-day-track">
+                        <div
+                          class="pf-day-bar"
+                          style="height:${height}%"
+                        ></div>
+                      </div>
+
+                      <small class="pf-day-label">
+                        ${label}<br>
+                        ${w.day.slice(8)}/${w.day.slice(5, 7)}
+                      </small>
+                    </div>
+                  `;
+                })
+                .join('')}
             </div>
           `
-        ).join('') ||
-
-        `
-          <p class="mut">
-            Sem atividade ainda.
-          </p>
-        `
+          : `
+            <p class="mut pf-empty-text">
+              ${icon('calendar')}
+              Sem atividade ainda. Conclua uma lição para começar!
+            </p>
+          `
       }
     </div>
   `;
 }
-
 // ============================================================
 // CONQUISTAS
 // ============================================================
@@ -6158,6 +6679,7 @@ function doubtBubble(m, reply) {
         align-items:center;
         flex-wrap:wrap;
       ">
+        ${avatarHtml(m.author, 'sm')}
         <b>${esc(m.author.name)}</b>
         ${
           staffAuthor
@@ -6502,35 +7024,47 @@ async function delDoubt(id) {
   // ----------------------------------------------------------
   // BOTÃO "← VOLTAR" NO TOPO DO CONTEÚDO
   // ----------------------------------------------------------
+// ============================================================
+// BOTÃO VOLTAR — NAVEGAÇÃO INTERNA
+// ============================================================
 
-  const backButton = document.createElement('button');
+const backButton = document.createElement('button');
 
-  backButton.type = 'button';
-  backButton.className = 'link';
-  backButton.innerHTML = icon('arrow-left') + ' Voltar';
-  backButton.style.marginBottom = '12px';
-  backButton.setAttribute(
-    'aria-label',
-    'Voltar para a página anterior'
-  );
-  backButton.addEventListener('click', () => window.goBack());
+backButton.type = 'button';
+backButton.className = 'dragnix-back-btn';
 
-  function syncBackButton() {
-    const current = stack[stack.length - 1];
+backButton.innerHTML = `
+  <span class="dragnix-back-icon" aria-hidden="true">
+    ${icon('arrow-left')}
+  </span>
+  <span class="dragnix-back-label">Voltar</span>
+`;
 
-    const show =
-      stack.length > 1 &&
-      !!current &&
-      !current.transient;
+backButton.setAttribute(
+  'aria-label',
+  'Voltar para a tela anterior'
+);
 
-    if (show) {
-      if (main.firstElementChild !== backButton) {
-        main.prepend(backButton);
-      }
-    } else if (backButton.parentNode === main) {
-      backButton.remove();
+backButton.addEventListener('click', () => {
+  window.goBack();
+});
+
+function syncBackButton() {
+  const current = stack[stack.length - 1];
+
+  const show =
+    stack.length > 1 &&
+    !!current &&
+    !current.transient;
+
+  if (show) {
+    if (main.firstElementChild !== backButton) {
+      main.prepend(backButton);
     }
+  } else if (backButton.parentNode === main) {
+    backButton.remove();
   }
+}
 
   // Cada tela redesenha o #main; o botão é recolocado a cada vez.
   new MutationObserver(syncBackButton).observe(main, {

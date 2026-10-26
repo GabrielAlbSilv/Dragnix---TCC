@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="pt-BR">
 
@@ -32,6 +31,8 @@
         <link rel="stylesheet" href="css/admin-modern.css">
 </head>
 
+<script src="js/back-navigation.js"></script>
+
 <body class="admin-page">
 
     <!-- ============================================
@@ -39,140 +40,151 @@
          ============================================ -->
 
     <header class="admin-header">
+  <div class="admin-header-inner">
 
-        <div class="admin-header-inner">
+    <div class="admin-brand">
+      <a href="app.html" class="logo-home"
+         title="Área do aluno"
+         aria-label="Ir para a área do aluno">
 
-            <!-- MARCA -->
-            <div class="admin-brand">
+        <img
+          src="css/images/dragnix_dragon_black_nobackground.png"
+          data-logo-light="css/images/dragnix_dragon_black_nobackground.png"
+          data-logo-dark="css/images/dranix_icon_white_nobackground.png"
+          alt="Dragnix"
+          width="40"
+          height="40"
+          class="trilhas-icon"
+        >
+      </a>
 
-                <a
-                    href="app.html"
-                    class="logo-home"
-                    title="Ir para o painel do aluno"
-                    aria-label="Ir para o painel do aluno"
-                >
+      <div class="admin-brand-text">
+        <strong class="trilhas-title">DRAGNIX</strong>
+        <span class="admin-brand-subtitle">
+          Central administrativa
+        </span>
+      </div>
+    </div>
 
-                    <img
-                        src="css/images/dragnix_dragon_black_nobackground.png"
-                        data-logo-light="css/images/dragnix_dragon_black_nobackground.png"
-                        data-logo-dark="css/images/dranix_icon_white_nobackground.png"
-                        alt="Dragão Dragnix"
-                        class="trilhas-icon"
-                        width="40"
-                        height="40"
-                    >
+    <div class="admin-header-actions">
 
-                </a>
+      <a href="app.html"
+         class="btn sec admin-header-back">
+        <i data-lucide="arrow-left"></i>
+        <span>Área do aluno</span>
+      </a>
 
-                <div class="admin-brand-text">
+      <div class="admin-menu" id="adminMenu">
 
-                    <strong class="trilhas-title">
-                        Dragnix — Painel ADM
-                    </strong>
+        <button
+          type="button"
+          class="admin-menu-toggle"
+          id="adminMenuToggle"
+          aria-label="Abrir menu"
+          aria-expanded="false"
+          aria-controls="adminMenuPanel"
+          title="Menu de navegação">
+          <i data-lucide="menu" id="adminMenuIcon"></i>
+        </button>
 
-                    <span class="admin-brand-subtitle">
-                        Gerenciamento da plataforma
-                    </span>
+        <nav class="admin-menu-panel"
+             id="adminMenuPanel"
+             aria-label="Navegação administrativa">
 
-                </div>
+          <div class="admin-menu-heading">Gerenciamento</div>
 
-            </div>
+          <button type="button" class="admin-menu-item" id="t1">
+            <i data-lucide="route"></i>
+            <span>Trilhas e módulos</span>
+          </button>
 
-            <!-- MENU ADMINISTRATIVO -->
-            <div
-                class="admin-menu"
-                id="adminMenu"
-            >
+          <button type="button" class="admin-menu-item" id="t2">
+            <i data-lucide="users"></i>
+            <span>Usuários</span>
+          </button>
 
-                <button
-                    type="button"
-                    class="admin-menu-toggle"
-                    id="adminMenuToggle"
-                    aria-label="Abrir menu"
-                    aria-expanded="false"
-                    aria-controls="adminMenuPanel"
-                    title="Menu de navegação"
-                >
-                    <i
-                        data-lucide="menu"
-                        id="adminMenuIcon"
-                    ></i>
-                </button>
+          <button type="button" class="admin-menu-item" id="t3">
+            <i data-lucide="smile"></i>
+            <span>Avatares</span>
+          </button>
 
-                <nav
-                    class="admin-menu-panel"
-                    id="adminMenuPanel"
-                    aria-label="Navegação administrativa"
-                >
+          <div class="admin-menu-divider"></div>
+          <div class="admin-menu-heading">Plataforma</div>
 
-                    <!-- GESTÃO -->
-                    <button
-                        type="button"
-                        class="admin-menu-item"
-                        id="t1"
-                    >
-                        <i data-lucide="route"></i>
-                        <span>Trilhas</span>
-                    </button>
+          <a href="app.html" class="admin-menu-item">
+            <i data-lucide="graduation-cap"></i>
+            <span>Ver como aluno</span>
+          </a>
 
-                    <button
-                        type="button"
-                        class="admin-menu-item"
-                        id="t2"
-                    >
-                        <i data-lucide="users"></i>
-                        <span>Usuários</span>
-                    </button>
+          <button
+            type="button"
+            class="admin-menu-item adm-only"
+            onclick="window.location.href='admin-sistema.html'">
+            <i data-lucide="settings"></i>
+            <span>Sistema / Banco</span>
+          </button>
 
-                    <div class="admin-menu-divider"></div>
+          <div class="admin-menu-divider"></div>
 
-                    <!-- NAVEGAÇÃO -->
-                    <a
-                        href="app.html"
-                        class="admin-menu-item"
-                    >
-                        <i data-lucide="graduation-cap"></i>
-                        <span>Ver como aluno</span>
-                    </a>
+          <button
+            type="button"
+            class="admin-menu-item admin-menu-danger"
+            onclick="logout()">
+            <i data-lucide="log-out"></i>
+            <span>Sair da conta</span>
+          </button>
 
-                    <button
-                        type="button"
-                        class="admin-menu-item adm-only"
-                        onclick="window.location.href='admin-sistema.html'"
-                    >
-                        <i data-lucide="settings"></i>
-                        <span>Sistema / Banco</span>
-                    </button>
+        </nav>
+      </div>
+    </div>
+  </div>
+</header>
 
-                    <div class="admin-menu-divider"></div>
+<div class="admin-workspace">
 
-                    <!-- SAIR -->
-                    <button
-                        type="button"
-                        class="admin-menu-item admin-menu-danger"
-                        onclick="logout()"
-                    >
-                        <i data-lucide="log-out"></i>
-                        <span>Sair da conta</span>
-                    </button>
+  <section class="admin-page-heading"
+           aria-label="Cabeçalho do painel">
 
-                </nav>
+    <div class="admin-heading-text">
+      <div class="admin-eyebrow">
+        <i data-lucide="layout-dashboard"></i>
+        <span>Gerenciamento</span>
+      </div>
 
-            </div>
+      <h1>Painel administrativo</h1>
 
-        </div>
+      <p>
+        Gerencie trilhas de aprendizagem, usuários,
+        conteúdos e recursos da plataforma.
+      </p>
+    </div>
 
-    </header>
+    <a href="admin-sistema.html"
+       class="btn sec admin-system-shortcut adm-only">
+      <i data-lucide="settings-2"></i>
+      <span>Configurações do sistema</span>
+    </a>
 
-    <!-- ============================================
-         CONTEÚDO PRINCIPAL
-         ============================================ -->
+  </section>
 
-    <main
-        class="wrap wide admin-main"
-        id="main"
-        aria-label="Conteúdo do painel administrativo"
-    ></main>
+  <div class="admin-section-heading">
+    <div>
+      <h2 id="adminSectionTitle">Trilhas e módulos</h2>
+      <p id="adminSectionDescription">
+        Organize os conteúdos e acompanhe a estrutura
+        de aprendizagem.
+      </p>
+    </div>
+  </div>
+
+  <main
+    class="wrap wide admin-main"
+    id="main"
+    aria-label="Conteúdo do painel administrativo">
+  </main>
+
+</div>
+></main>
 
     <!-- ============================================
          MODAL DE EDIÇÃO
