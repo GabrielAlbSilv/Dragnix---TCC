@@ -11,6 +11,9 @@ const BACKUP_FORMAT = 'DRAGNIX_BACKUP';
 const BACKUP_VERSION = 1;
 const APPLICATION_NAME = 'Dragnix';
 
+// Registros enviados por lote durante a restauração.
+const RESTORE_BATCH_SIZE = 200;
+
 const ENCRYPTION_ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32;
 const SALT_LENGTH = 16;
@@ -488,9 +491,9 @@ function mediaSummary(
 // COLETAR BANCO
 // ============================================================
 
-function collectDatabase(db) {
+async function collectDatabase(db) {
   const schema =
-    db
+    await db
       .prepare(`
         SELECT
           type,
@@ -511,43 +514,42 @@ function collectDatabase(db) {
       `)
       .all();
 
-  const tables =
-    schema
-      .filter(
-        item =>
-          item.type === 'table'
-      )
-      .map(
-        table => {
-          const name =
-            table.name;
+  const tables = [];
 
-          const identifier =
-            quoteIdentifier(
-              name
-            );
+  for (
+    const table of schema.filter(
+      item =>
+        item.type === 'table'
+    )
+  ) {
+    const name =
+      table.name;
 
-          const columns =
-            db
-              .prepare(
-                `PRAGMA table_info(${identifier})`
-              )
-              .all();
-
-          const rows =
-            db
-              .prepare(
-                `SELECT * FROM ${identifier}`
-              )
-              .all();
-
-          return {
-            name,
-            columns,
-            rows
-          };
-        }
+    const identifier =
+      quoteIdentifier(
+        name
       );
+
+    const columns =
+      await db
+        .prepare(
+          `PRAGMA table_info(${identifier})`
+        )
+        .all();
+
+    const rows =
+      await db
+        .prepare(
+          `SELECT * FROM ${identifier}`
+        )
+        .all();
+
+    tables.push({
+      name,
+      columns,
+      rows
+    });
+  }
 
   return {
     schema,
@@ -1031,7 +1033,7 @@ function validateMedia(
 // VALIDAR BACKUP
 // ============================================================
 
-function validateBackup(
+async function validateBackup(
   data,
   db
 ) {
@@ -1134,7 +1136,7 @@ function validateBackup(
     }
 
     const exists =
-      db
+      await db
         .prepare(`
           SELECT 1
           FROM sqlite_master
@@ -1178,7 +1180,7 @@ function validateBackup(
     // COMPATIBILIDADE ENTRE VERSÕES DAS COLUNAS
     // ----------------------------------------------------------
 
-    const currentColumns = db.prepare(
+    const currentColumns = await db.prepare(
       `PRAGMA table_info(${quoteIdentifier(table.name)})`
     ).all();
 
@@ -1431,18 +1433,18 @@ function backupSummary(
 // RESTAURAÇÃO DO BANCO
 // ============================================================
 
-function restoreDatabase(
+async function restoreDatabase(
   db,
   data,
   restoreFiles = null
 ) {
-  validateBackup(
+  await validateBackup(
     data,
     db
   );
 
   const currentTables =
-    db
+    (await db
       .prepare(`
         SELECT name
         FROM sqlite_master
@@ -1450,7 +1452,7 @@ function restoreDatabase(
         AND name NOT LIKE 'sqlite_%'
         ORDER BY name
       `)
-      .all()
+      .all())
       .map(
         row =>
           row.name
@@ -1503,23 +1505,25 @@ function restoreDatabase(
     name => !backupTables.includes(name)
   );
 
-  const tablesWithExistingData = missingChallengeTables.filter(
-    name => {
-      const exists = db.prepare(`
-        SELECT 1
-        FROM sqlite_master
-        WHERE type = 'table' AND name = ?
-      `).get(name);
+  const tablesWithExistingData = [];
 
-      if (!exists) return false;
+  for (const name of missingChallengeTables) {
+    const exists = await db.prepare(`
+      SELECT 1
+      FROM sqlite_master
+      WHERE type = 'table' AND name = ?
+    `).get(name);
 
-      const row = db.prepare(
-        `SELECT COUNT(*) AS total FROM "${name}"`
-      ).get();
+    if (!exists) continue;
 
-      return Number(row.total) > 0;
+    const row = await db.prepare(
+      `SELECT COUNT(*) AS total FROM "${name}"`
+    ).get();
+
+    if (Number(row.total) > 0) {
+      tablesWithExistingData.push(name);
     }
-  );
+  }
 
   if (tablesWithExistingData.length) {
     throw new Error(
@@ -1548,16 +1552,18 @@ function restoreDatabase(
       !backupTables.includes(name)
   );
 
-  const missingTablesWithData = missingOptionalTables.filter(
-    name => {
-      const row = db.prepare(
-        `SELECT COUNT(*) AS total
-         FROM ${quoteIdentifier(name)}`
-      ).get();
+  const missingTablesWithData = [];
 
-      return Number(row?.total || 0) > 0;
+  for (const name of missingOptionalTables) {
+    const row = await db.prepare(
+      `SELECT COUNT(*) AS total
+       FROM ${quoteIdentifier(name)}`
+    ).get();
+
+    if (Number(row?.total || 0) > 0) {
+      missingTablesWithData.push(name);
     }
-  );
+  }
 
   if (missingTablesWithData.length > 0) {
     throw new Error(
@@ -1568,204 +1574,176 @@ function restoreDatabase(
     );
   }
 
-  const foreignKeys =
-    db
-      .prepare(
-        'PRAGMA foreign_keys'
-      )
-      .get()
-      ?.foreign_keys ?? 1;
+  // Toda a restauração acontece em UMA transação: qualquer erro
+  // (inclusive no COMMIT) desfaz tudo e o banco fica como estava.
+  //
+  // No Turso não é possível desligar as chaves estrangeiras por
+  // conexão (PRAGMA foreign_keys = OFF). Em vez disso, a checagem
+  // é adiada para o COMMIT (PRAGMA defer_foreign_keys), o que
+  // permite inserir as tabelas em qualquer ordem. As exclusões em
+  // cascata só atingem tabelas que também são limpas aqui ou que
+  // já estão vazias (garantido pelas verificações acima).
+
+  let mediaOperation = null;
 
   try {
 
-    db.exec(
-      'PRAGMA foreign_keys = OFF'
-    );
+    await db.transaction(async () => {
 
-    db.exec(
-      'BEGIN TRANSACTION'
-    );
+      await db.prepare(
+        'PRAGMA defer_foreign_keys = ON'
+      ).run();
 
-    // --------------------------------------------------------
-    // LIMPAR BANCO
-    // --------------------------------------------------------
+      // --------------------------------------------------------
+      // LIMPAR APENAS AS TABELAS PRESENTES NO BACKUP
+      // --------------------------------------------------------
 
-    
-    // --------------------------------------------------------
-    // LIMPAR APENAS AS TABELAS PRESENTES NO BACKUP
-    // --------------------------------------------------------
+      // Tabelas opcionais ausentes no backup não serão
+      // apagadas automaticamente.
+      //
+      // A verificação de integridade no final da transação
+      // continua obrigatória.
 
-    // Tabelas opcionais ausentes no backup não serão
-    // apagadas automaticamente.
-    //
-    // A verificação de integridade no final da transação
-    // continua obrigatória.
+      for (const tableName of currentTables) {
+        if (
+          !backupTables.includes(tableName) &&
+          tableName !== 'avatar_presets'
+        ) {
+          continue;
+        }
 
-    for (const tableName of currentTables) {
-      if (
-        !backupTables.includes(tableName) &&
-        tableName !== 'avatar_presets'
-      ) {
-        continue;
+        await db.prepare(
+          `DELETE FROM ${quoteIdentifier(tableName)}`
+        ).run();
       }
 
-      db.exec(
-        `DELETE FROM ${quoteIdentifier(tableName)}`
-      );
-    }
+      // --------------------------------------------------------
+      // RESTAURAR DADOS
+      // --------------------------------------------------------
 
-    // --------------------------------------------------------
-    // RESTAURAR DADOS
-    // --------------------------------------------------------
-
-    for (
-      const table of data.tables
-    ) {
-
-      if (
-        table.rows.length ===
-        0
+      for (
+        const table of data.tables
       ) {
-        continue;
-      }
 
-      const columns =
-        table.columns.map(
-          column =>
-            column.name
-        );
+        if (
+          table.rows.length ===
+          0
+        ) {
+          continue;
+        }
 
-      const placeholders =
-        columns
-          .map(
-            () => '?'
-          )
-          .join(
-            ', '
+        const columns =
+          table.columns.map(
+            column =>
+              column.name
           );
 
-      const columnList =
-        columns
-          .map(
-            quoteIdentifier
-          )
-          .join(
-            ', '
-          );
+        const placeholders =
+          columns
+            .map(
+              () => '?'
+            )
+            .join(
+              ', '
+            );
 
-      const statement =
-        db.prepare(
+        const columnList =
+          columns
+            .map(
+              quoteIdentifier
+            )
+            .join(
+              ', '
+            );
+
+        const sql =
           `INSERT INTO ${quoteIdentifier(
             table.name
           )} (${columnList})
-           VALUES (${placeholders})`
-        );
+           VALUES (${placeholders})`;
 
-      for (
-        const row of table.rows
-      ) {
-        statement.run(
-          ...columns.map(
-            column =>
-              row[column]
-          )
-        );
-      }
-    }
-
-    // --------------------------------------------------------
-    // INTEGRIDADE
-    // --------------------------------------------------------
-
-    const integrity =
-      db
-        .prepare(
-          'PRAGMA foreign_key_check'
-        )
-        .all();
-
-    if (
-      integrity.length > 0
-    ) {
-      throw new Error(
-        'A restauração gerou inconsistências de chaves estrangeiras.'
-      );
-    }
-
-    
-    // --------------------------------------------------------
-    // RESTAURAR MÍDIAS ANTES DE CONFIRMAR O BANCO
-    // --------------------------------------------------------
-
-    // --------------------------------------------------------
-    // COORDENAR BANCO E MÍDIAS
-    // --------------------------------------------------------
-
-    let mediaOperation = null;
-
-    try {
-      if (typeof restoreFiles === 'function') {
-        mediaOperation = restoreFiles();
-      }
-
-      // Confirma o banco somente após instalar as mídias.
-      db.exec('COMMIT');
-
-    } catch (error) {
-
-      // Reverte a troca das mídias, se ela já ocorreu.
-      if (mediaOperation?.rollback) {
-        try {
-          mediaOperation.rollback();
-        } catch (mediaError) {
-          console.error(
-            'Falha ao recuperar mídias originais:',
-            mediaError
+        // Envia os registros em lotes (menos idas ao servidor).
+        for (
+          let start = 0;
+          start < table.rows.length;
+          start += RESTORE_BATCH_SIZE
+        ) {
+          await db.batch(
+            table.rows
+              .slice(start, start + RESTORE_BATCH_SIZE)
+              .map(row => ({
+                sql,
+                args: columns.map(
+                  column =>
+                    row[column]
+                )
+              }))
           );
         }
       }
 
-      throw error;
-    }
+      // --------------------------------------------------------
+      // INTEGRIDADE
+      // --------------------------------------------------------
 
-    // O banco já foi confirmado.
-    // A limpeza das mídias antigas é uma operação secundária.
-    if (mediaOperation?.commit) {
+      const integrity =
+        await db
+          .prepare(
+            'PRAGMA foreign_key_check'
+          )
+          .all();
+
+      if (
+        integrity.length > 0
+      ) {
+        throw new Error(
+          'A restauração gerou inconsistências de chaves estrangeiras.'
+        );
+      }
+
+      // --------------------------------------------------------
+      // RESTAURAR MÍDIAS ANTES DE CONFIRMAR O BANCO
+      // --------------------------------------------------------
+
+      // O COMMIT só acontece depois que o callback termina,
+      // ou seja, depois de instalar as mídias.
+      if (typeof restoreFiles === 'function') {
+        mediaOperation = restoreFiles();
+      }
+    });
+
+  } catch (error) {
+
+    // Banco revertido: reverte também a troca das mídias,
+    // se ela já ocorreu.
+    if (mediaOperation?.rollback) {
       try {
-        mediaOperation.commit();
-      } catch (cleanupError) {
+        mediaOperation.rollback();
+      } catch (mediaError) {
         console.error(
-          'Falha ao remover cópia antiga dos uploads:',
-          cleanupError
+          'Falha ao recuperar mídias originais:',
+          mediaError
         );
       }
     }
 
-
-    if (foreignKeys) {
-      db.exec(
-        'PRAGMA foreign_keys = ON'
-      );
-    }
-
-    return true;
-
-  } catch (error) {
-
-    try {
-      db.exec(
-        'ROLLBACK'
-      );
-    } catch {}
-
-    try {
-      db.exec(
-        'PRAGMA foreign_keys = ON'
-      );
-    } catch {}
-
     throw error;
   }
+
+  // O banco já foi confirmado.
+  // A limpeza das mídias antigas é uma operação secundária.
+  if (mediaOperation?.commit) {
+    try {
+      mediaOperation.commit();
+    } catch (cleanupError) {
+      console.error(
+        'Falha ao remover cópia antiga dos uploads:',
+        cleanupError
+      );
+    }
+  }
+
+  return true;
 }
 
 // ============================================================
@@ -2050,18 +2028,18 @@ function registerBackupRoutes(
     '/api/admin/database/clear',
     auth,
     adm,
-    (req, res) => {
+    async (req, res) => {
 
       try {
 
         const adminCount =
-          db
+          (await db
             .prepare(`
               SELECT COUNT(*) AS count
               FROM users
               WHERE role='adm'
             `)
-            .get()
+            .get())
             .count;
 
         if (
@@ -2076,26 +2054,26 @@ function registerBackupRoutes(
         // Fotos de perfil dos usuários que serão removidos.
         // Os arquivos só são apagados depois do COMMIT.
         const avatarsToRemove =
-          db
+          (await db
             .prepare(`
               SELECT avatar
               FROM users
               WHERE role <> 'adm'
               AND avatar IS NOT NULL
             `)
-            .all()
+            .all())
             .map(
               row =>
                 row.avatar
             );
 
-        db.exec(
-          'BEGIN IMMEDIATE'
-        );
+        // Erro em qualquer etapa: ROLLBACK de tudo.
+        const {
+          deletedUsers,
+          remainingAdmins
+        } = await db.transaction(async () => {
 
-        try {
-
-          db.exec(`
+          await db.exec(`
             DELETE FROM answers;
             DELETE FROM progress;
             DELETE FROM activity;
@@ -2107,29 +2085,29 @@ function registerBackupRoutes(
             DELETE FROM doubts;
           `);
 
-          db.exec(`
+          await db.exec(`
             DELETE FROM questions;
             DELETE FROM lessons;
             DELETE FROM tracks;
           `);
 
           const deletedUsers =
-            db
+            (await db
               .prepare(`
                 DELETE FROM users
                 WHERE role <> 'adm'
               `)
-              .run()
+              .run())
               .changes;
 
           const remainingAdmins =
-            db
+            (await db
               .prepare(`
                 SELECT COUNT(*) AS count
                 FROM users
                 WHERE role='adm'
               `)
-              .get()
+              .get())
               .count;
 
           if (
@@ -2140,39 +2118,30 @@ function registerBackupRoutes(
             );
           }
 
-          db.exec(
-            'COMMIT'
-          );
-
-          removeAvatarFiles(
-            avatarsToRemove
-          );
-
-          console.log(
-            `Banco limpo pelo administrador ${req.user.email}. Usuários comuns removidos: ${deletedUsers}.`
-          );
-
-          return res.json({
-            ok: true,
-
-            message:
-              'Banco de dados limpo com sucesso.',
-
+          return {
             deletedUsers,
-
             remainingAdmins
-          });
+          };
+        });
 
-        } catch (error) {
+        removeAvatarFiles(
+          avatarsToRemove
+        );
 
-          try {
-            db.exec(
-              'ROLLBACK'
-            );
-          } catch {}
+        console.log(
+          `Banco limpo pelo administrador ${req.user.email}. Usuários comuns removidos: ${deletedUsers}.`
+        );
 
-          throw error;
-        }
+        return res.json({
+          ok: true,
+
+          message:
+            'Banco de dados limpo com sucesso.',
+
+          deletedUsers,
+
+          remainingAdmins
+        });
 
       } catch (error) {
 
@@ -2198,12 +2167,12 @@ function registerBackupRoutes(
     '/api/admin/system/overview',
     auth,
     adm,
-    (req, res) => {
+    async (req, res) => {
 
       try {
 
         const tables =
-          db
+          (await db
             .prepare(`
               SELECT name
               FROM sqlite_master
@@ -2211,50 +2180,49 @@ function registerBackupRoutes(
               AND name NOT LIKE 'sqlite_%'
               ORDER BY name
             `)
-            .all()
+            .all())
             .map(
               row =>
                 row.name
             );
 
-        const tableData =
-          tables.map(
-            tableName => {
+        const tableData = [];
 
-              const columns =
-                db
-                  .prepare(
-                    `PRAGMA table_info(${quoteIdentifier(
-                      tableName
-                    )})`
-                  )
-                  .all();
+        for (const tableName of tables) {
 
-              const count =
-                db
-                  .prepare(
-                    `SELECT COUNT(*) AS count
-                     FROM ${quoteIdentifier(
-                       tableName
-                     )}`
-                  )
-                  .get();
+          const columns =
+            await db
+              .prepare(
+                `PRAGMA table_info(${quoteIdentifier(
+                  tableName
+                )})`
+              )
+              .all();
 
-              return {
-                name:
-                  tableName,
+          const count =
+            await db
+              .prepare(
+                `SELECT COUNT(*) AS count
+                 FROM ${quoteIdentifier(
+                   tableName
+                 )}`
+              )
+              .get();
 
-                rows:
-                  Number(
-                    count?.count ||
-                    0
-                  ),
+          tableData.push({
+            name:
+              tableName,
 
-                columns:
-                  columns.length
-              };
-            }
-          );
+            rows:
+              Number(
+                count?.count ||
+                0
+              ),
+
+            columns:
+              columns.length
+          });
+        }
 
         const totalRows =
           tableData.reduce(
@@ -2268,7 +2236,7 @@ function registerBackupRoutes(
           );
 
         const users =
-          db
+          await db
             .prepare(
               `SELECT COUNT(*) AS count
                FROM users`
@@ -2276,7 +2244,7 @@ function registerBackupRoutes(
             .get();
 
         const admins =
-          db
+          await db
             .prepare(
               `SELECT COUNT(*) AS count
                FROM users
@@ -2285,7 +2253,7 @@ function registerBackupRoutes(
             .get();
 
         const tracks =
-          db
+          await db
             .prepare(
               `SELECT COUNT(*) AS count
                FROM tracks`
@@ -2293,7 +2261,7 @@ function registerBackupRoutes(
             .get();
 
         const lessons =
-          db
+          await db
             .prepare(
               `SELECT COUNT(*) AS count
                FROM lessons`
@@ -2301,7 +2269,7 @@ function registerBackupRoutes(
             .get();
 
         const questions =
-          db
+          await db
             .prepare(
               `SELECT COUNT(*) AS count
                FROM questions`
@@ -2400,7 +2368,7 @@ function registerBackupRoutes(
     '/api/admin/system/table/:tableName',
     auth,
     adm,
-    (req, res) => {
+    async (req, res) => {
 
       try {
 
@@ -2411,7 +2379,7 @@ function registerBackupRoutes(
           ).trim();
 
         const tableExists =
-          db
+          await db
             .prepare(`
               SELECT name
               FROM sqlite_master
@@ -2434,7 +2402,7 @@ function registerBackupRoutes(
         }
 
         const columns =
-          db
+          await db
             .prepare(
               `PRAGMA table_info(${quoteIdentifier(
                 tableName
@@ -2479,7 +2447,7 @@ function registerBackupRoutes(
           columnList
         ) {
           rows =
-            db
+            await db
               .prepare(
                 `SELECT ${columnList}
                  FROM ${quoteIdentifier(
@@ -2537,12 +2505,12 @@ function registerBackupRoutes(
     '/api/admin/backup/export',
     auth,
     adm,
-    (req, res) => {
+    async (req, res) => {
 
       try {
 
         const database =
-          collectDatabase(
+          await collectDatabase(
             db
           );
 
@@ -2693,7 +2661,7 @@ function registerBackupRoutes(
     '/api/admin/backup/inspect',
     auth,
     adm,
-    (req, res) => {
+    async (req, res) => {
 
       try {
 
@@ -2732,7 +2700,7 @@ function registerBackupRoutes(
             buffer
           );
 
-        validateBackup(
+        await validateBackup(
           backup,
           db
         );
@@ -2776,7 +2744,7 @@ function registerBackupRoutes(
     '/api/admin/backup/restore',
     auth,
     adm,
-    (req, res) => {
+    async (req, res) => {
 
       try {
 
@@ -2815,7 +2783,7 @@ function registerBackupRoutes(
             buffer
           );
 
-        validateBackup(
+        await validateBackup(
           backup,
           db
         );
@@ -2824,7 +2792,7 @@ function registerBackupRoutes(
           backupSummary(
             backup
           );
-          
+
         // ------------------------------------------------------
         // PRÉ-VALIDAÇÃO DAS MÍDIAS
         // ------------------------------------------------------
@@ -2839,7 +2807,7 @@ function registerBackupRoutes(
         // ------------------------------------------------------
 
                 
-        restoreDatabase(
+        await restoreDatabase(
           db,
           backup,
           () => {

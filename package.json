@@ -3,13 +3,18 @@
   "version": "1.0.0",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test \"test/*.test.js\"",
+    "db:check": "node scripts/db-schema.js check",
+    "db:provision": "node scripts/db-schema.js provision"
   },
   "engines": {
     "node": "24.x"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "bcryptjs": "^2.4.3",
+    "dotenv": "^18.0.9",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "lucide-static": "^1.55.0"

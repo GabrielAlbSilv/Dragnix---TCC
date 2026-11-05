@@ -20,7 +20,8 @@ Configurar acesso em:
 
 ## Estrutura
 
-- `server.js` API REST (Express + JWT) · `db.js` SQLite e tabelas
+- `server.js` API REST (Express + JWT) · `db.js` acesso ao Turso (libSQL) e validação do esquema · `schema.js` esquema oficial do banco
+- `npm run db:check` confere o esquema do Turso · `npm run db:provision` cria o esquema em um banco Turso vazio · `npm test` testes em banco local descartável
 - `public/index.html` login/cadastro · `app.html` trilhas e lições · `admin.html` painel ADM
 
 ## Segurança / próximos passos

@@ -1,3 +1,5 @@
+require('dotenv').config({ quiet: true });
+
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -8,48 +10,9 @@ const { execFileSync } = require('child_process');
 const db = require('./db');
 const {registerBackupRoutes} = require('./backup');
 
-// ============================================================
-// AVALIAÇÕES DOS ALUNOS
-// ============================================================
-
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS lesson_evaluations (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  user_id INTEGER NOT NULL,
-  lesson_id INTEGER NOT NULL,
-  rating INTEGER NOT NULL,
-  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE(user_id, lesson_id)
-  )
-`);
-
-db.exec(`
-  CREATE TABLE IF NOT EXISTS track_evaluations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    track_id INTEGER NOT NULL,
-    rating INTEGER NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    UNIQUE(user_id, track_id)
-  )
-`);
-
-// Garante que a tabela de avaliações exista.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS evaluations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    lesson_id INTEGER,
-    track_id INTEGER,
-    answer TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-
-    UNIQUE(user_id, lesson_id),
-    UNIQUE(user_id, track_id)
-  )
-`);
+// As tabelas (inclusive lesson_evaluations, track_evaluations,
+// evaluations e login_attempts) não são mais criadas aqui: o
+// esquema é validado por db.ready() antes de o servidor iniciar.
 
 // ============================================================
 // CONFIGURAÇÕES
@@ -70,6 +33,34 @@ const SECRET =
 const app = express();
 
 app.disable('x-powered-by');
+
+// O banco agora é assíncrono e o Express 4 não trata Promises
+// rejeitadas. Toda rota/middleware registrada abaixo (inclusive as
+// do backup) repassa erros assíncronos ao next(), como acontecia
+// com os erros síncronos.
+function wrapAsync(handler) {
+  if (
+    typeof handler !== 'function' ||
+    handler.length > 3 ||
+    handler.handle
+  ) {
+    return handler;
+  }
+
+  return function asyncHandler(req, res, next) {
+    const result = handler(req, res, next);
+
+    if (result && typeof result.then === 'function') {
+      result.catch(next);
+    }
+  };
+}
+
+for (const method of ['get', 'post', 'put', 'delete', 'use']) {
+  const original = app[method].bind(app);
+
+  app[method] = (...args) => original(...args.map(wrapAsync));
+}
 
 const PUBLIC_DIR =
   path.join(__dirname, 'public');
@@ -167,10 +158,10 @@ app.use(
 // Essa rota precisa ficar ANTES do middleware 404 de /api.
 // O Render usa essa rota para verificar se o serviço está saudável.
 
-app.get('/api/health', (req, res) => {
+app.get('/api/health', async (req, res) => {
   try {
-    // Também verifica se o SQLite está funcionando.
-    db.prepare('SELECT 1').get();
+    // Também verifica se o banco está respondendo.
+    await db.prepare('SELECT 1').get();
 
     return res.status(200).json({
       ok: true,
@@ -377,31 +368,24 @@ const pub = user => ({
 const MAX_LOGIN_FAILURES = 5;
 const LOGIN_BLOCK_MS = 10 * 60 * 1000;
 
-// Persistência do bloqueio no banco SQLite.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS login_attempts (
-    email TEXT PRIMARY KEY,
-    failures INTEGER NOT NULL DEFAULT 0,
-    blocked_until INTEGER NOT NULL DEFAULT 0
-  )
-`);
+// Persistência do bloqueio na tabela login_attempts.
 
-function getLoginAttempt(email) {
-  return db.prepare(
+async function getLoginAttempt(email) {
+  return await db.prepare(
     `SELECT failures, blocked_until
      FROM login_attempts
      WHERE email=?`
   ).get(email);
 }
 
-function clearLoginAttempts(email) {
-  db.prepare(
+async function clearLoginAttempts(email) {
+  await db.prepare(
     'DELETE FROM login_attempts WHERE email=?'
   ).run(email);
 }
 
-function getRemainingBlockMs(email) {
-  const attempt = getLoginAttempt(email);
+async function getRemainingBlockMs(email) {
+  const attempt = await getLoginAttempt(email);
 
   if (!attempt || !attempt.blocked_until) {
     return 0;
@@ -410,40 +394,44 @@ function getRemainingBlockMs(email) {
   const remaining = attempt.blocked_until - Date.now();
 
   if (remaining <= 0) {
-    clearLoginAttempts(email);
+    await clearLoginAttempts(email);
     return 0;
   }
 
   return remaining;
 }
 
+// Leitura e gravação na mesma transação: tentativas simultâneas
+// não podem se sobrepor e "perder" erros na contagem.
 function recordLoginFailure(email) {
-  const previous = getLoginAttempt(email);
-  const failures = Number(previous?.failures || 0) + 1;
+  return db.transaction(async () => {
+    const previous = await getLoginAttempt(email);
+    const failures = Number(previous?.failures || 0) + 1;
 
-  // Bloqueia a partir da sexta senha incorreta.
-  const blockedUntil = failures > MAX_LOGIN_FAILURES
-    ? Date.now() + LOGIN_BLOCK_MS
-    : 0;
+    // Bloqueia a partir da sexta senha incorreta.
+    const blockedUntil = failures > MAX_LOGIN_FAILURES
+      ? Date.now() + LOGIN_BLOCK_MS
+      : 0;
 
-  db.prepare(`
-    INSERT INTO login_attempts (
-      email, failures, blocked_until
-    )
-    VALUES (?, ?, ?)
-    ON CONFLICT(email) DO UPDATE SET
-      failures=excluded.failures,
-      blocked_until=excluded.blocked_until
-  `).run(email, failures, blockedUntil);
+    await db.prepare(`
+      INSERT INTO login_attempts (
+        email, failures, blocked_until
+      )
+      VALUES (?, ?, ?)
+      ON CONFLICT(email) DO UPDATE SET
+        failures=excluded.failures,
+        blocked_until=excluded.blocked_until
+    `).run(email, failures, blockedUntil);
 
-  return {
-    failures,
-    remainingAttempts: Math.max(
-      0,
-      MAX_LOGIN_FAILURES + 1 - failures
-    ),
-    blockedUntil
-  };
+    return {
+      failures,
+      remainingAttempts: Math.max(
+        0,
+        MAX_LOGIN_FAILURES + 1 - failures
+      ),
+      blockedUntil
+    };
+  });
 }
 
 
@@ -451,7 +439,7 @@ function recordLoginFailure(email) {
 // MIDDLEWARE DE AUTENTICAÇÃO
 // ============================================================
 
-function auth(req, res, next) {
+async function auth(req, res, next) {
   try {
     const header =
       req.headers.authorization || '';
@@ -480,7 +468,7 @@ function auth(req, res, next) {
       );
 
     const user =
-      db
+      await db
         .prepare(
           'SELECT * FROM users WHERE id=?'
         )
@@ -494,13 +482,13 @@ function auth(req, res, next) {
     }
 
     req.user = user;
-
-    next();
   } catch (error) {
     return res.status(401).json({
       error: 'Não autenticado'
     });
   }
+
+  next();
 }
 
 const adm = (req, res, next) => {
@@ -547,7 +535,7 @@ registerBackupRoutes(
 // AUTENTICAÇÃO
 // ============================================================
 
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   try {
     const {
       name,
@@ -588,7 +576,7 @@ app.post('/api/auth/register', (req, res) => {
       ? 'adm'
       : 'comum';
 
-    const existing = db
+    const existing = await db
       .prepare('SELECT 1 FROM users WHERE email = ?')
       .get(cleanEmail);
 
@@ -601,15 +589,15 @@ app.post('/api/auth/register', (req, res) => {
     // Cada pessoa define sua própria senha.
     const hash = bcrypt.hashSync(password, 10);
 
-    const id = db
+    const id = (await db
       .prepare(`
         INSERT INTO users (name, email, password, role)
         VALUES (?, ?, ?, ?)
       `)
-      .run(cleanName, cleanEmail, hash, role)
+      .run(cleanName, cleanEmail, hash, role))
       .lastInsertRowid;
 
-    const user = db
+    const user = await db
       .prepare('SELECT * FROM users WHERE id = ?')
       .get(id);
 
@@ -628,7 +616,7 @@ app.post('/api/auth/register', (req, res) => {
 }); //   '/api/auth/register',
 
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   try {
     const email = String(req.body?.email || '')
       .trim()
@@ -643,7 +631,7 @@ app.post('/api/auth/login', (req, res) => {
     }
 
     // Verifica o bloqueio antes de validar a senha.
-    const remainingMs = getRemainingBlockMs(email);
+    const remainingMs = await getRemainingBlockMs(email);
 
     if (remainingMs > 0) {
       const remainingSeconds = Math.ceil(
@@ -657,7 +645,7 @@ app.post('/api/auth/login', (req, res) => {
       });
     }
 
-    const user = db.prepare(
+    const user = await db.prepare(
       'SELECT * FROM users WHERE email=?'
     ).get(email);
 
@@ -665,7 +653,7 @@ app.post('/api/auth/login', (req, res) => {
       bcrypt.compareSync(password, user.password);
 
     if (!validPassword) {
-      const attempt = recordLoginFailure(email);
+      const attempt = await recordLoginFailure(email);
 
       if (attempt.blockedUntil > 0) {
         return res.status(429).json({
@@ -683,7 +671,7 @@ app.post('/api/auth/login', (req, res) => {
     }
 
     // Login correto: zera os erros anteriores.
-    clearLoginAttempts(email);
+    await clearLoginAttempts(email);
 
     return res.json({
       token: sign(user),
@@ -805,7 +793,7 @@ const NAME_MAX = 60;
 app.put(
   '/api/me/name',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       // Normaliza espaços e remove caracteres de controle.
       const name = String(req.body?.name ?? '')
@@ -827,11 +815,11 @@ app.put(
         });
       }
 
-      db.prepare(
+      await db.prepare(
         'UPDATE users SET name=? WHERE id=?'
       ).run(name, req.user.id);
 
-      const user = db
+      const user = await db
         .prepare('SELECT * FROM users WHERE id=?')
         .get(req.user.id);
 
@@ -852,7 +840,7 @@ app.put(
 app.post(
   '/api/me/avatar',
   auth,
-  (req, res) => {
+  async (req, res) => {
     let savedFile = null;
 
     try {
@@ -881,7 +869,7 @@ app.post(
 
       const previous = req.user.avatar;
 
-      db.prepare(
+      await db.prepare(
         'UPDATE users SET avatar=? WHERE id=?'
       ).run(filename, req.user.id);
 
@@ -890,7 +878,7 @@ app.post(
         removeAvatarFile(previous);
       }
 
-      const user = db
+      const user = await db
         .prepare('SELECT * FROM users WHERE id=?')
         .get(req.user.id);
 
@@ -917,14 +905,14 @@ app.post(
 // GALERIA DE AVATARES (cadastrada pelos administradores)
 // ============================================================
 
-const presetRows = () =>
-  db
+const presetRows = async () =>
+  (await db
     .prepare(
       `SELECT id, file, label
        FROM avatar_presets
        ORDER BY position, id`
     )
-    .all()
+    .all())
     .filter(
       row =>
         PRESET_FILE_RE.test(row.file)
@@ -939,10 +927,10 @@ const presetRows = () =>
 app.get(
   '/api/avatars',
   auth,
-  (req, res) => {
+  async (req, res) => {
     res.json({
       max: AVATAR_PRESET_MAX,
-      presets: presetRows()
+      presets: await presetRows()
     });
   }
 );
@@ -951,12 +939,12 @@ app.get(
 app.post(
   '/api/me/avatar/preset',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const id = Number(req.body?.id);
 
       const preset = Number.isInteger(id)
-        ? db
+        ? await db
             .prepare(
               'SELECT file FROM avatar_presets WHERE id=?'
             )
@@ -971,14 +959,14 @@ app.post(
 
       const previous = req.user.avatar;
 
-      db.prepare(
+      await db.prepare(
         'UPDATE users SET avatar=? WHERE id=?'
       ).run(preset.file, req.user.id);
 
       // Se a pessoa tinha uma foto própria, ela deixa de ser usada.
       removeAvatarFile(previous);
 
-      const user = db
+      const user = await db
         .prepare('SELECT * FROM users WHERE id=?')
         .get(req.user.id);
 
@@ -1001,14 +989,14 @@ app.post(
   '/api/admin/avatars',
   auth,
   adm,
-  (req, res) => {
+  async (req, res) => {
     let savedFile = null;
 
     try {
       const total = Number(
-        db
+        (await db
           .prepare('SELECT COUNT(*) AS n FROM avatar_presets')
-          .get().n
+          .get()).n
       );
 
       if (total >= AVATAR_PRESET_MAX) {
@@ -1047,14 +1035,14 @@ app.post(
 
       const position =
         Number(
-          db
+          (await db
             .prepare(
               'SELECT COALESCE(MAX(position), 0) + 1 AS p FROM avatar_presets'
             )
-            .get().p
+            .get()).p
         );
 
-      db.prepare(
+      await db.prepare(
         `INSERT INTO avatar_presets
            (file, label, position, created_at)
          VALUES (?, ?, ?, ?)`
@@ -1068,7 +1056,7 @@ app.post(
       return res.json({
         ok: true,
         max: AVATAR_PRESET_MAX,
-        presets: presetRows()
+        presets: await presetRows()
       });
     } catch (error) {
       console.error('Erro ao adicionar avatar:', error);
@@ -1090,12 +1078,12 @@ app.delete(
   '/api/admin/avatars/:id',
   auth,
   adm,
-  (req, res) => {
+  async (req, res) => {
     try {
       const id = Number(req.params.id);
 
       const preset = Number.isInteger(id)
-        ? db
+        ? await db
             .prepare(
               'SELECT id, file FROM avatar_presets WHERE id=?'
             )
@@ -1109,11 +1097,11 @@ app.delete(
       }
 
       // Quem estava usando este avatar volta a ficar sem foto.
-      db.prepare(
+      await db.prepare(
         'UPDATE users SET avatar=NULL WHERE avatar=?'
       ).run(preset.file);
 
-      db.prepare(
+      await db.prepare(
         'DELETE FROM avatar_presets WHERE id=?'
       ).run(preset.id);
 
@@ -1122,7 +1110,7 @@ app.delete(
       return res.json({
         ok: true,
         max: AVATAR_PRESET_MAX,
-        presets: presetRows()
+        presets: await presetRows()
       });
     } catch (error) {
       console.error('Erro ao remover avatar:', error);
@@ -1137,17 +1125,17 @@ app.delete(
 app.delete(
   '/api/me/avatar',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const previous = req.user.avatar;
 
-      db.prepare(
+      await db.prepare(
         'UPDATE users SET avatar=NULL WHERE id=?'
       ).run(req.user.id);
 
       removeAvatarFile(previous);
 
-      const user = db
+      const user = await db
         .prepare('SELECT * FROM users WHERE id=?')
         .get(req.user.id);
 
@@ -1270,21 +1258,36 @@ const pairs = array =>
     ];
   });
 
-const one = (
+const one = async (
   sql,
   ...args
 ) =>
-  db
+  await db
     .prepare(sql)
     .get(...args);
+
+// Como Array.map, mas para callbacks que consultam o banco:
+// executa um item por vez, na ordem (seguro dentro de transações).
+const mapAsync = async (
+  items,
+  callback
+) => {
+  const result = [];
+
+  for (const [index, item] of items.entries()) {
+    result.push(await callback(item, index));
+  }
+
+  return result;
+};
 
 // ============================================================
 // VIDAS
 // ============================================================
 
-function hearts(id) {
+async function hearts(id) {
   const user =
-    db
+    await db
       .prepare(
         `SELECT
           hearts,
@@ -1340,7 +1343,7 @@ function hearts(id) {
         generated *
         REGEN_MS;
 
-      db.prepare(
+      await db.prepare(
         `UPDATE users
          SET hearts=?,
              hearts_at=?
@@ -1373,9 +1376,9 @@ function hearts(id) {
   };
 }
 
-function loseHeart(id) {
+async function loseHeart(id) {
   const state =
-    hearts(id);
+    await hearts(id);
 
   const newHearts =
     Math.max(
@@ -1389,7 +1392,7 @@ function loseHeart(id) {
       ? Date.now()
       : state.at;
 
-  db.prepare(
+  await db.prepare(
     `UPDATE users
      SET hearts=?,
          hearts_at=?
@@ -1400,18 +1403,18 @@ function loseHeart(id) {
     id
   );
 
-  return hearts(id);
+  return await hearts(id);
 }
 
 // ============================================================
 // PROGRESSO
 // ============================================================
 
-const isDone = (
+const isDone = async (
   uid,
   lid
 ) =>
-  !!db
+  !!await db
     .prepare(
       `SELECT 1
        FROM progress
@@ -1501,9 +1504,9 @@ const A = [
   ]
 ];
 
-function unlocked(uid) {
+async function unlocked(uid) {
   const progress =
-    db
+    await db
       .prepare(
         `SELECT
            COUNT(*) n,
@@ -1521,18 +1524,18 @@ function unlocked(uid) {
       .get(uid);
 
   const best =
-    db
+    (await db
       .prepare(
         `SELECT best_streak b
          FROM users
          WHERE id=?`
       )
-      .get(uid)
+      .get(uid))
       ?.b || 0;
 
 
   const tracks =
-    db
+    (await db
       .prepare(
         `SELECT COUNT(*) c
          FROM tracks t
@@ -1552,15 +1555,15 @@ function unlocked(uid) {
            )
          )`
       )
-      .get(uid)
+      .get(uid))
       .c;
 
-  
-  const challengeXp = db.prepare(`
+
+  const challengeXp = (await db.prepare(`
     SELECT COALESCE(SUM(xp_awarded), 0) AS total
     FROM challenge_rewards
     WHERE user_id=?
-  `).get(uid).total;
+  `).get(uid)).total;
 
   const state = {
     n: progress.n,
@@ -1668,27 +1671,27 @@ const MISSIONS = {
   ]
 };
 
-function stats(uid) {
-  
-  const lessonXp = one(
+async function stats(uid) {
+
+  const lessonXp = (await one(
     `SELECT COALESCE(SUM(xp), 0) AS v
      FROM progress
      WHERE user_id=?`,
     uid
-  ).v;
+  )).v;
 
-  const challengeXp = one(
+  const challengeXp = (await one(
     `SELECT COALESCE(SUM(xp_awarded), 0) AS v
      FROM challenge_rewards
      WHERE user_id=?`,
     uid
-  ).v;
+  )).v;
 
   const xp = lessonXp + challengeXp;
 
 
   const tracks =
-    one(
+    (await one(
       `SELECT COUNT(*) v
        FROM tracks t
        WHERE EXISTS(
@@ -1707,10 +1710,10 @@ function stats(uid) {
          )
        )`,
       uid
-    ).v;
+    )).v;
 
   const user =
-    one(
+    await one(
       `SELECT
          streak,
          last_day,
@@ -1729,37 +1732,37 @@ function stats(uid) {
       user?.coins || 0,
 
     lessons:
-      one(
+      (await one(
         `SELECT COUNT(*) v
          FROM progress
          WHERE user_id=?`,
         uid
-      ).v,
+      )).v,
 
     perfect:
-      one(
+      (await one(
         `SELECT COUNT(*) v
          FROM progress
          WHERE user_id=?
          AND perfect=1`,
         uid
-      ).v
+      )).v
   };
 }
 
-function awardBadges(uid) {
+async function awardBadges(uid) {
   const state =
-    stats(uid);
+    await stats(uid);
 
   const have =
     new Set(
-      db
+      (await db
         .prepare(
           `SELECT code
            FROM badges
            WHERE user_id=?`
         )
-        .all(uid)
+        .all(uid))
         .map(
           row => row.code
         )
@@ -1780,7 +1783,7 @@ function awardBadges(uid) {
       !have.has(code) &&
       badge[3](state)
     ) {
-      db.prepare(
+      await db.prepare(
         `INSERT INTO badges(
           user_id,
           code
@@ -1805,8 +1808,8 @@ function awardBadges(uid) {
 // ATIVIDADES DIÁRIAS
 // ============================================================
 
-const todayAct = uid =>
-  one(
+const todayAct = async uid =>
+  await one(
     `SELECT
        xp,
        lessons,
@@ -1822,11 +1825,11 @@ const todayAct = uid =>
     correct: 0
   };
 
-function bump(
+async function bump(
   uid,
   fields
 ) {
-  db.prepare(
+  await db.prepare(
     `INSERT OR IGNORE INTO activity(
       user_id,
       day
@@ -1846,7 +1849,7 @@ function bump(
       fields
     )
   ) {
-    db.prepare(
+    await db.prepare(
       `UPDATE activity
        SET ${key}=${key}+?
        WHERE user_id=?
@@ -1865,25 +1868,10 @@ function bump(
    ============================================================ */
 
 
+// Transação de escrita: COMMIT se o callback terminar,
+// ROLLBACK (feito por db.transaction) se ele lançar erro.
 function challengeTransaction(callback) {
-  db.exec('BEGIN IMMEDIATE');
-
-  try {
-    const result = callback();
-    db.exec('COMMIT');
-    return result;
-  } catch (error) {
-    try {
-      db.exec('ROLLBACK');
-    } catch (rollbackError) {
-      console.error(
-        '[DESAFIOS] Erro no rollback:',
-        rollbackError
-      );
-    }
-
-    throw error;
-  }
+  return db.transaction(callback);
 }
 
 
@@ -1891,10 +1879,10 @@ function challengeTransaction(callback) {
    DESAFIOS — ENCERRAMENTO ADMINISTRATIVO SEM PENALIDADE
    ============================================================ */
 
-function challengeCancelActiveAttempts(challengeId) {
+async function challengeCancelActiveAttempts(challengeId) {
   const now = Date.now();
 
-  const result = db.prepare(`
+  const result = await db.prepare(`
     UPDATE challenge_attempts
     SET
       status = 'expired',
@@ -2019,7 +2007,7 @@ app.get(
   '/api/admin/tracks/:trackId/challenges',
   auth,
   staff,
-  (req, res) => {
+  async (req, res) => {
     try {
       const trackId = challengeValidId(
         req.params.trackId
@@ -2031,7 +2019,7 @@ app.get(
         });
       }
 
-      const track = db.prepare(`
+      const track = await db.prepare(`
         SELECT id
         FROM tracks
         WHERE id = ?
@@ -2043,7 +2031,7 @@ app.get(
         });
       }
 
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT *
       FROM challenges
       WHERE track_id = ?
@@ -2051,8 +2039,8 @@ app.get(
       ORDER BY id
     `).all(trackId);
 
-      const challenges = rows.map(row => {
-        const questionRows = db.prepare(`
+      const challenges = await mapAsync(rows, async row => {
+        const questionRows = await db.prepare(`
           SELECT
             id,
             question_type,
@@ -2070,11 +2058,11 @@ app.get(
             Number(row.revision || 1)
           );
 
-        const attempts = db.prepare(`
+        const attempts = (await db.prepare(`
           SELECT COUNT(*) AS total
           FROM challenge_attempts
           WHERE challenge_id = ?
-        `) .get(row.id).total;
+        `) .get(row.id)).total;
 
         
 
@@ -2106,7 +2094,7 @@ app.get(
 app.get(
   '/api/tracks/:trackId/challenges',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const trackId = challengeValidId(
         req.params.trackId
@@ -2118,7 +2106,7 @@ app.get(
         });
       }
 
-      const missingTracks = trilhasFaltando(
+      const missingTracks = await trilhasFaltando(
         req.user,
         trackId
       );
@@ -2131,7 +2119,7 @@ app.get(
         });
       }
 
-      const rows = db.prepare(`
+      const rows = await db.prepare(`
         SELECT *
         FROM challenges
         WHERE track_id = ?
@@ -2141,8 +2129,8 @@ app.get(
       `).all(trackId);
 
 
-      const challenges = rows.map(row => {
-        const attempts = db.prepare(`
+      const challenges = await mapAsync(rows, async row => {
+        const attempts = (await db.prepare(`
           SELECT COUNT(*) AS total
           FROM challenge_attempts
           WHERE challenge_id = ?
@@ -2154,16 +2142,16 @@ app.get(
                 0
               ) = 1
             )
-        `).get(row.id, req.user.id).total;
+        `).get(row.id, req.user.id)).total;
 
-        const reward = db.prepare(`
+        const reward = await db.prepare(`
           SELECT xp_awarded, awarded_at
           FROM challenge_rewards
           WHERE challenge_id = ?
             AND user_id = ?
         `).get(row.id, req.user.id);
 
-        const active = db.prepare(`
+        const active = await db.prepare(`
           SELECT id, deadline_at
           FROM challenge_attempts
           WHERE challenge_id = ?
@@ -2173,7 +2161,7 @@ app.get(
 
         return {
           ...challengeSummary(row),
-          question_count: db.prepare(`
+          question_count: (await db.prepare(`
             SELECT COUNT(*) AS total
             FROM challenge_questions
             WHERE challenge_id = ?
@@ -2181,7 +2169,7 @@ app.get(
             `).get(
               row.id,
               Number(row.revision || 1)
-            ).total,
+            )).total,
           attempts,
           remaining: Math.max(
             0,
@@ -2411,8 +2399,8 @@ function challengeValidatePayload(body) {
    DESAFIOS — SALVAR QUESTÕES COM VERSIONAMENTO
    ============================================================ */
 
-function challengeSaveQuestions(challengeId, questions) {
-  const challenge = db.prepare(`
+async function challengeSaveQuestions(challengeId, questions) {
+  const challenge = await db.prepare(`
     SELECT revision
     FROM challenges
     WHERE id = ?
@@ -2445,7 +2433,7 @@ function challengeSaveQuestions(challengeId, questions) {
   `);
 
   for (const question of questions) {
-    insert.run(
+    await insert.run(
       challengeId,
       revision,
       question.question_type,
@@ -2466,7 +2454,7 @@ app.post(
   '/api/admin/tracks/:trackId/challenges',
   auth,
   staff,
-  (req, res) => {
+  async (req, res) => {
     try {
       const trackId = challengeValidId(
         req.params.trackId
@@ -2478,7 +2466,7 @@ app.post(
         });
       }
 
-      const track = db.prepare(`
+      const track = await db.prepare(`
         SELECT id
         FROM tracks
         WHERE id = ?
@@ -2500,10 +2488,10 @@ app.post(
         });
       }
 
-      const saved = challengeTransaction(() => {
+      const saved = await challengeTransaction(async () => {
         const first = data.questions[0];
 
-        const result = db.prepare(`
+        const result = await db.prepare(`
           INSERT INTO challenges (
             track_id,
             title,
@@ -2548,7 +2536,7 @@ app.post(
 
         // Cada desafio recebe um código exclusivo,
         // mesmo quando pertence à mesma trilha.
-        db.prepare(`
+        await db.prepare(`
           UPDATE challenges
           SET badge_code = ?
           WHERE id = ?
@@ -2557,12 +2545,12 @@ app.post(
           challengeId
         );
 
-        challengeSaveQuestions(
+        await challengeSaveQuestions(
           challengeId,
           data.questions
         );
 
-        return db.prepare(`
+        return await db.prepare(`
           SELECT id, track_id, title, type, enabled
           FROM challenges
           WHERE id = ?
@@ -2586,7 +2574,7 @@ app.put(
   '/api/admin/challenges/:challengeId',
   auth,
   staff,
-  (req, res) => {
+  async (req, res) => {
     try {
       const challengeId = challengeValidId(
         req.params.challengeId
@@ -2608,8 +2596,8 @@ app.put(
         });
       }
 
-      const result = challengeTransaction(() => {
-        const existing = db.prepare(`
+      const result = await challengeTransaction(async () => {
+        const existing = await db.prepare(`
           SELECT *
           FROM challenges
           WHERE id = ?
@@ -2623,11 +2611,11 @@ app.put(
         // Encerra tentativas em andamento sem consumir
         // uma tentativa do aluno e sem retirar XP.
         const cancelledAttempts =
-          challengeCancelActiveAttempts(challengeId);
+          await challengeCancelActiveAttempts(challengeId);
 
         const first = data.questions[0];
 
-        db.prepare(`
+        await db.prepare(`
           UPDATE challenges
           SET
             title = ?,
@@ -2668,12 +2656,12 @@ app.put(
 
         // Atualiza as questões sem apagar o histórico
         // das tentativas concluídas ou as recompensas.
-        challengeSaveQuestions(
+        await challengeSaveQuestions(
           challengeId,
           data.questions
         );
 
-        const updated = db.prepare(`
+        const updated = await db.prepare(`
           SELECT
             id,
             track_id,
@@ -2720,7 +2708,7 @@ app.delete(
   '/api/admin/challenges/:challengeId',
   auth,
   adm,
-  (req, res) => {
+  async (req, res) => {
     try {
       const challengeId = challengeValidId(
         req.params.challengeId
@@ -2732,8 +2720,8 @@ app.delete(
         });
       }
 
-      const result = challengeTransaction(() => {
-        const challenge = db.prepare(`
+      const result = await challengeTransaction(async () => {
+        const challenge = await db.prepare(`
           SELECT id, title
           FROM challenges
           WHERE id = ?
@@ -2746,10 +2734,10 @@ app.delete(
 
         // Cancela tentativas em andamento sem penalidade.
         const cancelledAttempts =
-          challengeCancelActiveAttempts(challengeId);
+          await challengeCancelActiveAttempts(challengeId);
 
         // Exclusão lógica: preserva o registro original.
-        db.prepare(`
+        await db.prepare(`
           UPDATE challenges
           SET
             enabled = 0,
@@ -2793,7 +2781,7 @@ app.delete(
 // ADMINISTRAÇÃO — CONSULTAR DESAFIO
 // ============================================================
 
-app.get('/api/admin/tracks/:trackId/challenge', auth, staff, (req, res) => {
+app.get('/api/admin/tracks/:trackId/challenge', auth, staff, async (req, res) => {
   try {
     const trackId = Number(req.params.trackId);
 
@@ -2803,7 +2791,7 @@ app.get('/api/admin/tracks/:trackId/challenge', auth, staff, (req, res) => {
       });
     }
 
-    const challenge = db.prepare(
+    const challenge = await db.prepare(
       'SELECT * FROM challenges WHERE track_id=?'
     ).get(trackId);
 
@@ -2852,12 +2840,12 @@ app.put(
 // ALUNO — VISUALIZAR DESAFIO
 // ============================================================
 
-app.get('/api/tracks/:trackId/challenge', auth, (req, res) => {
+app.get('/api/tracks/:trackId/challenge', auth, async (req, res) => {
   try {
     const trackId = Number(req.params.trackId);
     const uid = req.user.id;
-        
-    const missingTracks = trilhasFaltando(req.user, trackId);
+
+    const missingTracks = await trilhasFaltando(req.user, trackId);
 
     if (missingTracks.length) {
       return res.status(403).json({
@@ -2872,7 +2860,7 @@ app.get('/api/tracks/:trackId/challenge', auth, (req, res) => {
       return res.status(400).json({ error: 'Trilha inválida.' });
     }
 
-    const challenge = db.prepare(
+    const challenge = await db.prepare(
       'SELECT * FROM challenges WHERE track_id=? AND enabled=1 AND deleted_at IS NULL'
     ).get(trackId);
 
@@ -2882,7 +2870,7 @@ app.get('/api/tracks/:trackId/challenge', auth, (req, res) => {
       });
     }
 
-   const attempts = db.prepare(`
+   const attempts = (await db.prepare(`
     SELECT COUNT(*) AS total
     FROM challenge_attempts
     WHERE challenge_id = ?
@@ -2894,15 +2882,15 @@ app.get('/api/tracks/:trackId/challenge', auth, (req, res) => {
           0
         ) = 1
       )
-  `).get(challenge.id, uid).total;
+  `).get(challenge.id, uid)).total;
 
-    const reward = db.prepare(`
+    const reward = await db.prepare(`
       SELECT xp_awarded, badge_code, awarded_at
       FROM challenge_rewards
       WHERE challenge_id=? AND user_id=?
     `).get(challenge.id, uid);
 
-    const active = db.prepare(`
+    const active = await db.prepare(`
       SELECT id, deadline_at
       FROM challenge_attempts
       WHERE challenge_id=? AND user_id=?
@@ -2975,8 +2963,8 @@ function challengeShuffleIndexes(length) {
 }
 
 // Recupera a questão atual sem revelar o gabarito.
-function challengeCurrentQuestion(attempt, challenge) {
-  const questions = db.prepare(`
+async function challengeCurrentQuestion(attempt, challenge) {
+  const questions = await db.prepare(`
     SELECT
       id,
       question_type,
@@ -3023,7 +3011,7 @@ function challengeCurrentQuestion(attempt, challenge) {
     // a questão ao aluno.
     state.order = order;
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE challenge_attempts
       SET state_json = ?
       WHERE id = ?
@@ -3049,8 +3037,8 @@ function challengeCurrentQuestion(attempt, challenge) {
   };
 }
 
-function challengeAttemptResponse(attempt, challenge) {
-  const question = challengeCurrentQuestion(
+async function challengeAttemptResponse(attempt, challenge) {
+  const question = await challengeCurrentQuestion(
     attempt,
     challenge
   );
@@ -3095,7 +3083,7 @@ function challengeAttemptResponse(attempt, challenge) {
 app.post(
   '/api/challenges/:challengeId/start',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const challengeId = challengeValidId(
         req.params.challengeId
@@ -3110,7 +3098,7 @@ app.post(
       const uid = req.user.id;
 
       
-    const challenge = db.prepare(`
+    const challenge = await db.prepare(`
       SELECT *
       FROM challenges
       WHERE id = ?
@@ -3125,7 +3113,7 @@ app.post(
         });
       }
 
-      const missingTracks = trilhasFaltando(
+      const missingTracks = await trilhasFaltando(
         req.user,
         challenge.track_id
       );
@@ -3138,8 +3126,8 @@ app.post(
         });
       }
 
-      const result = challengeTransaction(() => {
-        const reward = db.prepare(`
+      const result = await challengeTransaction(async () => {
+        const reward = await db.prepare(`
           SELECT id
           FROM challenge_rewards
           WHERE challenge_id = ?
@@ -3155,7 +3143,7 @@ app.post(
 
         const now = Date.now();
 
-        let attempt = db.prepare(`
+        let attempt = await db.prepare(`
           SELECT *
           FROM challenge_attempts
           WHERE challenge_id = ?
@@ -3164,7 +3152,7 @@ app.post(
         `).get(challengeId, uid);
 
         if (attempt && now >= attempt.deadline_at) {
-          db.prepare(`
+          await db.prepare(`
             UPDATE challenge_attempts
             SET
               status = 'expired',
@@ -3177,7 +3165,7 @@ app.post(
         }
 
         if (!attempt) {
-          const count = db.prepare(`
+          const count = (await db.prepare(`
           SELECT COUNT(*) AS total
           FROM challenge_attempts
           WHERE challenge_id = ?
@@ -3189,7 +3177,7 @@ app.post(
                 0
               ) = 1
             )
-        `).get(challengeId, uid).total;
+        `).get(challengeId, uid)).total;
 
           if (count >= challenge.max_attempts) {
             return {
@@ -3198,8 +3186,8 @@ app.post(
             };
           }
 
-          
-        const questionCount = db.prepare(`
+
+        const questionCount = (await db.prepare(`
           SELECT COUNT(*) AS total
           FROM challenge_questions
           WHERE challenge_id = ?
@@ -3207,7 +3195,7 @@ app.post(
         `).get(
           challengeId,
           Number(challenge.revision || 1)
-        ).total;
+        )).total;
 
           if (questionCount === 0) {
             return {
@@ -3221,7 +3209,7 @@ app.post(
             : now + CHALLENGE_SESSION_MS;
 
           
-        const inserted = db.prepare(`
+        const inserted = await db.prepare(`
           INSERT INTO challenge_attempts (
             challenge_id,
             user_id,
@@ -3243,14 +3231,14 @@ app.post(
         );
 
 
-          attempt = db.prepare(`
+          attempt = await db.prepare(`
             SELECT *
             FROM challenge_attempts
             WHERE id = ?
           `).get(Number(inserted.lastInsertRowid));
         }
 
-        return challengeAttemptResponse(
+        return await challengeAttemptResponse(
           attempt,
           challenge
         );
@@ -3274,7 +3262,7 @@ app.post(
 // ALUNO — INICIAR DESAFIO
 // ============================================================
 
-app.post('/api/tracks/:trackId/challenge/start', auth, (req, res) => {
+app.post('/api/tracks/:trackId/challenge/start', auth, async (req, res) => {
   try {
     const trackId = Number(req.params.trackId);
     const uid = req.user.id;
@@ -3282,8 +3270,8 @@ app.post('/api/tracks/:trackId/challenge/start', auth, (req, res) => {
     if (!Number.isSafeInteger(trackId) || trackId <= 0) {
       return res.status(400).json({ error: 'Trilha inválida.' });
     }
-    
-      const missingTracks = trilhasFaltando(req.user, trackId);
+
+      const missingTracks = await trilhasFaltando(req.user, trackId);
 
       if (missingTracks.length) {
         return res.status(403).json({
@@ -3293,7 +3281,7 @@ app.post('/api/tracks/:trackId/challenge/start', auth, (req, res) => {
         });
       }
 
-    const challenge = db.prepare(
+    const challenge = await db.prepare(
       'SELECT * FROM challenges WHERE track_id=? AND enabled=1 AND deleted_at IS NULL'
     ).get(trackId);
 
@@ -3303,8 +3291,8 @@ app.post('/api/tracks/:trackId/challenge/start', auth, (req, res) => {
       });
     }
 
-    const startAttempt = () => challengeTransaction(() => {
-      const reward = db.prepare(`
+    const startAttempt = () => challengeTransaction(async () => {
+      const reward = await db.prepare(`
         SELECT id FROM challenge_rewards
         WHERE challenge_id=? AND user_id=?
       `).get(challenge.id, uid);
@@ -3315,7 +3303,7 @@ app.post('/api/tracks/:trackId/challenge/start', auth, (req, res) => {
 
       const now = Date.now();
 
-      const active = db.prepare(`
+      const active = await db.prepare(`
         SELECT * FROM challenge_attempts
         WHERE challenge_id=? AND user_id=?
           AND status='in_progress'
@@ -3326,15 +3314,15 @@ app.post('/api/tracks/:trackId/challenge/start', auth, (req, res) => {
           return { attempt: active };
         }
 
-        db.prepare(`
+        await db.prepare(`
           UPDATE challenge_attempts
           SET status='expired', finished_at=?
           WHERE id=? AND status='in_progress'
         `).run(now, active.id);
       }
 
-      
-      const count = db.prepare(`
+
+      const count = (await db.prepare(`
         SELECT COUNT(*) AS total
         FROM challenge_attempts
         WHERE challenge_id = ?
@@ -3346,7 +3334,7 @@ app.post('/api/tracks/:trackId/challenge/start', auth, (req, res) => {
               0
             ) = 1
           )
-      `).get(challenge.id, uid).total;
+      `).get(challenge.id, uid)).total;
 
       if (count >= challenge.max_attempts) {
         return { error: 'Você atingiu o limite de tentativas.', code: 403 };
@@ -3354,8 +3342,8 @@ app.post('/api/tracks/:trackId/challenge/start', auth, (req, res) => {
 
       const deadline = now + challenge.time_limit * 1000;
 
-     
-      const result = db.prepare(`
+
+      const result = await db.prepare(`
         INSERT INTO challenge_attempts (
           challenge_id,
           user_id,
@@ -3381,7 +3369,7 @@ app.post('/api/tracks/:trackId/challenge/start', auth, (req, res) => {
       };
     });
 
-    const result = startAttempt();
+    const result = await startAttempt();
 
     if (result.error) {
       return res.status(result.code).json({ error: result.error });
@@ -3411,7 +3399,7 @@ app.post('/api/tracks/:trackId/challenge/start', auth, (req, res) => {
 app.post(
   '/api/challenges/attempts/:attemptId/answer',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const attemptId = challengeValidId(
         req.params.attemptId
@@ -3425,7 +3413,7 @@ app.post(
         });
       }
 
-      const access = db.prepare(`
+      const access = await db.prepare(`
         SELECT c.track_id
         FROM challenge_attempts a
         JOIN challenges c
@@ -3440,7 +3428,7 @@ app.post(
         });
       }
 
-      const missingTracks = trilhasFaltando(
+      const missingTracks = await trilhasFaltando(
         req.user,
         access.track_id
       );
@@ -3453,8 +3441,8 @@ app.post(
         });
       }
 
-      const result = challengeTransaction(() => {
-        const attempt = db.prepare(`
+      const result = await challengeTransaction(async () => {
+        const attempt = await db.prepare(`
           SELECT *
           FROM challenge_attempts
           WHERE id = ?
@@ -3475,7 +3463,7 @@ app.post(
           };
         }
 
-        const challenge = db.prepare(`
+        const challenge = await db.prepare(`
           SELECT *
           FROM challenges
           WHERE id = ?
@@ -3492,7 +3480,7 @@ app.post(
 
         // O prazo é sempre verificado pelo servidor.
         if (now >= attempt.deadline_at) {
-          db.prepare(`
+          await db.prepare(`
             UPDATE challenge_attempts
             SET
               status = 'expired',
@@ -3511,7 +3499,7 @@ app.post(
           };
         }
 
-       const questions = db.prepare(`
+       const questions = await db.prepare(`
           SELECT *
           FROM challenge_questions
           WHERE challenge_id = ?
@@ -3686,7 +3674,7 @@ app.post(
         }
 
         if (lost) {
-          db.prepare(`
+          await db.prepare(`
             UPDATE challenge_attempts
             SET
               status = 'lost',
@@ -3721,7 +3709,7 @@ app.post(
           // Uma recompensa por aluno e desafio.
           // A restrição UNIQUE(user_id, challenge_id)
           // no banco também protege contra duplicação.
-          const previousReward = db.prepare(`
+          const previousReward = await db.prepare(`
             SELECT id
             FROM challenge_rewards
             WHERE challenge_id = ?
@@ -3729,7 +3717,7 @@ app.post(
           `).get(challenge.id, uid);
 
           if (previousReward) {
-            db.prepare(`
+            await db.prepare(`
               UPDATE challenge_attempts
               SET
                 status = 'lost',
@@ -3752,7 +3740,7 @@ app.post(
             ? Math.floor(baseXp * (1 - mistakes * 0.10))
             : baseXp;
 
-          db.prepare(`
+          await db.prepare(`
             UPDATE challenge_attempts
             SET
               status = 'won',
@@ -3770,7 +3758,7 @@ app.post(
             attemptId
           );
 
-          db.prepare(`
+          await db.prepare(`
             INSERT INTO challenge_rewards (
               challenge_id,
               user_id,
@@ -3789,7 +3777,7 @@ app.post(
             now
           );
 
-          db.prepare(`
+          await db.prepare(`
             INSERT OR IGNORE INTO badges (
               user_id,
               code
@@ -3804,7 +3792,7 @@ app.post(
           // O XP total já é calculado a partir
           // de challenge_rewards.
           if (xpAwarded > 0) {
-          bump(uid, {
+          await bump(uid, {
             xp: xpAwarded
           });
           }
@@ -3829,7 +3817,7 @@ app.post(
         // nova ordem para a próxima questão.
         delete state.order;
 
-        db.prepare(`
+        await db.prepare(`
           UPDATE challenge_attempts
           SET
             current_question = ?,
@@ -3846,13 +3834,13 @@ app.post(
           attemptId
         );
 
-        const updatedAttempt = db.prepare(`
+        const updatedAttempt = await db.prepare(`
           SELECT *
           FROM challenge_attempts
           WHERE id = ?
         `).get(attemptId);
 
-        const next = challengeAttemptResponse(
+        const next = await challengeAttemptResponse(
           updatedAttempt,
           challenge
         );
@@ -3893,11 +3881,11 @@ app.post(
 app.get(
   '/api/tracks',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const done =
         new Set(
-          db
+          (await db
             .prepare(
               `SELECT lesson_id
                FROM progress
@@ -3905,7 +3893,7 @@ app.get(
             )
             .all(
               req.user.id
-            )
+            ))
             .map(
               row =>
                 row.lesson_id
@@ -3913,12 +3901,12 @@ app.get(
         );
 
        const completionCounts = Object.fromEntries(
-  db.prepare(
+  (await db.prepare(
     `SELECT lesson_id, review_count
      FROM progress
      WHERE user_id=?`
   )
-  .all(req.user.id)
+  .all(req.user.id))
   .map(row => [
     row.lesson_id,
     Number(row.review_count || 1)
@@ -3926,7 +3914,7 @@ app.get(
 );
 
       const lessons =
-        db
+        await db
           .prepare(
             `SELECT
                id,
@@ -3941,7 +3929,7 @@ app.get(
 
       const questionCount =
         Object.fromEntries(
-          db
+          (await db
             .prepare(
               `SELECT
                  lesson_id l,
@@ -3949,7 +3937,7 @@ app.get(
                FROM questions
                GROUP BY lesson_id`
             )
-            .all()
+            .all())
             .map(
               row => [
                 row.l,
@@ -3960,7 +3948,7 @@ app.get(
 
       const answerCount =
         Object.fromEntries(
-          db
+          (await db
             .prepare(
               `SELECT
                  q.lesson_id l,
@@ -3973,7 +3961,7 @@ app.get(
             )
             .all(
               req.user.id
-            )
+            ))
             .map(
               row => [
                 row.l,
@@ -3983,13 +3971,13 @@ app.get(
         );
 
       const tracks =
-        db
+        (await db
           .prepare(
             `SELECT *
              FROM tracks
              ORDER BY position,id`
           )
-          .all()
+          .all())
           .map(
             track => ({
               ...track,
@@ -4115,12 +4103,12 @@ app.get(
       }
 
       const heartState =
-        hearts(
+        await hearts(
           req.user.id
         );
 
       const state =
-        stats(
+        await stats(
           req.user.id
         );
 
@@ -4160,12 +4148,12 @@ app.get(
 app.get(
   '/api/lessons/ratings',
   auth,
-  (req, res) => {
+  async (req, res) => {
 
     try {
 
       const ratings =
-        db.prepare(`
+        await db.prepare(`
           SELECT
             lesson_id,
             ROUND(AVG(rating), 1) AS average_rating,
@@ -4197,10 +4185,10 @@ app.get(
 app.get(
   '/api/lessons/:id',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const lesson =
-        db
+        await db
           .prepare(
             `SELECT *
              FROM lessons
@@ -4218,17 +4206,17 @@ app.get(
       }
 
       const done =
-        isDone(
+        await isDone(
           req.user.id,
           lesson.id
         );
 
       const heartState =
-        hearts(
+        await hearts(
           req.user.id
         );
 
-      const falta = trilhasFaltando(req.user, lesson.track_id);
+      const falta = await trilhasFaltando(req.user, lesson.track_id);
 
       if (falta.length) {
         return res.status(403).json({
@@ -4240,7 +4228,7 @@ app.get(
         !isStaff(req.user)
       ) {
         const previous =
-          one(
+          await one(
             `SELECT id
              FROM lessons
              WHERE track_id=?
@@ -4263,7 +4251,7 @@ app.get(
 
         if (
           previous &&
-          !isDone(
+          !await isDone(
             req.user.id,
             previous.id
           )
@@ -4289,7 +4277,7 @@ app.get(
       }
 
       // Reinicia a tentativa atual.
-      db.prepare(
+      await db.prepare(
         `DELETE FROM answers
          WHERE user_id=?
          AND question_id IN(
@@ -4303,7 +4291,7 @@ app.get(
       );
 
       const questions =
-        db
+        (await db
           .prepare(
             `SELECT
                id,
@@ -4316,7 +4304,7 @@ app.get(
           )
           .all(
             lesson.id
-          )
+          ))
           .map(
             question => {
               let options = [];
@@ -4507,10 +4495,10 @@ app.get(
 app.post(
   '/api/questions/:id/check',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const question =
-        db
+        await db
           .prepare(
             'SELECT * FROM questions WHERE id=?'
           )
@@ -4581,40 +4569,43 @@ app.post(
           );
       }
 
-      db.prepare(
-        `INSERT OR REPLACE INTO answers(
-          user_id,
-          question_id,
-          correct
-        )
-        VALUES(?,?,?)`
-      ).run(
-        req.user.id,
-        question.id,
-        correct ? 1 : 0
-      );
-
-      if (correct) {
-        bump(
+      // Resposta, atividade e vidas na mesma transação
+      // (respostas simultâneas não descontam vidas em dobro).
+      const heartState = await db.transaction(async () => {
+        await db.prepare(
+          `INSERT OR REPLACE INTO answers(
+            user_id,
+            question_id,
+            correct
+          )
+          VALUES(?,?,?)`
+        ).run(
           req.user.id,
-          {
-            correct: 1
-          }
+          question.id,
+          correct ? 1 : 0
         );
-      }
 
-      const heartState =
-        !correct &&
-        !isDone(
-          req.user.id,
-          question.lesson_id
-        )
-          ? loseHeart(
-              req.user.id
-            )
-          : hearts(
-              req.user.id
-            );
+        if (correct) {
+          await bump(
+            req.user.id,
+            {
+              correct: 1
+            }
+          );
+        }
+
+        return !correct &&
+          !await isDone(
+            req.user.id,
+            question.lesson_id
+          )
+            ? await loseHeart(
+                req.user.id
+              )
+            : await hearts(
+                req.user.id
+              );
+      });
 
       res.json({
         correct,
@@ -4662,10 +4653,10 @@ app.post(
 app.post(
   '/api/lessons/:id/evaluate',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const lesson =
-        db
+        await db
           .prepare(
             `SELECT
                id,
@@ -4702,7 +4693,7 @@ app.post(
 
       if (
         !isStaff(req.user) &&
-        !isDone(
+        !await isDone(
           req.user.id,
           lesson.id
         )
@@ -4713,7 +4704,7 @@ app.post(
         });
       }
 
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO lesson_evaluations (
           user_id,
           lesson_id,
@@ -4760,10 +4751,10 @@ app.post(
 app.post(
   '/api/tracks/:id/evaluate',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const track =
-        db
+        await db
           .prepare(
             `SELECT id
              FROM tracks
@@ -4798,7 +4789,7 @@ app.post(
 
       if (
         !isStaff(req.user) &&
-        !trilhaConcluida(
+        !await trilhaConcluida(
           req.user.id,
           track.id
         )
@@ -4809,7 +4800,7 @@ app.post(
         });
       }
 
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO track_evaluations (
           user_id,
           track_id,
@@ -4854,9 +4845,9 @@ app.post(
 // CONCLUSÃO DA LIÇÃO
 // ============================================================
 
-app.post('/api/lessons/:id/complete', auth, (req, res) => {
+app.post('/api/lessons/:id/complete', auth, async (req, res) => {
   try {
-    const lesson = db.prepare(
+    const lesson = await db.prepare(
       'SELECT * FROM lessons WHERE id=?'
     ).get(req.params.id);
 
@@ -4868,119 +4859,126 @@ app.post('/api/lessons/:id/complete', auth, (req, res) => {
       });
     }
 
-    if (trilhasFaltando(req.user, lesson.track_id).length) {
+    if ((await trilhasFaltando(req.user, lesson.track_id)).length) {
       return res.status(403).json({
         error: 'Trilha bloqueada: conclua os pré-requisitos antes.'
       });
     }
 
-    const total = one(
-      `SELECT COUNT(*) v
-       FROM questions
-       WHERE lesson_id=?`,
-      lesson.id
-    ).v;
-
-    const result = one(
-      `SELECT
-         COUNT(*) n,
-         COALESCE(SUM(correct), 0) c
-       FROM answers
-       WHERE user_id=?
-       AND question_id IN (
-         SELECT id
+    // Progresso, moedas, sequência e conquistas são gravados em
+    // uma única transação: uma conclusão enviada duas vezes ao
+    // mesmo tempo não pode contar em dobro nem ficar pela metade.
+    const outcome = await db.transaction(async () => {
+      const total = (await one(
+        `SELECT COUNT(*) v
          FROM questions
-         WHERE lesson_id=?
-       )`,
-      uid,
-      lesson.id
-    );
+         WHERE lesson_id=?`,
+        lesson.id
+      )).v;
 
-    if (result.n < total) {
-      return res.status(400).json({
-        error: 'Responda todas as questões'
-      });
-    }
-
-    const perfect = total > 0 && result.c === total ? 1 : 0;
-
-    // Consulta quantas vezes o aluno concluiu o módulo.
-    const previousProgress = db.prepare(
-      `SELECT xp, perfect, review_count
-       FROM progress
-       WHERE user_id=? AND lesson_id=?`
-    ).get(uid, lesson.id);
-
-    const repeated = !!previousProgress;
-
-    const completionNumber = repeated
-      ? Number(previousProgress.review_count || 1) + 1
-      : 1;
-
-    // 1ª = 100%, 2ª = 50%, 3ª = 30%, demais = 20%.
-    const xpMultiplier =
-      completionNumber === 1 ? 1 :
-      completionNumber === 2 ? 0.5 :
-      completionNumber === 3 ? 0.3 :
-      0.2;
-
-    const originalXp =
-      Number(lesson.xp || 0) +
-      result.c * 2 +
-      (perfect ? 10 : 0);
-
-    const gained = Math.floor(originalXp * xpMultiplier);
-
-    // Moedas são concedidas apenas na primeira conclusão.
-    const coins = repeated ? 0 : 5 + (perfect ? 5 : 0);
-
-    if (repeated) {
-      db.prepare(
-        `UPDATE progress
-         SET xp=xp+?,
-             perfect=MAX(perfect, ?),
-             review_count=?
-         WHERE user_id=? AND lesson_id=?`
-      ).run(
-        gained,
-        perfect,
-        completionNumber,
+      const result = await one(
+        `SELECT
+           COUNT(*) n,
+           COALESCE(SUM(correct), 0) c
+         FROM answers
+         WHERE user_id=?
+         AND question_id IN (
+           SELECT id
+           FROM questions
+           WHERE lesson_id=?
+         )`,
         uid,
         lesson.id
       );
-    } else {
-      db.prepare(
-        `INSERT INTO progress (
-          user_id,
-          lesson_id,
-          xp,
+
+      if (result.n < total) {
+        return {
+          status: 400,
+          body: {
+            error: 'Responda todas as questões'
+          }
+        };
+      }
+
+      const perfect = total > 0 && result.c === total ? 1 : 0;
+
+      // Consulta quantas vezes o aluno concluiu o módulo.
+      const previousProgress = await db.prepare(
+        `SELECT xp, perfect, review_count
+         FROM progress
+         WHERE user_id=? AND lesson_id=?`
+      ).get(uid, lesson.id);
+
+      const repeated = !!previousProgress;
+
+      const completionNumber = repeated
+        ? Number(previousProgress.review_count || 1) + 1
+        : 1;
+
+      // 1ª = 100%, 2ª = 50%, 3ª = 30%, demais = 20%.
+      const xpMultiplier =
+        completionNumber === 1 ? 1 :
+        completionNumber === 2 ? 0.5 :
+        completionNumber === 3 ? 0.3 :
+        0.2;
+
+      const originalXp =
+        Number(lesson.xp || 0) +
+        result.c * 2 +
+        (perfect ? 10 : 0);
+
+      const gained = Math.floor(originalXp * xpMultiplier);
+
+      // Moedas são concedidas apenas na primeira conclusão.
+      const coins = repeated ? 0 : 5 + (perfect ? 5 : 0);
+
+      if (repeated) {
+        await db.prepare(
+          `UPDATE progress
+           SET xp=xp+?,
+               perfect=MAX(perfect, ?),
+               review_count=?
+           WHERE user_id=? AND lesson_id=?`
+        ).run(
+          gained,
           perfect,
-          done_at,
-          review_count
-        ) VALUES (?, ?, ?, ?, ?, ?)`
-      ).run(
-        uid,
-        lesson.id,
-        gained,
-        perfect,
-        today(),
-        1
-      );
+          completionNumber,
+          uid,
+          lesson.id
+        );
+      } else {
+        await db.prepare(
+          `INSERT INTO progress (
+            user_id,
+            lesson_id,
+            xp,
+            perfect,
+            done_at,
+            review_count
+          ) VALUES (?, ?, ?, ?, ?, ?)`
+        ).run(
+          uid,
+          lesson.id,
+          gained,
+          perfect,
+          today(),
+          1
+        );
 
-      db.prepare(
-        `UPDATE users
-         SET coins=coins+?
-         WHERE id=?`
-      ).run(coins, uid);
-    }
+        await db.prepare(
+          `UPDATE users
+           SET coins=coins+?
+           WHERE id=?`
+        ).run(coins, uid);
+      }
 
-    bump(uid, {
-      xp: gained,
-      lessons: repeated ? 0 : 1
+      await bump(uid, {
+        xp: gained,
+        lessons: repeated ? 0 : 1
     });
 
     // Mantém a sequência diária do aluno.
-    const user = one(
+    const user = await one(
       `SELECT streak, last_day, best_streak
        FROM users
        WHERE id=?`,
@@ -4999,7 +4997,7 @@ app.post('/api/lessons/:id/complete', auth, (req, res) => {
         streak
       );
 
-      db.prepare(
+      await db.prepare(
         `UPDATE users
          SET streak=?,
              last_day=?,
@@ -5013,26 +5011,35 @@ app.post('/api/lessons/:id/complete', auth, (req, res) => {
       );
     }
 
-    const state = stats(uid);
+    const state = await stats(uid);
 
-    return res.json({
-      ok: true,
-      streak,
-      gained,
-      coins,
-      perfect: !!perfect,
-      hits: result.c,
-      total,
-      repeated,
-      completionNumber,
-      xpMultiplier,
-      originalXp,
-      level: state.level,
-      levelUp: state.level > LEVEL(
-        Math.max(0, state.xp - gained)
-      ),
-      badges: awardBadges(uid)
+    return {
+      body: {
+        ok: true,
+        streak,
+        gained,
+        coins,
+        perfect: !!perfect,
+        hits: result.c,
+        total,
+        repeated,
+        completionNumber,
+        xpMultiplier,
+        originalXp,
+        level: state.level,
+        levelUp: state.level > LEVEL(
+          Math.max(0, state.xp - gained)
+        ),
+        badges: await awardBadges(uid)
+      }
+    };
     });
+
+    if (outcome.status) {
+      return res.status(outcome.status).json(outcome.body);
+    }
+
+    return res.json(outcome.body);
 
   } catch (error) {
     console.error('Erro ao concluir lição:', error);
@@ -5050,7 +5057,7 @@ app.post('/api/lessons/:id/complete', auth, (req, res) => {
 app.post(
   '/api/lessons/:id/evaluation',
   auth,
-  (req, res) => {
+  async (req, res) => {
 
     try {
 
@@ -5094,7 +5101,7 @@ app.post(
       // ------------------------------------------------------
 
       const lesson =
-        db
+        await db
           .prepare(
             `SELECT
                id,
@@ -5117,7 +5124,7 @@ app.post(
       // ------------------------------------------------------
 
       if (
-        !isDone(
+        !await isDone(
           req.user.id,
           lessonId
         )
@@ -5132,7 +5139,7 @@ app.post(
       // SALVA / ATUALIZA A AVALIAÇÃO
       // ------------------------------------------------------
 
-      db.prepare(
+      await db.prepare(
         `INSERT INTO lesson_evaluations (
           user_id,
           lesson_id,
@@ -5186,20 +5193,20 @@ app.post(
 app.get(
   '/api/me/profile',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const uid =
         req.user.id;
 
       const state =
-        stats(uid);
+        await stats(uid);
 
       const activity =
-        todayAct(uid);
+        await todayAct(uid);
 
       const claimed =
         new Set(
-          db
+          (await db
             .prepare(
               `SELECT code
                FROM claims
@@ -5209,7 +5216,7 @@ app.get(
             .all(
               uid,
               today()
-            )
+            ))
             .map(
               row => row.code
             )
@@ -5217,17 +5224,47 @@ app.get(
 
       const have =
         new Set(
-          db
+          (await db
             .prepare(
               `SELECT code
                FROM badges
                WHERE user_id=?`
             )
-            .all(uid)
+            .all(uid))
             .map(
               row => row.code
             )
         );
+
+      const challengeBadges =
+        await db.prepare(`
+          SELECT
+            c.badge_code AS code,
+            c.badge_icon AS icon,
+            c.badge_name AS name,
+            c.badge_description AS description,
+            CASE WHEN r.id IS NULL THEN 0 ELSE 1 END AS got
+          FROM challenges c
+          LEFT JOIN challenge_rewards r
+            ON r.challenge_id=c.id
+            AND r.user_id=?
+          WHERE (c.enabled = 1 AND c.deleted_at IS NULL)
+          OR r.id IS NOT NULL
+          ORDER BY c.id
+        `).all(uid);
+
+      const week =
+        await db
+          .prepare(
+            `SELECT
+               day,
+               xp
+             FROM activity
+             WHERE user_id=?
+             ORDER BY day DESC
+             LIMIT 7`
+          )
+          .all(uid);
 
       res.json({
         ...state,
@@ -5293,21 +5330,7 @@ app.get(
             got: have.has(code)
           })),
 
-          ...db.prepare(`
-            SELECT
-              c.badge_code AS code,
-              c.badge_icon AS icon,
-              c.badge_name AS name,
-              c.badge_description AS description,
-              CASE WHEN r.id IS NULL THEN 0 ELSE 1 END AS got
-            FROM challenges c
-            LEFT JOIN challenge_rewards r
-              ON r.challenge_id=c.id
-              AND r.user_id=?
-            WHERE (c.enabled = 1 AND c.deleted_at IS NULL)
-            OR r.id IS NOT NULL
-            ORDER BY c.id
-          `).all(uid).map(row => ({
+          ...challengeBadges.map(row => ({
             code: row.code,
             icon: row.icon,
             name: row.name,
@@ -5318,18 +5341,7 @@ app.get(
 
 
         week:
-          db
-            .prepare(
-              `SELECT
-                 day,
-                 xp
-               FROM activity
-               WHERE user_id=?
-               ORDER BY day DESC
-               LIMIT 7`
-            )
-            .all(uid)
-            .reverse()
+          week.reverse()
       });
     } catch (error) {
       console.error(
@@ -5352,7 +5364,7 @@ app.get(
 app.post(
   '/api/missions/:code/claim',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const mission =
         MISSIONS[
@@ -5367,7 +5379,7 @@ app.post(
       }
 
       const activity =
-        todayAct(
+        await todayAct(
           req.user.id
         );
 
@@ -5383,31 +5395,34 @@ app.post(
         });
       }
 
-      const inserted =
-        db
-          .prepare(
-            `INSERT OR IGNORE INTO claims(
-              user_id,
-              day,
-              code
+      // Registro do resgate e moedas: tudo ou nada.
+      await db.transaction(async () => {
+        const inserted =
+          (await db
+            .prepare(
+              `INSERT OR IGNORE INTO claims(
+                user_id,
+                day,
+                code
+              )
+              VALUES(?,?,?)`
             )
-            VALUES(?,?,?)`
-          )
-          .run(
-            req.user.id,
-            today(),
-            req.params.code
-          ).changes;
+            .run(
+              req.user.id,
+              today(),
+              req.params.code
+            )).changes;
 
-      if (inserted) {
-        db.prepare(
-          `UPDATE users
-           SET coins=coins+10
-           WHERE id=?`
-        ).run(
-          req.user.id
-        );
-      }
+        if (inserted) {
+          await db.prepare(
+            `UPDATE users
+             SET coins=coins+10
+             WHERE id=?`
+          ).run(
+            req.user.id
+          );
+        }
+      });
 
       res.json({
         ok: true
@@ -5433,54 +5448,60 @@ app.post(
 app.post(
   '/api/shop/hearts',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const COST = 30;
 
-      const current =
-        hearts(
+      // Saldo conferido e descontado na mesma transação:
+      // compras simultâneas não gastam a mesma moeda duas vezes.
+      const error = await db.transaction(async () => {
+        const current =
+          await hearts(
+            req.user.id
+          );
+
+        if (
+          current.hearts >=
+          MAX_HEARTS
+        ) {
+          return 'Suas vidas já estão cheias';
+        }
+
+        const coins =
+          (await one(
+            `SELECT coins
+             FROM users
+             WHERE id=?`,
+            req.user.id
+          )).coins || 0;
+
+        if (
+          coins < COST
+        ) {
+          return `Você precisa de ${COST} moedas`;
+        }
+
+        await db.prepare(
+          `UPDATE users
+           SET coins=coins-?,
+               hearts=?,
+               hearts_at=?
+           WHERE id=?`
+        ).run(
+          COST,
+          MAX_HEARTS,
+          Date.now(),
           req.user.id
         );
 
-      if (
-        current.hearts >=
-        MAX_HEARTS
-      ) {
+        return null;
+      });
+
+      if (error) {
         return res.status(400).json({
-          error:
-            'Suas vidas já estão cheias'
+          error
         });
       }
-
-      const coins =
-        one(
-          `SELECT coins
-           FROM users
-           WHERE id=?`,
-          req.user.id
-        ).coins || 0;
-
-      if (
-        coins < COST
-      ) {
-        return res.status(400).json({
-          error:
-            `Você precisa de ${COST} moedas`
-        });
-      }
-
-      db.prepare(
-        `UPDATE users
-         SET coins=coins-?,
-             hearts=?,
-             hearts_at=?
-         WHERE id=?`
-      ).run(
-        COST,
-        MAX_HEARTS,
-        Date.now(),
-        req.user.id
-      );
 
       res.json({
         ok: true
@@ -5506,7 +5527,7 @@ app.post(
 app.get(
   '/api/finance',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const month =
         /^\d{4}-\d{2}$/.test(
@@ -5516,7 +5537,7 @@ app.get(
           : today().slice(0, 7);
 
       const entries =
-        db
+        await db
           .prepare(
             `SELECT
                id,
@@ -5556,7 +5577,7 @@ app.get(
 app.post(
   '/api/finance',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const {
         kind,
@@ -5603,7 +5624,7 @@ app.post(
       }
 
       const result =
-        db
+        await db
           .prepare(
             `INSERT INTO finance(
               user_id,
@@ -5654,9 +5675,9 @@ app.post(
 app.delete(
   '/api/finance/:id',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
-      db.prepare(
+      await db.prepare(
         `DELETE FROM finance
          WHERE id=?
          AND user_id=?`
@@ -5689,10 +5710,10 @@ app.delete(
 app.get(
   '/api/ranking',
   auth,
-  (req, res) => {
+  async (req, res) => {
     try {
       const rows =
-        db
+        await db
           .prepare(
             `SELECT
                u.id,
@@ -5846,12 +5867,18 @@ const clean = (
 // Uma trilha pode exigir a conclusão de outras trilhas.
 // Trilha concluída = todos os módulos concluídos pelo aluno.
 
-function trilhaConcluida(uid, trackId) {
-  const ls = db
+async function trilhaConcluida(uid, trackId) {
+  const ls = await db
     .prepare('SELECT id FROM lessons WHERE track_id=?')
     .all(trackId);
 
-  return ls.length > 0 && ls.every(l => isDone(uid, l.id));
+  if (!ls.length) return false;
+
+  for (const l of ls) {
+    if (!await isDone(uid, l.id)) return false;
+  }
+
+  return true;
 }
 
 function lerPre(valor) {
@@ -5864,23 +5891,33 @@ function lerPre(valor) {
 }
 
 // Títulos das trilhas exigidas que o aluno ainda não concluiu (ADM é liberado).
-function trilhasFaltando(user, trackId) {
+async function trilhasFaltando(user, trackId) {
   if (isStaff(user)) return [];
 
-  const t = one('SELECT prerequisites p FROM tracks WHERE id=?', trackId);
+  const t = await one('SELECT prerequisites p FROM tracks WHERE id=?', trackId);
+  const faltando = [];
 
-  return lerPre(t && t.p)
-    .filter(id => one('SELECT 1 FROM tracks WHERE id=?', id))
-    .filter(id => !trilhaConcluida(user.id, id))
-    .map(id => one('SELECT title FROM tracks WHERE id=?', id).title);
+  for (const id of lerPre(t && t.p)) {
+    if (!await one('SELECT 1 FROM tracks WHERE id=?', id)) continue;
+    if (await trilhaConcluida(user.id, id)) continue;
+
+    faltando.push((await one('SELECT title FROM tracks WHERE id=?', id)).title);
+  }
+
+  return faltando;
 }
 
 // Valida a lista de pré-requisitos e impede dependência circular.
-function validarPre(trackId, lista) {
-  const ids = [...new Set((Array.isArray(lista) ? lista : []).map(Number))]
-    .filter(id => id && id !== trackId && one('SELECT 1 FROM tracks WHERE id=?', id));
+async function validarPre(trackId, lista) {
+  const ids = [];
 
-  const exige = id => lerPre((one('SELECT prerequisites p FROM tracks WHERE id=?', id) || {}).p);
+  for (const id of new Set((Array.isArray(lista) ? lista : []).map(Number))) {
+    if (id && id !== trackId && await one('SELECT 1 FROM tracks WHERE id=?', id)) {
+      ids.push(id);
+    }
+  }
+
+  const exige = async id => lerPre((await one('SELECT prerequisites p FROM tracks WHERE id=?', id) || {}).p);
   const visto = new Set();
   const pilha = [...ids];
 
@@ -5893,7 +5930,7 @@ function validarPre(trackId, lista) {
 
     if (!visto.has(x)) {
       visto.add(x);
-      pilha.push(...exige(x));
+      pilha.push(...await exige(x));
     }
   }
 
@@ -5908,16 +5945,16 @@ app.get(
   '/api/admin/tree',
   auth,
   staff,
-  (req, res) => {
+  async (req, res) => {
     try {
       const questions =
-        db
+        (await db
           .prepare(
             `SELECT *
              FROM questions
              ORDER BY position,id`
           )
-          .all()
+          .all())
           .map(
             question => {
               let options = [];
@@ -5940,13 +5977,13 @@ app.get(
           );
 
       const lessons =
-        db
+        (await db
           .prepare(
             `SELECT *
              FROM lessons
              ORDER BY position,id`
           )
-          .all()
+          .all())
           .map(
             lesson => ({
               ...lesson,
@@ -6000,13 +6037,13 @@ app.get(
           );
 
       const tracks =
-        db
+        (await db
           .prepare(
             `SELECT *
              FROM tracks
              ORDER BY position,id`
           )
-          .all()
+          .all())
           .map(
             track => ({
               ...track,
@@ -6076,10 +6113,10 @@ app.put(
   '/api/admin/tracks/:id',
   auth,
   staff,
-  (req, res, next) => {
+  async (req, res, next) => {
     if (req.body && req.body.prerequisites !== undefined) {
       try {
-        req.body.prerequisites = validarPre(
+        req.body.prerequisites = await validarPre(
           Number(req.params.id),
           req.body.prerequisites
         );
@@ -6097,14 +6134,14 @@ app.delete(
   '/api/admin/tracks/:id',
   auth,
   adm,
-  (req, res, next) => {
+  async (req, res, next) => {
     const id = Number(req.params.id);
 
-    for (const t of db.prepare('SELECT id,prerequisites FROM tracks').all()) {
+    for (const t of await db.prepare('SELECT id,prerequisites FROM tracks').all()) {
       const lista = lerPre(t.prerequisites);
 
       if (lista.includes(id)) {
-        db.prepare('UPDATE tracks SET prerequisites=? WHERE id=?')
+        await db.prepare('UPDATE tracks SET prerequisites=? WHERE id=?')
           .run(JSON.stringify(lista.filter(x => x !== id)), t.id);
       }
     }
@@ -6123,10 +6160,10 @@ app.post(
   '/api/admin/tracks',
   auth,
   staff,
-  (req, res) => {
+  async (req, res) => {
     try {
       if (req.body && req.body.prerequisites !== undefined) {
-        req.body.prerequisites = validarPre(0, req.body.prerequisites);
+        req.body.prerequisites = await validarPre(0, req.body.prerequisites);
       }
 
       const data =
@@ -6147,33 +6184,38 @@ app.post(
         });
       }
 
-      const id =
-        db
-          .prepare(
-            `INSERT INTO tracks(${keys})
-             VALUES(${keys.map(
-               () => '?'
-             )})`
-          )
-          .run(
-            ...Object.values(
-              data
+      // Trilha e primeiro módulo: tudo ou nada.
+      const id = await db.transaction(async () => {
+        const trackId =
+          (await db
+            .prepare(
+              `INSERT INTO tracks(${keys})
+               VALUES(${keys.map(
+                 () => '?'
+               )})`
             )
-          )
-          .lastInsertRowid;
+            .run(
+              ...Object.values(
+                data
+              )
+            ))
+            .lastInsertRowid;
 
-      db.prepare(
-        `INSERT INTO lessons(
-          track_id,
-          title,
-          position,
-          xp
-        )
-        VALUES(?,?,0,10)`
-      ).run(
-        id,
-        'Módulo 1'
-      );
+        await db.prepare(
+          `INSERT INTO lessons(
+            track_id,
+            title,
+            position,
+            xp
+          )
+          VALUES(?,?,0,10)`
+        ).run(
+          trackId,
+          'Módulo 1'
+        );
+
+        return trackId;
+      });
 
       res.json({
         id
@@ -6196,7 +6238,7 @@ app.post(
   '/api/admin/lessons',
   auth,
   staff,
-  (req, res, next) => {
+  async (req, res, next) => {
     try {
       const trackId =
         Number(
@@ -6216,7 +6258,7 @@ app.post(
       }
 
       const trackExists =
-        one(
+        await one(
           `SELECT 1
            FROM tracks
            WHERE id=?`,
@@ -6231,12 +6273,12 @@ app.post(
       }
 
       const count =
-        one(
+        (await one(
           `SELECT COUNT(*) v
            FROM lessons
            WHERE track_id=?`,
           trackId
-        ).v;
+        )).v;
 
       if (
         count >=
@@ -6267,10 +6309,10 @@ app.delete(
   '/api/admin/lessons/:id',
   auth,
   staff,
-  (req, res, next) => {
+  async (req, res, next) => {
     try {
       const lesson =
-        one(
+        await one(
           `SELECT track_id
            FROM lessons
            WHERE id=?`,
@@ -6279,12 +6321,12 @@ app.delete(
 
       if (
         lesson &&
-        one(
+        (await one(
           `SELECT COUNT(*) v
            FROM lessons
            WHERE track_id=?`,
           lesson.track_id
-        ).v <= 1
+        )).v <= 1
       ) {
         return res.status(400).json({
           error:
@@ -6441,7 +6483,7 @@ app.post(
   '/api/admin/:res',
   auth,
   staff,
-  (req, res) => {
+  async (req, res) => {
     try {
       const resource =
         req.params.res;
@@ -6474,7 +6516,7 @@ app.post(
       }
 
       const result =
-        db
+        await db
           .prepare(
             `INSERT INTO ${resource}(${keys})
              VALUES(${keys.map(
@@ -6509,7 +6551,7 @@ app.put(
   '/api/admin/:res/:id',
   auth,
   staff,
-  (req, res) => {
+  async (req, res) => {
     try {
       const resource =
         req.params.res;
@@ -6541,7 +6583,7 @@ app.put(
         });
       }
 
-      db.prepare(
+      await db.prepare(
         `UPDATE ${resource}
          SET ${keys.map(
            key => `${key}=?`
@@ -6579,7 +6621,7 @@ app.delete(
   '/api/admin/users/:id',
   auth,
   adm,
-  (req, res) => {
+  async (req, res) => {
     try {
       const id =
         Number(
@@ -6597,7 +6639,7 @@ app.delete(
       }
 
       const user =
-        db
+        await db
           .prepare(
             `SELECT avatar
              FROM users
@@ -6623,20 +6665,23 @@ app.delete(
         'track_evaluations'
       ];
 
-      for (
-        const table
-        of dependentTables
-      ) {
-        db.prepare(
-          `DELETE FROM ${table}
-           WHERE user_id=?`
-        ).run(id);
-      }
+      // Dados dependentes e a conta: tudo ou nada.
+      await db.transaction(async () => {
+        for (
+          const table
+          of dependentTables
+        ) {
+          await db.prepare(
+            `DELETE FROM ${table}
+             WHERE user_id=?`
+          ).run(id);
+        }
 
-      db.prepare(
-        `DELETE FROM users
-         WHERE id=?`
-      ).run(id);
+        await db.prepare(
+          `DELETE FROM users
+           WHERE id=?`
+        ).run(id);
+      });
 
       // Remove também a foto de perfil do usuário excluído.
       removeAvatarFile(user.avatar);
@@ -6666,7 +6711,7 @@ app.delete(
   '/api/admin/:res/:id',
   auth,
   staff,
-  (req, res) => {
+  async (req, res) => {
     try {
       const resource =
         req.params.res;
@@ -6680,7 +6725,7 @@ app.delete(
         });
       }
 
-      db.prepare(
+      await db.prepare(
         `DELETE FROM ${resource}
          WHERE id=?`
       ).run(
@@ -6712,10 +6757,10 @@ app.get(
   '/api/admin/users',
   auth,
   adm,
-  (req, res) => {
+  async (req, res) => {
     try {
       res.json(
-        db
+        (await db
           .prepare(
             `SELECT
                id,
@@ -6726,7 +6771,7 @@ app.get(
              FROM users
              ORDER BY name`
           )
-          .all()
+          .all())
           .map(
             ({ avatar, ...user }) => ({
               ...user,
@@ -6756,7 +6801,7 @@ app.put(
   '/api/admin/users/:id/role',
   auth,
   adm,
-  (req, res) => {
+  async (req, res) => {
     try {
       const role =
         req.body?.role;
@@ -6790,7 +6835,7 @@ app.put(
       }
 
       const user =
-        db
+        await db
           .prepare(
             `SELECT 1
              FROM users
@@ -6805,7 +6850,7 @@ app.put(
         });
       }
 
-      db.prepare(
+      await db.prepare(
         `UPDATE users
          SET role=?
          WHERE id=?`
@@ -6882,7 +6927,7 @@ app.use(
 app.post(
   '/api/tracks/:id/evaluation',
   auth,
-  (req, res) => {
+  async (req, res) => {
 
     try {
 
@@ -6925,7 +6970,7 @@ app.post(
       // ------------------------------------------------------
 
       const track =
-        db.prepare(`
+        await db.prepare(`
           SELECT
             id,
             title
@@ -6944,7 +6989,7 @@ app.post(
       // ------------------------------------------------------
 
       const lessons =
-        db.prepare(`
+        await db.prepare(`
           SELECT id
           FROM lessons
           WHERE track_id = ?
@@ -6962,14 +7007,19 @@ app.post(
       // VERIFICA SE TODOS OS MÓDULOS FORAM CONCLUÍDOS
       // ------------------------------------------------------
 
-      const allDone =
-        lessons.every(
-          lesson =>
-            isDone(
-              req.user.id,
-              lesson.id
-            )
-        );
+      let allDone = true;
+
+      for (const lesson of lessons) {
+        if (
+          !await isDone(
+            req.user.id,
+            lesson.id
+          )
+        ) {
+          allDone = false;
+          break;
+        }
+      }
 
       if (!allDone) {
         return res.status(403).json({
@@ -6982,7 +7032,7 @@ app.post(
       // SALVA / ATUALIZA A AVALIAÇÃO
       // ------------------------------------------------------
 
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO track_evaluations (
           user_id,
           track_id,
@@ -7033,7 +7083,7 @@ app.post(
 app.post(
   '/api/lessons/:id/evaluation',
   auth,
-  (req, res) => {
+  async (req, res) => {
 
     try {
 
@@ -7076,7 +7126,7 @@ app.post(
       // =====================================================
 
       const lesson =
-        db.prepare(`
+        await db.prepare(`
           SELECT
             id,
             track_id,
@@ -7097,7 +7147,7 @@ app.post(
       // =====================================================
 
       if (
-        !isDone(
+        !await isDone(
           req.user.id,
           lessonId
         )
@@ -7115,7 +7165,7 @@ app.post(
 
       try {
 
-        db.prepare(`
+        await db.prepare(`
           INSERT INTO lesson_evaluations (
             user_id,
             lesson_id,
@@ -7228,12 +7278,12 @@ const shapeDoubt = (row, viewer, hasReplies) => ({
     (row.user_id === viewer.id && !hasReplies)
 });
 
-const tooFast = user => {
+const tooFast = async user => {
   if (isStaff(user)) return false;
 
   const since = new Date(Date.now() - 60000).toISOString();
 
-  const { n } = db
+  const { n } = await db
     .prepare(
       `SELECT COUNT(*) AS n
        FROM doubts
@@ -7244,12 +7294,12 @@ const tooFast = user => {
   return n >= DOUBT_LIMIT_PER_MINUTE;
 };
 
-app.get('/api/doubts', auth, (req, res) => {
+app.get('/api/doubts', auth, async (req, res) => {
   try {
     const trackId = Number(req.query.track_id);
     const filtered = Number.isInteger(trackId) && trackId > 0;
 
-    const threads = db
+    const threads = await db
       .prepare(
         `${doubtRows}
          WHERE d.parent_id IS NULL
@@ -7265,8 +7315,8 @@ app.get('/api/doubts', auth, (req, res) => {
        ORDER BY d.id ASC`
     );
 
-    const doubts = threads.map(row => {
-      const replies = repliesStmt.all(row.id);
+    const doubts = await mapAsync(threads, async row => {
+      const replies = await repliesStmt.all(row.id);
 
       return {
         ...shapeDoubt(row, req.user, replies.length > 0),
@@ -7277,7 +7327,7 @@ app.get('/api/doubts', auth, (req, res) => {
       };
     });
 
-    const tracks = db
+    const tracks = await db
       .prepare('SELECT id, title FROM tracks ORDER BY position, id')
       .all();
 
@@ -7288,7 +7338,7 @@ app.get('/api/doubts', auth, (req, res) => {
   }
 });
 
-app.post('/api/doubts', auth, (req, res) => {
+app.post('/api/doubts', auth, async (req, res) => {
   try {
     const body = doubtText(req);
 
@@ -7304,7 +7354,7 @@ app.post('/api/doubts', auth, (req, res) => {
       trackId = Number(req.body.track_id);
 
       const track = Number.isInteger(trackId)
-        ? db.prepare('SELECT id FROM tracks WHERE id = ?').get(trackId)
+        ? await db.prepare('SELECT id FROM tracks WHERE id = ?').get(trackId)
         : null;
 
       if (!track) {
@@ -7312,18 +7362,18 @@ app.post('/api/doubts', auth, (req, res) => {
       }
     }
 
-    if (tooFast(req.user)) {
+    if (await tooFast(req.user)) {
       return res.status(429).json({
         error: 'Você está enviando mensagens rápido demais. Aguarde um instante.'
       });
     }
 
-    const id = db
+    const id = (await db
       .prepare(
         `INSERT INTO doubts (user_id, parent_id, track_id, body, created_at)
          VALUES (?, NULL, ?, ?, ?)`
       )
-      .run(req.user.id, trackId, body, new Date().toISOString())
+      .run(req.user.id, trackId, body, new Date().toISOString()))
       .lastInsertRowid;
 
     res.json({ ok: true, id: Number(id) });
@@ -7333,7 +7383,7 @@ app.post('/api/doubts', auth, (req, res) => {
   }
 });
 
-app.post('/api/doubts/:id/replies', auth, (req, res) => {
+app.post('/api/doubts/:id/replies', auth, async (req, res) => {
   try {
     const parentId = Number(req.params.id);
     const body = doubtText(req);
@@ -7345,7 +7395,7 @@ app.post('/api/doubts/:id/replies', auth, (req, res) => {
     }
 
     const parent = Number.isInteger(parentId)
-      ? db
+      ? await db
           .prepare(
             'SELECT id, user_id, track_id FROM doubts WHERE id = ? AND parent_id IS NULL'
           )
@@ -7362,13 +7412,13 @@ app.post('/api/doubts/:id/replies', auth, (req, res) => {
       });
     }
 
-    if (tooFast(req.user)) {
+    if (await tooFast(req.user)) {
       return res.status(429).json({
         error: 'Você está enviando mensagens rápido demais. Aguarde um instante.'
       });
     }
 
-    const id = db
+    const id = (await db
       .prepare(
         `INSERT INTO doubts (user_id, parent_id, track_id, body, created_at)
          VALUES (?, ?, ?, ?, ?)`
@@ -7379,7 +7429,7 @@ app.post('/api/doubts/:id/replies', auth, (req, res) => {
         parent.track_id,
         body,
         new Date().toISOString()
-      )
+      ))
       .lastInsertRowid;
 
     res.json({ ok: true, id: Number(id) });
@@ -7389,12 +7439,12 @@ app.post('/api/doubts/:id/replies', auth, (req, res) => {
   }
 });
 
-app.delete('/api/doubts/:id', auth, (req, res) => {
+app.delete('/api/doubts/:id', auth, async (req, res) => {
   try {
     const id = Number(req.params.id);
 
     const row = Number.isInteger(id)
-      ? db
+      ? await db
           .prepare('SELECT id, user_id, parent_id FROM doubts WHERE id = ?')
           .get(id)
       : null;
@@ -7404,9 +7454,9 @@ app.delete('/api/doubts/:id', auth, (req, res) => {
     }
 
     if (!isStaff(req.user)) {
-      const replies = db
+      const replies = (await db
         .prepare('SELECT COUNT(*) AS n FROM doubts WHERE parent_id = ?')
-        .get(row.id).n;
+        .get(row.id)).n;
 
       if (row.user_id !== req.user.id || replies > 0) {
         return res.status(403).json({
@@ -7416,7 +7466,7 @@ app.delete('/api/doubts/:id', auth, (req, res) => {
     }
 
     // As respostas de uma dúvida excluída saem junto (ON DELETE CASCADE).
-    db.prepare('DELETE FROM doubts WHERE id = ?').run(row.id);
+    await db.prepare('DELETE FROM doubts WHERE id = ?').run(row.id);
 
     res.json({ ok: true });
   } catch (error) {
@@ -7503,24 +7553,40 @@ app.use(
 // INICIALIZAÇÃO
 // ============================================================
 
-const server =
-  app.listen(
-    PORT,
-    HOST,
-    () => {
-      console.log(
-        `Dragnix rodando em ${HOST}:${PORT}`
-      );
+// Só começa a atender depois de conectar ao banco, validar o
+// esquema e garantir os dados iniciais. Se algo falhar, o processo
+// termina com erro em vez de subir com o banco inconsistente.
+let server = null;
 
-      console.log(
-        `Frontend: ${PUBLIC_DIR}`
-      );
+db.ready()
+  .then(() => {
+    server =
+      app.listen(
+        PORT,
+        HOST,
+        () => {
+          console.log(
+            `Dragnix rodando em ${HOST}:${PORT}`
+          );
 
-      console.log(
-        `Uploads: ${UPLOAD_DIR}`
+          console.log(
+            `Frontend: ${PUBLIC_DIR}`
+          );
+
+          console.log(
+            `Uploads: ${UPLOAD_DIR}`
+          );
+        }
       );
-    }
-  );
+  })
+  .catch(error => {
+    console.error(
+      'Falha ao preparar o banco de dados:',
+      error.message
+    );
+
+    process.exit(1);
+  });
 
 // ============================================================
 // ENCERRAMENTO SEGURO
@@ -7532,6 +7598,10 @@ function shutdown(
   console.log(
     `${signal} recebido. Encerrando servidor...`
   );
+
+  if (!server) {
+    process.exit(0);
+  }
 
   server.close(
     () => {
