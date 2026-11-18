@@ -1,0 +1,245 @@
+/* ============================================================
+   DRAGNIX — css/acessibilidade.css  (SURDOS E COMANDO POR VOZ)
+   ============================================================
+
+   [A11Y-FOCO]      foco bem visível para quem navega por teclado ou voz
+   [A11Y-ALVOS]     áreas de clique grandes (mínimo 44px)
+   [A11Y-PULAR]     link "Ir para o conteúdo"
+   [A11Y-AVISO]     avisos visuais (sem depender de som nem só de cor)
+   [A11Y-VOZ]       botão de microfone, legenda e ajuda
+   [A11Y-PREFS]     movimento reduzido e alto contraste
+   [DESKTOP] / [TABLET] / [CELULAR] no fim do arquivo
+   ============================================================ */
+
+/* [A11Y-FOCO] */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+    outline: 3px solid #ffd43b;
+    outline-offset: 3px;
+    box-shadow: 0 0 0 6px rgba(0, 0, 0, .55);
+}
+
+/* [A11Y-ALVOS] */
+button,
+.side-link,
+.sx-sublink,
+.cf-tab,
+.cf-pill {
+    min-height: 44px;
+}
+
+/* [A11Y-CONTRASTE] ajustes de cor no modo claro (o modo escuro não muda) */
+
+/* botão ☰ do menu lateral: ícone branco sobre o roxo, igual ao botão de tema
+   (antes usava a cor do texto da página: cinza-escuro sobre roxo, 1,6:1) */
+.site-header .side-toggle {
+    color: #fff;
+}
+
+/* item aberto do menu lateral: verde mais escuro no modo claro
+   (verde-claro sobre fundo verde-claro ficava 1,9:1) */
+html:not([data-theme="dark"]) .side-link[aria-current="page"],
+html:not([data-theme="dark"]) .side-link.is-active,
+html:not([data-theme="dark"]) .side-link.active {
+    color: #2b7a00;
+}
+
+/* [A11Y-PULAR] */
+.a11y-pular {
+    position: fixed;
+    top: -80px;
+    left: 12px;
+    z-index: 2147483600;
+    padding: 12px 18px;
+    border-radius: 12px;
+    font-weight: 800;
+    color: #111;
+    text-decoration: none;
+    background: #ffd43b;
+    transition: top .15s;
+}
+
+.a11y-pular:focus { top: 12px; }
+
+/* [A11Y-AVISO] */
+.a11y-aviso {
+    position: fixed;
+    top: 76px;
+    left: 50%;
+    z-index: 2147483500;
+    max-width: min(560px, calc(100vw - 24px));
+    padding: 14px 20px;
+    border-radius: 14px;
+    border: 2px solid currentColor;
+    font-weight: 800;
+    line-height: 1.35;
+    text-align: center;
+    transform: translateX(-50%);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+}
+
+.a11y-aviso[hidden] { display: none; }
+.a11y-aviso--ok   { color: #0a3d1a; background: #c9f7d4; }
+.a11y-aviso--erro { color: #5c0d0d; background: #ffd9d9; }
+.a11y-aviso--info { color: #10234d; background: #dbe8ff; }
+
+/* [A11Y-VOZ] */
+.a11y-voz {
+    position: fixed;
+    left: 16px;
+    bottom: 16px;
+    z-index: 1150;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: 2px solid #fff;
+    border-radius: 999px;
+    font: inherit;
+    font-weight: 800;
+    color: #fff;
+    cursor: pointer;
+    background: #5b2a96;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+
+.a11y-voz.is-ouvindo {
+    background: #b3261e;
+    animation: a11y-pulso 1.4s ease-in-out infinite;
+}
+
+.a11y-voz__ico { font-size: 1.2rem; }
+
+.a11y-legenda {
+    position: fixed;
+    left: 16px;
+    bottom: 72px;
+    z-index: 1150;
+    max-width: min(420px, calc(100vw - 32px));
+    padding: 12px 16px;
+    border-radius: 14px;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(15, 15, 25, .94);
+    border: 2px solid #ffd43b;
+}
+
+.a11y-legenda[hidden],
+.a11y-ajuda[hidden] { display: none; }
+
+.a11y-ajuda {
+    position: fixed;
+    left: 16px;
+    bottom: 72px;
+    z-index: 1160;
+    width: min(360px, calc(100vw - 32px));
+    max-height: 70dvh;
+    padding: 18px;
+    overflow-y: auto;
+    border-radius: 18px;
+    color: #fff;
+    background: #17112a;
+    border: 2px solid #8b3fd9;
+}
+
+.a11y-ajuda h2 { margin: 0 0 6px; font-size: 1.1rem; }
+.a11y-ajuda p { margin: 0 0 8px; }
+.a11y-ajuda ul { margin: 0; padding-left: 20px; line-height: 1.7; }
+
+.a11y-ajuda__x {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 50%;
+    font-size: 1.4rem;
+    color: #fff;
+    cursor: pointer;
+    background: rgba(255, 255, 255, .14);
+}
+
+@keyframes a11y-pulso {
+    50% { box-shadow: 0 0 0 10px rgba(179, 38, 30, .3); }
+}
+
+/* [A11Y-PREFS] */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+@media (forced-colors: active) {
+    .a11y-voz, .a11y-aviso, .a11y-legenda, .a11y-ajuda { border: 2px solid CanvasText; }
+}
+
+/* [TABLET] */
+@media (max-width: 900px) {
+    .a11y-aviso { top: 70px; }
+}
+
+/* dica de teclado no fim da ajuda */
+.a11y-ajuda__dica {
+    margin: 10px 0 0 !important;
+    font-size: .85rem;
+    opacity: .85;
+}
+
+.a11y-ajuda kbd {
+    padding: 1px 6px;
+    border: 1px solid rgba(255, 255, 255, .4);
+    border-radius: 6px;
+    font: inherit;
+    font-weight: 800;
+    background: rgba(255, 255, 255, .1);
+}
+
+.a11y-ajuda:focus { outline: none; }
+
+/* links do rodapé: área de toque mínima de 24px (WCAG 2.5.8) */
+.dgx-footer-links a {
+    display: inline-block;
+    min-height: 24px;
+    padding: 2px 0;
+}
+
+/* [A11Y-LIBRAS] a posição do botão do VLibras é ajustada no
+   js/acessibilidade.js (posicionarBotaoLibras), dentro do shadow DOM dele */
+
+/* [CELULAR] — o botão de voz vira só o microfone (o nome continua para
+   leitores de tela e para o comando "clicar comando de voz"), para não
+   cobrir o texto da lição e dos cards */
+@media (max-width: 600px) {
+    .a11y-voz {
+        left: 14px;
+        bottom: 14px;
+        width: 54px;
+        height: 54px;
+        padding: 0;
+        justify-content: center;
+    }
+
+    .a11y-voz__txt {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+    }
+
+    .a11y-voz__ico { font-size: 1.4rem; }
+
+    .a11y-legenda,
+    .a11y-ajuda { bottom: 78px; }
+}

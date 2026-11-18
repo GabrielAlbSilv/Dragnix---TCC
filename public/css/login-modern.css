@@ -1429,3 +1429,143 @@ body.side-locked {
     overflow: hidden;
 }
 
+
+/* ============================================================
+   RECUPERAR SENHA
+   ============================================================ */
+
+.dragnix-login .recover-step {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.dragnix-login .recover-step input {
+    width: 100%;
+    min-width: 0;
+    min-height: 46px;
+    margin: 0;
+    font-size: 14px;
+}
+
+.dragnix-login .recover-title {
+    margin: 0;
+    font-size: 20px;
+}
+
+.dragnix-login .recover-text {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--theme-text-secondary);
+}
+
+.dragnix-login .recover-main {
+    width: 100%;
+    min-height: 48px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.dragnix-login .recover-msg:empty {
+    display: none;
+}
+
+.dragnix-login .recover-ok {
+    color: #2e9e2e;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.dragnix-login .recover-link {
+    align-self: center;
+    padding: 4px 8px;
+    font-size: 14px;
+}
+
+.dragnix-login .recover-link:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+/* ============================================================
+   [RODAPE-FIXO] rodapé sempre escuro, com o nome Dragnix branco
+   O rodapé não acompanha mais o tema claro/escuro: as cores dele
+   são as do tema escuro nos dois temas (o nome branco fica legível).
+   ============================================================ */
+
+.dragnix-login .dgx-footer {
+    --bg: #121212;
+    --fg: #eeeeee;
+    --mut: #a0a0a0;
+    --bd: #353535;
+    --theme-bg: #121212;
+    --theme-surface: #1c1c1c;
+    --theme-surface-2: #242424;
+    --theme-text: #eeeeee;
+    --theme-text-secondary: #a0a0a0;
+    --theme-border: #353535;
+    --theme-hover: #292929;
+
+    background: #121212;
+    color: #eeeeee;
+}
+
+
+/* ============================================================
+   [LOGIN-TEMA] botão de tema (sol/lua) no cabeçalho do login
+   Mesmo visual do botão das outras páginas (dragnix-shell.css),
+   que o login não carrega.
+   ============================================================ */
+
+.login-page .site-header .theme-toggle {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 46px;
+    height: 46px;
+    min-height: 0;
+    margin-left: auto;
+    padding: 0;
+    border: 0;
+    border-radius: 14px;
+    background: var(--nav-bg);
+    color: #fff;
+    cursor: pointer;
+    transition: background .2s, transform .2s;
+}
+
+.login-page .site-header .theme-toggle:hover,
+.login-page .site-header .theme-toggle:focus-visible {
+    background: var(--nav-bg-hover);
+    transform: translateY(-2px);
+}
+
+.login-page .site-header .theme-toggle svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+html[data-theme="dark"] .login-page .site-header .theme-toggle .icon-moon,
+html:not([data-theme="dark"]) .login-page .site-header .theme-toggle .icon-sun {
+    display: none;
+}
+
+@media (max-width: 760px) {
+    .login-page .site-header .theme-toggle {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .login-page .site-header .theme-toggle {
+        transition: none;
+    }
+}

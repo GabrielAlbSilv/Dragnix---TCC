@@ -1,0 +1,336 @@
+/* ============================================================
+   DRAGNIX — css/admin-regras.css  (TELA "REGRAS DE NEGÓCIO")
+   Usado pelo js/admin-regras.js. Temas claro e escuro.
+   ============================================================ */
+
+/* Avatares (#t3) e Conquistas (#t4) ficam dentro de "Regras de negócio":
+   os botões continuam no HTML (os scripts usam), mas escondidos.
+   O display:flex do .side-link anulava o atributo hidden. */
+.side-link[hidden] {
+    display: none !important;
+}
+
+.rn {
+    display: grid;
+    gap: 14px;
+    text-align: left;
+}
+
+.rn .card {
+    margin: 0;
+}
+
+.rn-topo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.rn-topo p {
+    flex: 1 1 280px;
+    margin: 0;
+}
+
+.rn-quando {
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: color-mix(in srgb, #8b3fd9 12%, transparent);
+    color: #6d28d9;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+html[data-theme="dark"] .rn-quando {
+    color: #c4a1f5;
+}
+
+/* abas */
+.rn-abas {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    overflow-x: auto;
+    border: 1px solid var(--theme-border);
+    border-radius: 999px;
+    background: var(--theme-surface);
+}
+
+.rn-aba {
+    flex: none;
+    min-height: 38px;
+    padding: 6px 16px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--theme-text-secondary);
+    font: inherit;
+    font-weight: 700;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.rn-aba.is-on {
+    background: #8b3fd9;
+    color: #fff;
+}
+
+.rn-conteudo {
+    display: grid;
+    gap: 14px;
+}
+
+.rn-card {
+    display: grid;
+    gap: 12px;
+}
+
+.rn-card h3,
+.rn-card h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    text-align: left;
+}
+
+.rn-card h4 {
+    margin-top: 6px;
+    font-size: 14px;
+    color: var(--theme-text-secondary);
+}
+
+.rn-card p {
+    margin: 0;
+}
+
+/* campos */
+.rn-grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+}
+
+.rn-campo {
+    display: grid;
+    gap: 4px;
+    align-content: start;
+    margin: 0;
+}
+
+.rn-campo__rotulo {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.rn-campo__linha {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.rn-campo input,
+.rn-tabela input,
+.rn-curva input {
+    width: 100%;
+    min-height: 40px;
+    padding: 6px 10px;
+    border: 1px solid var(--theme-border);
+    border-radius: 10px;
+    background: var(--theme-input, var(--theme-surface));
+    color: var(--theme-text);
+    font: inherit;
+}
+
+.rn-campo__linha input {
+    max-width: 140px;
+}
+
+.rn-campo input:focus,
+.rn-tabela input:focus,
+.rn-curva input:focus {
+    outline: none;
+    border-color: #8b3fd9;
+    box-shadow: 0 0 0 3px color-mix(in srgb, #8b3fd9 22%, transparent);
+}
+
+.rn-unidade {
+    color: var(--theme-text-secondary);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.rn-campo small {
+    color: var(--theme-text-secondary);
+    font-size: 12px;
+}
+
+/* tabela de níveis */
+.rn-curva {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--theme-text) 4%, transparent);
+    font-size: 13px;
+}
+
+.rn-curva label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+}
+
+.rn-curva input {
+    width: 90px;
+}
+
+.rn-curva small {
+    flex-basis: 100%;
+}
+
+.rn-tabela {
+    display: grid;
+    gap: 6px;
+}
+
+.rn-tabela__cab,
+.rn-tabela__linha {
+    display: grid;
+    grid-template-columns: 48px 130px minmax(0, 1fr) 120px 44px;
+    align-items: center;
+    gap: 10px;
+}
+
+.rn-tabela__cab {
+    color: var(--theme-text-secondary);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.rn-tabela__linha {
+    padding: 6px 8px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--theme-text) 3%, transparent);
+}
+
+.rn-tabela__linha > b {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b3fd9, #58cc02);
+    color: #fff;
+    font-size: 13px;
+}
+
+.rn-tabela__linha input[readonly] {
+    opacity: .6;
+}
+
+.rn-alunos {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.rn-alunos__barra {
+    flex: 1;
+    height: 8px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--theme-text) 10%, transparent);
+}
+
+.rn-alunos__barra span {
+    display: block;
+    height: 100%;
+    border-radius: 99px;
+    background: #58cc02;
+}
+
+.rn-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.rn-sim-res,
+.rn-exemplo p {
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: color-mix(in srgb, #8b3fd9 8%, transparent);
+    line-height: 1.5;
+}
+
+/* barra de salvar */
+.rn-barra {
+    position: sticky;
+    bottom: 12px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    border: 1px solid #f5b301;
+    border-radius: 16px;
+    background: var(--theme-surface);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .18);
+    font-weight: 700;
+}
+
+.rn-barra[hidden] {
+    display: none;
+}
+
+.rn-barra__acoes {
+    display: flex;
+    gap: 8px;
+}
+
+.rn-erro {
+    margin: 0;
+    color: #dc2626;
+    font-weight: 700;
+}
+
+.rn-erro:empty {
+    display: none;
+}
+
+html[data-theme="dark"] .rn-erro {
+    color: #fca5a5;
+}
+
+@media (max-width: 640px) {
+    .rn-tabela__cab {
+        display: none;
+    }
+
+    .rn-tabela__linha {
+        grid-template-columns: 36px minmax(0, 1fr) 44px;
+        grid-template-areas:
+            "n xp x"
+            "n nome nome"
+            "n alunos alunos";
+    }
+
+    .rn-tabela__linha > :nth-child(1) { grid-area: n; }
+    .rn-tabela__linha > :nth-child(2) { grid-area: xp; }
+    .rn-tabela__linha > :nth-child(3) { grid-area: nome; }
+    .rn-tabela__linha > :nth-child(4) { grid-area: alunos; }
+    .rn-tabela__linha > :nth-child(5) { grid-area: x; }
+}

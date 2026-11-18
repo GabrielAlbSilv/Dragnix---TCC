@@ -371,6 +371,57 @@ const SCHEMA = [
     sql: `CREATE INDEX idx_doubts_parent
         ON doubts(parent_id)`
   },
+<<<<<<< HEAD
+=======
+  
+  {
+    type: 'table',
+    name: 'password_resets',
+    table: 'password_resets',
+    sql: `CREATE TABLE password_resets (
+    email TEXT PRIMARY KEY,
+    code_hash TEXT NOT NULL,
+    expires_at INTEGER NOT NULL,
+    attempts INTEGER NOT NULL DEFAULT 0,
+    sent_at INTEGER NOT NULL
+  )`
+  },
+
+  // Regras de negócio editáveis no painel (níveis, XP, moedas, vidas,
+  // missões). Chave 'regras' com o JSON. Criada no Turso por:
+  //   node scripts/add-app-settings.js
+  {
+    type: 'table',
+    name: 'app_settings',
+    table: 'app_settings',
+    sql: `CREATE TABLE app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  )`
+  },
+
+  // Conquistas criadas pelos administradores (ícone + condição).
+  // Quem ganhou fica em badges com o código "custom:<id>".
+  // Criada no Turso por: node scripts/add-custom-badges.js
+  {
+    type: 'table',
+    name: 'custom_badges',
+    table: 'custom_badges',
+    sql: `CREATE TABLE custom_badges (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    icon TEXT NOT NULL,
+    condition_type TEXT NOT NULL,
+    condition_value INTEGER NOT NULL DEFAULT 1,
+    track_id INTEGER DEFAULT NULL,
+    active INTEGER NOT NULL DEFAULT 1 CHECK(active IN (0, 1)),
+    created_at TEXT NOT NULL
+  )`
+  },
+
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
   {
     type: 'index',
     name: 'idx_challenges_enabled',

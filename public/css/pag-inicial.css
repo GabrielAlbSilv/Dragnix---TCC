@@ -1,0 +1,1203 @@
+/* ============================================================
+   DRAGNIX — css/pag-inicial.css  (PÁGINA INICIAL)
+   ============================================================
+
+   Esta página usa o MESMO estilo da página de login:
+     css/style.css          → cores dos temas claro/escuro (global)
+     css/login-modern.css   → cabeçalho, botão de tema, menu lateral,
+                              fundo com blurs e rodapé
+     css/inicio-modern.css  → só o que é EXCLUSIVO da página inicial
+                              (este arquivo: menu horizontal, perfil,
+                              banner e cards)
+
+   COMO PROCURAR: use Ctrl+F e digite o código entre colchetes.
+   Para ver só um aparelho, procure [DESKTOP], [TABLET] ou [CELULAR].
+
+   ORDEM DO ARQUIVO
+   ----------------
+   [DESKTOP]           padrão: vale para TODAS as telas
+     [I1-CABECALHO]      menu horizontal, perfil e botão de tema
+     [I2-LAYOUT]         coluna do conteúdo ao lado do menu lateral
+     [I3-BANNER]         título e banner do topo
+     [I4-CARDS]          cards das trilhas
+     [I5-RODAPE]         espaço acima do rodapé
+   [TABLET]            de 761px até 1000px
+   [TABLET+CELULAR]    até 900px (banner e cards em 1 coluna)
+   [CELULAR]           até 760px
+   [CELULAR-CARDS]     até 600px (ilustração dos cards)
+   [CELULAR-PEQUENO]   até 480px
+   [CLARO]             (no fim do arquivo) cards claros no tema claro
+   ============================================================ */
+
+
+/* ############################################################
+   [DESKTOP] — PADRÃO (vale para todas as telas)
+   ############################################################ */
+
+.dragnix-page {
+    --r-sm: 10px;
+    --r-md: 16px;
+    --r-lg: 24px;
+    --r-pill: 999px;
+}
+
+
+/* ============================================================
+   [I1-CABECALHO] — MENU HORIZONTAL, PERFIL E BOTÃO DE TEMA
+   Ordem na linha: [menu lateral][logo] ..... [menu horizontal][tema][perfil]
+   As cores dos botões (--nav-bg) vêm do login-modern.css, em
+   [CORES-TEMA], e mudam sozinhas com o tema.
+   ============================================================ */
+
+.dragnix-page .site-header {
+    --signup-bg: #58cc02;                 /* cor da foto/inicial do perfil */
+}
+
+/* [MENU-HORIZONTAL] empurra o menu e o perfil para a direita */
+.dragnix-page .site-header .menu {
+    align-items: center;
+    margin-left: auto;
+}
+
+/* [PERFIL] quem está logado (o js/profile.js troca o nome e a foto) */
+.site-header .user-profile[hidden] {
+    display: none;
+}
+
+.site-header .user-profile {
+    display: flex;
+    align-items: center;
+    margin-left: 12px;                    /* distância entre o botão de tema e o perfil */
+}
+
+.site-header .user-profile__link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 3px clamp(12px, 1.2vw, 18px) 3px 3px;
+    border-radius: 999px;
+    background: var(--nav-bg);
+    color: #fff;
+    transition: background .2s, transform .2s;
+}
+
+.site-header .user-profile__link:hover {
+    background: var(--nav-bg-hover);
+    transform: translateY(-2px);
+}
+
+.site-header .user-avatar {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: clamp(34px, 2.8vw, 44px);      /* tamanho da foto do perfil */
+    aspect-ratio: 1;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--signup-bg);
+    color: #0b1f00;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.site-header .user-avatar img {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: cover;
+}
+
+.site-header .user-name {
+    max-width: 14ch;
+    overflow: hidden;
+    font-size: clamp(13px, 1vw, 18px);
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* botão de TEMA: fica à ESQUERDA do perfil (o perfil é o último, no canto direito).
+   [SEM-MENU-HORIZONTAL] sem o menu do topo, o margin-left:auto empurra TEMA + PERFIL para a direita.
+   Se voltar o menu horizontal, ele já tem margin-left:auto, então pode trocar este por 12px. */
+.dragnix-page .site-header .theme-toggle {
+    margin-left: auto;
+}
+
+
+/* ============================================================
+   [I2-LAYOUT] — CONTEÚDO AO LADO DO MENU LATERAL
+   O .layout e o menu lateral vêm do login-modern.css
+   ============================================================ */
+
+.dragnix-page .layout > .container {
+    flex: 1 1 0;
+    width: 100%;
+    max-width: 1100px;                    /* largura máxima do conteúdo (banner + cards) */
+    min-width: 0;
+    margin-inline: auto;
+    padding-inline: clamp(16px, 2vw, 40px);
+}
+
+
+/* ============================================================
+   [I3-BANNER] — TÍTULO E BANNER DO TOPO
+   ============================================================ */
+
+.dragnix-page .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.7fr);
+    gap: clamp(1.5rem, 4vw, 3.5rem);
+    align-items: center;
+    justify-content: stretch;
+    min-height: 0;
+    margin-top: 0;
+}
+
+.dragnix-page .hero > * {
+    min-width: 0;
+}
+
+.dragnix-page .hero h1 {
+    margin: 0;
+    font-size: clamp(1.7rem, 2.6vw, 2.5rem);
+    font-weight: 800;
+    line-height: 1.15;
+    text-wrap: balance;
+    color: var(--theme-text-title);       /* cor do título em cada tema: style.css */
+}
+
+.dragnix-page .hero p {
+    max-width: 34ch;
+    margin: .75rem 0 0;
+    font-size: 1.1rem;
+    color: var(--ttts);                   /* cor do subtítulo em cada tema: style.css */
+}
+
+/* BANNER RESPONSIVO: a imagem aparece inteira, na proporção original */
+.dragnix-page .hero__banner {
+    display: block;
+    overflow: hidden;
+    border-radius: var(--r-lg);
+}
+
+.dragnix-page .hero__banner img {
+    display: block;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    border: 0;
+    object-fit: contain;
+}
+
+
+/* ============================================================
+   [I4-CARDS] — CARDS DAS TRILHAS
+   --card-glow = cor do brilho/borda | --btn-ink = cor do texto do botão
+   O card é escuro nos dois temas (texto branco sempre)
+   ============================================================ */
+
+.features {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: clamp(1rem, 2vw, 1.5rem);
+    margin-top: clamp(1.5rem, 3vw, 2.5rem);
+}
+
+.feature-1,
+.feature-2,
+.feature-3 {
+    --card-glow: #03a721;                 /* verde */
+    --btn-ink: #04210d;
+    --btn-lift: 55%;                      /* quanto o topo do botão é mais claro que a base */
+
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+    padding: clamp(1.1rem, 2vw, 1.6rem);
+    border-radius: var(--r-lg);
+    color: #fff;
+    border: 1.5px solid color-mix(in srgb, var(--card-glow) 75%, transparent);
+    background:
+        radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--card-glow) 34%, transparent), transparent 60%),
+        linear-gradient(165deg, color-mix(in srgb, var(--card-glow) 16%, #0b0e0d), color-mix(in srgb, var(--card-glow) 6%, #07090a));
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--card-glow) 18%, transparent) inset,   /* brilho por dentro */
+        0 0 26px color-mix(in srgb, var(--card-glow) 38%, transparent);          /* brilho por fora */
+}
+
+.feature-2 { --card-glow: #8b3fd9; --btn-ink: #fff; --btn-lift: 78%; }   /* roxo */
+.feature-3 { grid-column: 1 / -1; }   /* o 3º card ocupa a linha inteira (apague para ficar do tamanho dos outros) */
+
+/* texto */
+.tc-body {
+    position: relative;
+    z-index: 1;
+    max-width: 62%;                       /* largura do texto (a ilustração fica ao lado) */
+}
+
+.tc-tag {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #eafff0;
+    background: color-mix(in srgb, var(--card-glow) 45%, #0a0a0f);
+    border: 1px solid color-mix(in srgb, var(--card-glow) 80%, transparent);
+}
+
+.tc-title {
+    margin: 12px 0 8px;
+    font-size: clamp(1.6rem, 2.4vw, 2.15rem);
+    font-weight: 800;
+    line-height: 1.1;
+    text-wrap: balance;
+}
+
+.tc-title span {
+    color: color-mix(in srgb, var(--card-glow) 55%, #fff);
+}
+
+.tc-desc {
+    margin: 0 0 16px;
+    font-size: .95rem;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, .78);
+}
+
+/* módulos e XP */
+.tc-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    margin-bottom: 14px;
+    font-size: .95rem;
+    font-weight: 600;
+}
+
+.tc-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tc-ico {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.tc-ico--star {
+    fill: #b57cf5;
+    stroke: #b57cf5;
+}
+
+/* barra de progresso */
+.tc-prog {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+}
+
+.tc-bar {
+    flex: 1;
+    height: 12px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .13);
+}
+
+.tc-bar > div {
+    height: 100%;
+    border-radius: 8px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--card-glow) 75%, #000), color-mix(in srgb, var(--card-glow) 70%, #fff));
+    box-shadow: 0 0 10px var(--card-glow);
+    transition: width .4s;
+}
+
+.tc-prog b {
+    font-size: .9rem;
+    color: color-mix(in srgb, var(--card-glow) 55%, #fff);
+}
+
+/* botão do card */
+.tc-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 52px;
+    padding: .8rem 1.2rem;
+    border-radius: 16px;
+    font-size: 1.05rem;
+    font-weight: 800;
+    text-decoration: none;
+    color: var(--btn-ink);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--card-glow) var(--btn-lift), #fff), var(--card-glow));
+    box-shadow: 0 0 22px color-mix(in srgb, var(--card-glow) 55%, transparent);
+    transition: transform .15s, box-shadow .15s;
+}
+
+.tc-btn:hover,
+.tc-btn:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 0 32px color-mix(in srgb, var(--card-glow) 80%, transparent);
+}
+
+/* ilustração à direita */
+.tc-art {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 38%;
+    aspect-ratio: 1;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    filter: drop-shadow(0 0 22px color-mix(in srgb, var(--card-glow) 75%, transparent));
+}
+
+.tc-art img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+
+/* ============================================================
+   [I5-RODAPE] — espaço acima do rodapé (o rodapé vem do login-modern.css)
+   ============================================================ */
+
+.dragnix-page .dgx-footer {
+    margin-top: clamp(40px, 6vw, 80px);
+}
+
+
+/* ############################################################
+   [TABLET] — de 761px até 1000px
+   O menu do topo diminui para caber junto do botão do menu lateral
+   ############################################################ */
+
+@media (min-width: 761px) and (max-width: 1000px) {
+
+    .site-header .nav {
+        gap: 10px;
+    }
+
+    .dragnix-page .site-header .menu {
+        gap: 8px;
+    }
+
+    .dragnix-page .site-header .button {
+        padding: 7px 16px;
+    }
+
+    .site-header .user-profile__link {
+        padding: 3px;
+    }
+}
+
+
+/* ############################################################
+   [TABLET+CELULAR] — até 900px (banner e cards em 1 coluna)
+   ############################################################ */
+
+@media (max-width: 900px) {
+
+    .dragnix-page .hero {
+        grid-template-columns: 1fr;
+    }
+
+    .features {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+/* ############################################################
+   [CELULAR] — até 760px
+   ############################################################ */
+
+@media (max-width: 760px) {
+
+    /* [I1-CABECALHO] no celular o menu horizontal some (o lateral faz esse papel) */
+    .site-header .nav {
+        flex-wrap: nowrap;
+        gap: 10px;
+    }
+
+    .dragnix-page .site-header .menu {
+        display: none;
+    }
+
+    /* celular: [menu][logo] ..... [tema][perfil] */
+    .site-header .user-profile {
+        flex: none;
+        margin-left: 10px;
+    }
+
+    .site-header .user-avatar {
+        width: 34px;                      /* [AVATAR-CELULAR] tamanho da foto do perfil no celular */
+    }
+
+    .site-header .user-name {
+        max-width: 12ch;
+        font-size: 14px;
+    }
+
+    .dragnix-page .site-header .theme-toggle {
+        margin-left: auto;                /* empurra tema + perfil para a direita */
+    }
+
+    /* [I2-LAYOUT] conteúdo ocupa a largura toda */
+    .dragnix-page .layout > .container {
+        max-width: none;
+        padding-inline: 1.25rem;
+    }
+
+    .dragnix-page .hero h1 {
+        overflow-wrap: anywhere;
+    }
+
+    .dragnix-page .hero p {
+        max-width: none;
+    }
+}
+
+
+/* ############################################################
+   [CELULAR-CARDS] — até 600px
+   A ilustração flutua no canto direito; etiqueta e título desviam
+   dela sozinhos e a descrição só começa depois do fim da imagem
+   ############################################################ */
+
+@media (max-width: 600px) {
+
+    .tc-art {
+        position: static;
+        float: right;
+        width: 34%;                       /* tamanho da imagem no celular */
+        margin: 0 0 10px 12px;            /* 3º valor = espaço abaixo da imagem | 4º = espaço à esquerda */
+    }
+
+    .tc-art:not(:has(img)) {
+        display: none;                    /* card sem imagem: não reserva espaço */
+    }
+
+    .tc-body {
+        max-width: none;
+    }
+
+    .tc-desc {
+        clear: both;
+    }
+
+    .tc-title {
+        font-size: 1.55rem;
+    }
+}
+
+
+/* ############################################################
+   [CELULAR-PEQUENO] — até 480px: só a foto do perfil, sem o nome
+   ############################################################ */
+
+@media (max-width: 480px) {
+
+    .site-header .user-name {
+        display: none;
+    }
+
+    .site-header .user-profile__link {
+        padding: 3px;
+    }
+}
+
+
+/* ============================================================
+   DRAGNIX — css/inicio-painel.css  (CARDS DO TOPO DA PÁGINA INICIAL)
+   ============================================================
+
+   Cards que ficam entre o banner e os cards das trilhas:
+     • esquerda  → último módulo aberto ("Continue de onde parou")
+     • direita   → foto, nível, nome, XP do curso e conquistas
+
+   O conteúdo (textos, barras, conquistas) é preenchido pelo
+   js/inicio-painel.js. Aqui fica só a aparência.
+
+   COMO PROCURAR: use Ctrl+F e digite o código entre colchetes.
+   Para ver só um aparelho, procure [DESKTOP], [TABLET] ou [CELULAR].
+
+   ORDEM DO ARQUIVO
+   ----------------
+   [DESKTOP]           padrão: vale para TODAS as telas
+     [P1-PAINEL]         caixa que envolve os dois cards
+     [P2-CARD]           aparência comum dos dois cards (escuros, com brilho)
+     [P3-ULTIMO]         card da esquerda (último módulo; [P3-VAZIO] = card vazio)
+     [P4-PERFIL]         card da direita (foto, nível, nome, XP)
+     [P5-CONQUISTAS]     faixa das 3 conquistas
+     [P6-TITULO]         título "Suas trilhas"
+   [TABLET]            até 900px (um embaixo do outro: perfil em cima, último módulo embaixo)
+   [CELULAR]           até 760px
+   [CELULAR-PEQUENO]   até 480px
+   ============================================================ */
+
+
+/* ############################################################
+   [DESKTOP] — PADRÃO (vale para todas as telas)
+   ############################################################ */
+
+/* ============================================================
+   [P1-PAINEL] — CAIXA QUE ENVOLVE OS DOIS CARDS
+   ============================================================ */
+
+.dragnix-page .painel {
+    display: grid;
+    grid-template-columns: minmax(0, .85fr) minmax(0, 1.5fr);   /* largura: esquerda | direita */
+    gap: clamp(12px, 1.6vw, 20px);
+    margin-top: clamp(1.5rem, 3vw, 2.5rem);
+    padding: clamp(12px, 1.6vw, 20px);
+    border-radius: var(--r-lg);
+    background: var(--theme-surface);
+    border: 1px solid var(--theme-border);
+}
+
+.dragnix-page .painel[hidden],
+.dragnix-page .painel-card[hidden] {
+    display: none;
+}
+
+/* sem "último módulo": o card do perfil ocupa a linha inteira */
+.dragnix-page .painel-ultimo__corpo[hidden],
+.dragnix-page .painel-vazio[hidden] {
+    display: none;
+}
+
+.dragnix-page .painel--sem-ultimo {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+
+/* ============================================================
+   [P2-CARD] — APARÊNCIA COMUM (escuros nos dois temas, como os cards das trilhas)
+   --card-glow = cor do brilho/borda
+   ============================================================ */
+
+.dragnix-page .painel-card {
+    --card-glow: #8b3fd9;                 /* roxo (esquerda) */
+
+    position: relative;
+    overflow: hidden;
+    min-width: 0;
+    border-radius: var(--r-lg);
+    color: #fff;
+    border: 1.5px solid color-mix(in srgb, var(--card-glow) 75%, transparent);
+    background:
+        radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--card-glow) 30%, transparent), transparent 60%),
+        linear-gradient(165deg, color-mix(in srgb, var(--card-glow) 16%, #0b0e0d), color-mix(in srgb, var(--card-glow) 6%, #07090a));
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--card-glow) 18%, transparent) inset,
+        0 0 22px color-mix(in srgb, var(--card-glow) 32%, transparent);
+}
+
+.dragnix-page .painel-perfil {
+    --card-glow: #03a721;                 /* verde (direita) */
+}
+
+/* barra de progresso (usada nos dois cards) */
+.dragnix-page .painel-barra {
+    flex: 1;
+    height: 12px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .15);
+}
+
+.dragnix-page .painel-barra > div {
+    height: 100%;
+    border-radius: 8px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--card-glow) 75%, #000), color-mix(in srgb, var(--card-glow) 70%, #fff));
+    box-shadow: 0 0 10px var(--card-glow);
+    transition: width .5s ease;
+}
+
+
+/* ============================================================
+   [P3-ULTIMO] — CARD DA ESQUERDA: ÚLTIMO MÓDULO ABERTO
+   ============================================================ */
+
+.dragnix-page .painel-ultimo {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: clamp(14px, 1.6vw, 20px);
+}
+
+.dragnix-page .painel-rotulo {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--card-glow) 45%, #fff);
+}
+
+.dragnix-page .painel-ultimo__corpo {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: clamp(12px, 1.4vw, 18px);
+    padding: clamp(12px, 1.3vw, 16px);
+    border-radius: var(--r-md);
+    background: rgba(255, 255, 255, .08);
+}
+
+/* [P3-VAZIO] card vazio: ninguém abriu nenhum módulo ainda */
+.dragnix-page .painel-vazio {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: clamp(16px, 2vw, 24px);
+    border-radius: var(--r-md);
+    text-align: center;
+    background: rgba(255, 255, 255, .08);
+}
+
+.dragnix-page .painel-vazio__icone {
+    font-size: clamp(2rem, 3.2vw, 2.8rem);
+    line-height: 1;
+}
+
+.dragnix-page .painel-vazio__titulo {
+    font-size: clamp(1rem, 1.35vw, 1.2rem);
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.dragnix-page .painel-vazio__texto {
+    margin: 0;
+    max-width: 34ch;
+    font-size: .9rem;
+    color: rgba(255, 255, 255, .75);
+}
+
+/* miniatura (a cor vem da trilha, via JS) */
+.dragnix-page .painel-thumb {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: clamp(64px, 6.5vw, 92px);      /* tamanho da miniatura */
+    aspect-ratio: 1;
+    border-radius: var(--r-md);
+    font-size: clamp(1.9rem, 3vw, 2.6rem);
+    background: var(--thumb-bg, #58cc02);
+}
+
+.dragnix-page .painel-ultimo__texto {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-width: 0;
+}
+
+.dragnix-page .painel-trilha {
+    font-size: .85rem;
+    color: rgba(255, 255, 255, .75);
+}
+
+.dragnix-page .painel-modulo {
+    font-size: clamp(1rem, 1.35vw, 1.2rem);
+    font-weight: 800;
+    line-height: 1.2;
+    /* quebra só entre palavras; palavra comprida ganha hífen ("Necessi-dades") */
+    overflow-wrap: break-word;
+    hyphens: auto;
+}
+
+.dragnix-page .painel-prog {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+}
+
+.dragnix-page .painel-prog b {
+    font-size: .9rem;
+    color: color-mix(in srgb, var(--card-glow) 55%, #fff);
+}
+
+.dragnix-page .painel-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    padding: 8px 18px;
+    border-radius: var(--r-pill);
+    font-size: .95rem;
+    font-weight: 800;
+    text-decoration: none;
+    color: #fff;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--card-glow) 78%, #fff), var(--card-glow));
+    box-shadow: 0 0 18px color-mix(in srgb, var(--card-glow) 50%, transparent);
+    transition: transform .15s, box-shadow .15s;
+}
+
+.dragnix-page .painel-btn:hover,
+.dragnix-page .painel-btn:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 0 28px color-mix(in srgb, var(--card-glow) 75%, transparent);
+}
+
+
+/* ============================================================
+   [P4-PERFIL] — CARD DA DIREITA: FOTO, NÍVEL, NOME E XP
+   ============================================================ */
+
+.dragnix-page .painel-perfil {
+    display: flex;
+    flex-direction: column;
+}
+
+.dragnix-page .painel-perfil__topo {
+    display: grid;
+    flex: 1;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+        "avatar info xp"
+        "avatar barra barra";
+    align-items: center;
+    column-gap: clamp(12px, 1.6vw, 20px);
+    row-gap: 10px;
+    padding: clamp(14px, 1.6vw, 20px);
+}
+
+/* [PAINEL-AVATAR] foto do perfil */
+.dragnix-page .painel-avatar {
+    grid-area: avatar;
+    display: grid;
+    place-items: center;
+    width: clamp(64px, 7vw, 100px);       /* tamanho da foto */
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 50%;
+    font-size: clamp(1.4rem, 2.4vw, 2.2rem);
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #0b1f00;
+    background: #58cc02;
+    border: 3px solid rgba(255, 255, 255, .85);
+}
+
+.dragnix-page .painel-avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.dragnix-page .painel-perfil__info {
+    grid-area: info;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.dragnix-page .painel-nivel {
+    font-size: .9rem;
+    font-weight: 700;
+    color: color-mix(in srgb, var(--card-glow) 40%, #fff);
+}
+
+.dragnix-page .painel-nome {
+    overflow: hidden;
+    font-size: clamp(1.25rem, 2.2vw, 1.9rem);
+    font-weight: 800;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dragnix-page .painel-xp {
+    grid-area: xp;
+    align-self: end;
+    font-size: clamp(.85rem, 1.2vw, 1.05rem);
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+/* [PAINEL-XP] barra do curso inteiro, em 3 partes */
+.dragnix-page .painel-xpbox {
+    grid-area: barra;
+    min-width: 0;
+}
+
+.dragnix-page .painel-nivelbarra {
+    display: flex;
+    gap: 4px;
+}
+
+.dragnix-page .painel-seg {
+    flex: 1;
+    height: 14px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, .15);
+}
+
+.dragnix-page .painel-seg > div {
+    width: 0;
+    height: 100%;
+    border-radius: 8px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--card-glow) 75%, #000), color-mix(in srgb, var(--card-glow) 70%, #fff));
+    box-shadow: 0 0 10px var(--card-glow);
+    transition: width .5s ease;
+}
+
+.dragnix-page .painel-zonas {
+    display: flex;
+    margin-top: 6px;
+    gap: 4px;
+    font-size: .75rem;
+    color: rgba(255, 255, 255, .55);
+}
+
+.dragnix-page .painel-zonas span {
+    flex: 1;
+    text-align: center;
+}
+
+.dragnix-page .painel-zonas .is-atual {
+    font-weight: 800;
+    color: #fff;
+}
+
+
+/* ============================================================
+   [P5-CONQUISTAS] — FAIXA COM AS 3 CONQUISTAS
+   ============================================================ */
+
+.dragnix-page .painel-conquistas {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    background: rgba(255, 255, 255, .1);
+}
+
+.dragnix-page .painel-conq {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: clamp(10px, 1.2vw, 14px) clamp(10px, 1.4vw, 18px);
+}
+
+.dragnix-page .painel-conq + .painel-conq {
+    border-left: 2px solid rgba(255, 255, 255, .55);   /* risco entre as conquistas */
+}
+
+.dragnix-page .painel-conq__icone {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: clamp(34px, 3vw, 44px);        /* tamanho do ícone da conquista */
+    aspect-ratio: 1;
+    border-radius: 50%;
+    font-size: clamp(1.1rem, 1.8vw, 1.5rem);
+    background: rgba(255, 255, 255, .85);
+    color: #1b1b1b;
+}
+
+.dragnix-page .painel-conq__icone svg {
+    width: 60%;
+    height: 60%;
+}
+
+.dragnix-page .painel-conq__texto {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.dragnix-page .painel-conq__nome {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: clamp(.8rem, 1vw, .95rem);
+    font-weight: 800;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.dragnix-page .painel-conq__desc {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: .75rem;
+    line-height: 1.3;
+    color: rgba(255, 255, 255, .7);
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+/* conquista ainda não ganha */
+.dragnix-page .painel-conq.is-bloqueada {
+    opacity: .45;
+    filter: grayscale(1);
+}
+
+
+/* ============================================================
+   [P6-TITULO] — TÍTULO "SUAS TRILHAS"
+   ============================================================ */
+
+.dragnix-page .secao-titulo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: clamp(1.5rem, 3vw, 2.25rem);
+}
+
+.dragnix-page .secao-titulo__icone {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 44px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    color: #fff;
+}
+
+/* cor da bolinha do título: a mesma do menu do topo em cada tema */
+html:not([data-theme="dark"]) .dragnix-page .secao-titulo__icone { background: #7A36B3; }
+html[data-theme="dark"]       .dragnix-page .secao-titulo__icone { background: #3b1d6e; }
+
+.dragnix-page .secao-titulo__icone svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.dragnix-page .secao-titulo h2 {
+    margin: 0;
+    font-size: clamp(1.1rem, 1.8vw, 1.4rem);
+    color: var(--theme-text-title);       /* cor em cada tema: style.css */
+}
+
+.dragnix-page .secao-titulo p {
+    margin: 2px 0 0;
+    font-size: .9rem;
+    color: var(--ttts);
+}
+
+
+/* ############################################################
+   [TABLET] — até 900px (os dois cards um embaixo do outro)
+   ############################################################ */
+
+@media (max-width: 900px) {
+
+    .dragnix-page .painel {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    /* [ORDEM-MOBILE] perfil em cima, "Continue de onde parou" embaixo */
+    .dragnix-page .painel-perfil {
+        order: -1;
+    }
+}
+
+
+/* ############################################################
+   [CELULAR] — até 760px
+   ############################################################ */
+
+@media (max-width: 760px) {
+
+    .dragnix-page .painel {
+        padding: 10px;
+    }
+
+    .dragnix-page .painel-perfil__topo {
+        grid-template-areas:
+            "avatar info"
+            "avatar xp"
+            "barra  barra";
+        row-gap: 4px;
+    }
+
+    .dragnix-page .painel-xp {
+        align-self: start;
+    }
+
+    .dragnix-page .painel-xpbox {
+        margin-top: 8px;
+    }
+}
+
+
+/* ############################################################
+   [CELULAR-PEQUENO] — até 480px
+   Conquistas: ícone em cima, texto embaixo (cabem as 3 lado a lado)
+   ############################################################ */
+
+@media (max-width: 480px) {
+
+    .dragnix-page .painel-ultimo__corpo {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .dragnix-page .painel-thumb {
+        width: 56px;
+    }
+
+    .dragnix-page .painel-conq {
+        flex-direction: column;
+        gap: 6px;
+        text-align: center;
+    }
+
+    .dragnix-page .painel-conq__nome {
+        font-size: .75rem;
+    }
+
+    .dragnix-page .painel-conq__desc {
+        display: none;
+    }
+}
+
+
+/* ############################################################
+   [CLARO] — CARDS CLAROS NO TEMA CLARO
+   Igual à página Controle: no tema escuro os cards continuam escuros;
+   no tema claro viram cards claros com texto escuro.
+   INTENSIDADE DA COR: mude os 4 números abaixo (maior = cor mais forte)
+   Cor do texto = #1d1033 | destaque roxo = #5b2a96 | verde = #15803d
+   ############################################################ */
+
+html:not([data-theme="dark"]) .dragnix-page {
+    --claro-tom-a: 32%;                   /* cor no canto de cima do card (era 16%) */
+    --claro-tom-b: 18%;                   /* cor no canto de baixo do card (era 6%) */
+    --claro-brilho: 50%;                  /* brilho colorido no canto direito (era 30%) */
+    --claro-sombra: 38%;                  /* sombra colorida embaixo do card (era 22%) */
+}
+
+/* ---------- [CLARO-PAINEL] cards do topo (último módulo + perfil) ---------- */
+
+html:not([data-theme="dark"]) .dragnix-page .painel-card {
+    color: #1d1033;
+    background:
+        radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--card-glow) var(--claro-brilho), transparent), transparent 65%),
+        linear-gradient(165deg, color-mix(in srgb, var(--card-glow) var(--claro-tom-a), #f6f2fc), color-mix(in srgb, var(--card-glow) var(--claro-tom-b), #f6f2fc));
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, .7) inset,
+        0 8px 22px color-mix(in srgb, var(--card-glow) var(--claro-sombra), transparent);
+}
+
+html:not([data-theme="dark"]) .dragnix-page .painel-rotulo,
+html:not([data-theme="dark"]) .dragnix-page .painel-nivel,
+html:not([data-theme="dark"]) .dragnix-page .painel-prog b {
+    color: color-mix(in srgb, var(--card-glow) 70%, #000);
+}
+
+html:not([data-theme="dark"]) .dragnix-page .painel-ultimo__corpo,
+html:not([data-theme="dark"]) .dragnix-page .painel-vazio {
+    background: rgba(29, 16, 51, .05);
+}
+
+html:not([data-theme="dark"]) .dragnix-page .painel-trilha,
+html:not([data-theme="dark"]) .dragnix-page .painel-vazio__texto {
+    color: rgba(29, 16, 51, .78);
+}
+
+html:not([data-theme="dark"]) .dragnix-page .painel-barra,
+html:not([data-theme="dark"]) .dragnix-page .painel-seg {
+    background: rgba(29, 16, 51, .1);
+}
+
+html:not([data-theme="dark"]) .dragnix-page .painel-avatar {
+    border-color: #fff;
+}
+
+html:not([data-theme="dark"]) .dragnix-page .painel-zonas {
+    color: rgba(29, 16, 51, .62);
+}
+
+html:not([data-theme="dark"]) .dragnix-page .painel-zonas .is-atual {
+    color: #1d1033;
+}
+
+html:not([data-theme="dark"]) .dragnix-page .painel-conquistas {
+    background: rgba(29, 16, 51, .06);
+}
+
+html:not([data-theme="dark"]) .dragnix-page .painel-conq + .painel-conq {
+    border-left-color: rgba(29, 16, 51, .22);
+}
+
+html:not([data-theme="dark"]) .dragnix-page .painel-conq__icone {
+    color: #1d1033;
+    background: #fff;
+    box-shadow: 0 0 0 1px rgba(29, 16, 51, .1);
+}
+
+html:not([data-theme="dark"]) .dragnix-page .painel-conq__desc {
+    color: rgba(29, 16, 51, .72);
+}
+
+
+/* ---------- [CLARO-TRILHAS] cards das trilhas ---------- */
+
+html:not([data-theme="dark"]) .feature-1,
+html:not([data-theme="dark"]) .feature-2,
+html:not([data-theme="dark"]) .feature-3 {
+    color: #1d1033;
+    background:
+        radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--card-glow) var(--claro-brilho), transparent), transparent 65%),
+        linear-gradient(165deg, color-mix(in srgb, var(--card-glow) var(--claro-tom-a), #f6f2fc), color-mix(in srgb, var(--card-glow) var(--claro-tom-b), #f6f2fc));
+    box-shadow:
+        0 1px 0 rgba(255, 255, 255, .7) inset,
+        0 8px 22px color-mix(in srgb, var(--card-glow) var(--claro-sombra), transparent);
+}
+
+html:not([data-theme="dark"]) .tc-tag {
+    color: color-mix(in srgb, var(--card-glow) 70%, #000);
+    background: color-mix(in srgb, var(--card-glow) 16%, #fff);
+}
+
+html:not([data-theme="dark"]) .tc-title span,
+html:not([data-theme="dark"]) .tc-prog b {
+    color: color-mix(in srgb, var(--card-glow) 75%, #000);
+}
+
+html:not([data-theme="dark"]) .tc-desc {
+    color: rgba(29, 16, 51, .82);
+}
+
+html:not([data-theme="dark"]) .tc-bar {
+    background: rgba(29, 16, 51, .1);
+}
+
+html:not([data-theme="dark"]) .tc-art {
+    filter: drop-shadow(0 6px 14px color-mix(in srgb, var(--card-glow) 45%, transparent));
+}

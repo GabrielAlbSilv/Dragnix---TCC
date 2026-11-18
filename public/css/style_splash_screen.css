@@ -1,21 +1,45 @@
-:root {
+/* ============================================================
+   DRAGNIX — css/style_splash_screen.css  (SPLASH)
+   ============================================================
+
+   Mesmo visual das páginas novas (login / página inicial):
+   fundo com blurs roxo e verde, cartão de vidro, fonte Manrope
+   e barra de carregamento roxo → verde.
+
+   ORDEM DO ARQUIVO
+     [SP-CORES]      cores dos temas claro e escuro
+     [SP-FUNDO]      fundo e blurs animados
+     [SP-CARTAO]     cartão central, logo, nome e saudação
+     [SP-BARRA]      barra de carregamento
+     [SP-VERSAO]     versão no canto da tela
+     [SP-CELULAR]    telas pequenas
+     [SP-MOVIMENTO]  quem desativa animações no sistema
+   ============================================================ */
+
+
+/* ============================================================
+   [SP-CORES]
+   ============================================================ */
+
+:root,
+:root[data-theme="light"] {
     --g: #58cc02;
-    --gd: #46a302;
+    --roxo: #8b3fd9;
     --bg: #f2f2f2;
-    --fg: #3c3c3c;
-    --bd: #d6d6d6;
-    --mut: #777;
-    --red: #ff4b4b;
-    --blue: #1cb0f6;
+    --surface: rgba(255, 255, 255, .72);
+    --fg: #1f1f1f;
+    --bd: rgba(0, 0, 0, .08);
+    --mut: #6b6b6b;
+    --trilho: rgba(0, 0, 0, .08);
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #252525;
-        --fg: #f1f7fb;
-        --bd: #444;
-        --mut: #9fb0b9;
-    }
+:root[data-theme="dark"] {
+    --bg: #121212;
+    --surface: rgba(28, 28, 28, .62);
+    --fg: #f1f1f1;
+    --bd: rgba(255, 255, 255, .08);
+    --mut: #a0a0a0;
+    --trilho: rgba(255, 255, 255, .1);
 }
 
 * {
@@ -24,151 +48,10 @@
     box-sizing: border-box;
 }
 
-body {
-    width: 100%;
-    height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    background: var(--bg);
-    color: var(--fg);
-
-    font-family: system-ui, sans-serif;
-    overflow: hidden;
-}
-
-.splash {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-
-    animation: aparecer .8s ease;
-}
-
-.logo {
-    width: 150px;
-    height: 150px;
-    object-fit: contain;
-
-    animation: flutuar 2s ease-in-out infinite;
-}
-
-.nome {
-    margin-top: 20px;
-
-    font-size: 32px;
-    font-weight: bold;
-    color: var(--g);
-
-    letter-spacing: 1px;
-}
-
-.saudacao {
-    margin-top: 10px;
-    min-height: 24px;
-
-    font-size: 18px;
-    color: var(--mut);
-}
-
-.carregando {
-    width: 180px;
-    height: 5px;
-
-    margin-top: 30px;
-
-    background: var(--bd);
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.barra {
-    width: 0%;
-    height: 100%;
-
-    background: var(--g);
-    border-radius: 10px;
-
-    animation: carregar 2.5s linear forwards;
-}
-
-.versao {
-    position: fixed;
-
-    right: 14px;
-    bottom: 10px;
-
-    max-width: 70vw;
-
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-
-    font-size: 12px;
-    color: var(--mut);
-
-    opacity: .9;
-}
-
-
-/* =========================
-   ANIMAÇÕES
-   ========================= */
-
-@keyframes carregar {
-    from {
-        width: 0%;
-    }
-
-    to {
-        width: 100%;
-    }
-}
-
-@keyframes aparecer {
-    from {
-        opacity: 0;
-        transform: scale(.9);
-    }
-
-    to {
-        opacity: 1;
-        transform: scale(1);
-    }
-}
-
-@keyframes flutuar {
-    0%,
-    100% {
-        transform: translateY(0);
-    }
-
-    50% {
-        transform: translateY(-8px);
-    }
-}
-
 
 /* ============================================================
-   CORREÇÃO DA SPLASH SCREEN — TEMAS CLARO E ESCURO
+   [SP-FUNDO]
    ============================================================ */
-
-:root,
-:root[data-theme="light"] {
-    --bg: #f2f2f2;
-    --fg: #3c3c3c;
-    --bd: #d6d6d6;
-    --mut: #777;
-}
-
-:root[data-theme="dark"] {
-    --bg: #252525;
-    --fg: #f1f7fb;
-    --bd: #444;
-    --mut: #9fb0b9;
-}
 
 html,
 body {
@@ -176,40 +59,289 @@ body {
     min-height: 100%;
 }
 
-.splash {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
+body {
+    position: relative;
+    isolation: isolate;
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 20px;
+    overflow: hidden;
+
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Manrope", "Poppins", system-ui, sans-serif;
+}
+
+/* Blurs roxo e verde (iguais aos da tela de login) */
+body::before,
+body::after {
+    content: "";
+    position: fixed;
+    z-index: -1;
+    border-radius: 50%;
+    pointer-events: none;
+    filter: blur(110px);
+}
+
+body::before {
+    top: -140px;
+    left: -140px;
+    width: 520px;
+    height: 520px;
+    background: #8b5cf6;
+    opacity: .45;
+    animation: blobRoxo 14s ease-in-out infinite alternate;
+}
+
+body::after {
+    bottom: -160px;
+    right: -140px;
+    width: 560px;
+    height: 560px;
+    background: var(--g);
+    opacity: .4;
+    animation: blobVerde 16s ease-in-out infinite alternate;
+}
+
+
+/* ============================================================
+   [SP-CARTAO]
+   ============================================================ */
+
+.splash {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 380px;
+    padding: 36px 30px 30px;
     text-align: center;
+
+    border: 1px solid var(--bd);
+    border-radius: 28px;
+    background: var(--surface);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .18);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+
+    animation: aparecer .7s cubic-bezier(.2, .8, .2, 1);
+}
+
+/* Anel com brilho atrás do logo */
+.splash-logo {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 132px;
+    height: 132px;
+    border-radius: 50%;
+    background:
+        radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--roxo) 22%, transparent), transparent 70%);
+}
+
+.splash-logo::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    padding: 2px;
+    background: conic-gradient(from 0deg, var(--roxo), var(--g), transparent 60%, var(--roxo));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    animation: girar 2.4s linear infinite;
 }
 
 .splash img.logo {
     display: block;
-    width: 150px;
-    height: 150px;
+    width: 96px;
+    height: 96px;
     max-width: 100%;
     object-fit: contain;
-    flex-shrink: 0;
+    animation: flutuar 2.2s ease-in-out infinite;
 }
 
-.splash .nome {
-    max-width: 100%;
-    font-size: clamp(22px, 5vw, 32px);
+.nome {
+    margin-top: 18px;
+    font-size: clamp(28px, 7vw, 36px);
+    font-weight: 800;
+    letter-spacing: -.02em;
+    line-height: 1.1;
+
+    background: linear-gradient(90deg, var(--roxo), var(--g));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+.splash-tag {
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--mut);
+}
+
+.saudacao {
+    min-height: 26px;
+    margin-top: 18px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--fg);
     overflow-wrap: anywhere;
 }
 
-.splash .carregando {
-    flex-shrink: 0;
+.saudacao:empty {
+    margin-top: 8px;
+    min-height: 0;
 }
 
+.saudacao:not(:empty) {
+    animation: subir .5s .2s both ease;
+}
+
+
+/* ============================================================
+   [SP-BARRA]
+   ============================================================ */
+
+.carregando {
+    position: relative;
+    width: 100%;
+    max-width: 240px;
+    height: 8px;
+    margin-top: 22px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: var(--trilho);
+}
+
+.barra {
+    width: 0%;
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--roxo), var(--g));
+    box-shadow: 0 0 12px color-mix(in srgb, var(--g) 60%, transparent);
+
+    /* 2,5 s = o mesmo tempo do redirecionamento da splash */
+    animation: carregar 2.5s cubic-bezier(.4, .1, .3, 1) forwards;
+}
+
+.splash-status {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--mut);
+}
+
+
+/* ============================================================
+   [SP-VERSAO]
+   ============================================================ */
+
+.versao {
+    position: fixed;
+    right: 14px;
+    bottom: 10px;
+    max-width: 70vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    color: var(--mut);
+    opacity: .9;
+}
+
+
+/* ============================================================
+   ANIMAÇÕES
+   ============================================================ */
+
+@keyframes carregar {
+    from { width: 0%; }
+    to { width: 100%; }
+}
+
+@keyframes aparecer {
+    from { opacity: 0; transform: translateY(14px) scale(.96); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes subir {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+}
+
+@keyframes flutuar {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+}
+
+@keyframes girar {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes blobRoxo {
+    from { transform: translate(0, 0) scale(1); }
+    to { transform: translate(30vw, 20vh) scale(1.1); }
+}
+
+@keyframes blobVerde {
+    from { transform: translate(0, 0) scale(1); }
+    to { transform: translate(-30vw, -20vh) scale(1.1); }
+}
+
+
+/* ============================================================
+   [SP-CELULAR]
+   ============================================================ */
+
 @media (max-width: 480px) {
-    .splash img.logo {
-        width: 120px;
-        height: 120px;
+    .splash {
+        padding: 30px 20px 24px;
+        border-radius: 24px;
     }
 
-    .splash .saudacao {
+    .splash-logo {
+        width: 112px;
+        height: 112px;
+    }
+
+    .splash img.logo {
+        width: 80px;
+        height: 80px;
+    }
+
+    .saudacao {
         font-size: 16px;
+    }
+
+    body::before,
+    body::after {
+        width: 320px;
+        height: 320px;
+        filter: blur(80px);
+    }
+}
+
+
+/* ============================================================
+   [SP-MOVIMENTO]
+   ============================================================ */
+
+@media (prefers-reduced-motion: reduce) {
+    body::before,
+    body::after,
+    .splash-logo::before,
+    .splash img.logo {
+        animation: none;
+    }
+
+    .splash,
+    .saudacao:not(:empty) {
+        animation-duration: .01s;
     }
 }

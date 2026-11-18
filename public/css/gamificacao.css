@@ -1,0 +1,32 @@
+/* ============================================================
+ DRAGNIX — GAMIFICAÇÃO. Procure: [GM-BARRA] [GM-CORES] [TABLET] [CELULAR]
+ ============================================================ */
+/* [GM-BARRA] [DESKTOP] */
+.gm-barra { display: flex; justify-content: flex-end; margin: 0 0 14px; }
+.gm-barra[hidden] { display: none; }
+.gm-lista { display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 8px 10px; list-style: none;
+  border-radius: 16px; border: 1px solid var(--gm-borda); background: var(--gm-fundo); color: var(--gm-texto); }
+.gm-item { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px;
+  background: var(--gm-item); font-weight: 800; font-size: 14px; white-space: nowrap; }
+.gm-item > span:first-child { display: inline-flex; align-items: center; gap: 7px; }
+.gm-item svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gm-rotulo { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }   /* só para leitor de tela */
+.gm-extra { font-weight: 600; font-size: 11px; opacity: .75; }
+/* [GM-CORES] cada ícone com a sua cor */
+.gm-nivel svg  { color: var(--gm-roxo); }
+.gm-xp svg     { color: var(--gm-amarelo); }
+.gm-seq svg    { color: var(--gm-laranja); }
+.gm-moedas svg { color: var(--gm-amarelo); }
+.gm-vidas svg  { color: var(--gm-vermelho); fill: currentColor; }
+.gm-zero { box-shadow: inset 0 0 0 2px var(--gm-vermelho); }
+/* tema CLARO (padrão) */
+.gm-barra { --gm-fundo: rgba(255,255,255,.7); --gm-item: #f1e9fb; --gm-borda: rgba(122,54,179,.25); --gm-texto: #2a1650;
+  --gm-roxo: #7a36b3; --gm-amarelo: #d99a00; --gm-laranja: #ea6a0a; --gm-vermelho: #dc2626; }
+/* tema ESCURO */
+html[data-theme="dark"] .gm-barra { --gm-fundo: #0f0f12; --gm-item: rgba(255,255,255,.08); --gm-borda: rgba(255,255,255,.1); --gm-texto: #fff;
+  --gm-roxo: #d8b4fe; --gm-amarelo: #fbbf24; --gm-laranja: #fb923c; --gm-vermelho: #f87171; }
+/* [TABLET] */
+/* [GM-DIREITA] a barra fica SEMPRE à direita, também em telas menores */
+@media (max-width: 900px) { .gm-barra { justify-content: flex-end; } }
+/* [CELULAR] */
+@media (max-width: 560px) { .gm-lista { width: auto; max-width: 100%; justify-content: flex-end; gap: 6px; } .gm-item { padding: 6px 9px; font-size: 13px; } .gm-extra { display: none; } }

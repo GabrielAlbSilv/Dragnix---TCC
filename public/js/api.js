@@ -3,6 +3,7 @@ const logout = () => {
     const nome = user?.name ? user.name.split(' ')[0] : '';
 
     localStorage.clear();
+    try { sessionStorage.removeItem('dgx-api-cache'); } catch { /* ignora */ }
 
     location.replace(
         'splash.html?logout=1&nome=' + encodeURIComponent(nome)
@@ -12,7 +13,82 @@ const logout = () => {
 const me = () =>
     JSON.parse(localStorage.getItem('user') || 'null');
 
+// ============================================================
+// DESEMPENHO: MENOS CHAMADAS REPETIDAS
+// ============================================================
+// 1) Duas partes da página pedindo a MESMA coisa ao mesmo tempo
+//    (ex.: /tracks pela tela e pelo card do perfil) => uma chamada só.
+// 2) Alguns dados quase não mudam de uma página para outra (perfil,
+//    trilhas, regras...): ficam guardados por alguns segundos nesta aba,
+//    então trocar de página não espera o servidor de novo.
+// 3) Qualquer gravação (POST/PUT/DELETE) apaga o que estava guardado:
+//    depois de concluir um módulo, comprar vidas etc., tudo vem atualizado.
+const API_GUARDAR_MS = 30000;
+const API_GUARDAVEIS = /^\/(auth\/me|me\/profile|tracks|regras|lessons\/ratings|avatars|chatbot\/status)$/;
+const apiEmAndamento = new Map();
+const apiChaveSessao = 'dgx-api-cache';
+
+const apiCopia = dado =>
+    typeof structuredClone === 'function'
+        ? structuredClone(dado)
+        : JSON.parse(JSON.stringify(dado));
+
+function apiLerGuardado() {
+    try {
+        const tudo = JSON.parse(sessionStorage.getItem(apiChaveSessao) || '{}');
+        return tudo && tudo.token === (localStorage.getItem('token') || '') ? tudo : { token: localStorage.getItem('token') || '', itens: {} };
+    } catch {
+        return { token: '', itens: {} };
+    }
+}
+
+function apiGuardar(path, dado) {
+    try {
+        const tudo = apiLerGuardado();
+        tudo.itens = tudo.itens || {};
+        tudo.itens[path] = { em: Date.now(), dado };
+        sessionStorage.setItem(apiChaveSessao, JSON.stringify(tudo));
+    } catch { /* sem espaço ou bloqueado: só não guarda */ }
+}
+
+function apiLimparGuardado() {
+    try { sessionStorage.removeItem(apiChaveSessao); } catch { /* ignora */ }
+}
+
+window.dgxApiLimpar = apiLimparGuardado;
+
 async function api(path, method = 'GET', body) {
+    const metodo = String(method || 'GET').toUpperCase();
+
+    if (metodo !== 'GET') {
+        apiLimparGuardado();
+        return apiBuscar(path, metodo, body);
+    }
+
+    if (API_GUARDAVEIS.test(path)) {
+        const item = (apiLerGuardado().itens || {})[path];
+        if (item && Date.now() - item.em < API_GUARDAR_MS) {
+            return apiCopia(item.dado);
+        }
+    }
+
+    let promessa = apiEmAndamento.get(path);
+
+    if (!promessa) {
+        promessa = apiBuscar(path, 'GET').then(dado => {
+            if (API_GUARDAVEIS.test(path)) apiGuardar(path, dado);
+            return dado;
+        });
+        apiEmAndamento.set(path, promessa);
+        const limpar = () => apiEmAndamento.delete(path);
+        promessa.then(limpar, limpar);
+    }
+
+    // cada parte da página recebe a própria cópia (uma não mexe na da outra)
+    return apiCopia(await promessa);
+}
+
+async function apiBuscar(path, method = 'GET', body) {
     const r = await fetch('/api' + path, {
         method,
         body: body && JSON.stringify(body),
@@ -169,4 +245,29 @@ function resizeAvatar(file) {
 
     img.src = url;
   });
+}
+// Ícone de conquista criado pelo adm com imagem (/api/badge-icon/<id>/<versão>):
+// devolve o <img>; para emoji ou nome de ícone devolve null.
+function conquistaImagem(icone, alt = '') {
+    const valor = String(icone || '');
+
+    return /^\/api\/badge-icon\/\d+\/[a-f0-9]+$/.test(valor)
+        ? `<img class="badge-img" src="${esc(valor)}" alt="${esc(alt)}" loading="lazy">`
+        : null;
+}
+
+// Ícone da trilha: emoji (texto) ou um ícone do site salvo como "lucide:nome".
+// O ícone do site é desenhado com uma máscara CSS do SVG da pasta icons/,
+// então herda a cor do texto e funciona em qualquer página (sem js extra).
+function iconeTrilha(valor, padrao = '📚') {
+    const v = String(valor || '').trim();
+    const m = v.match(/^lucide:([a-z0-9-]{1,40})$/);
+
+    if (m) {
+        const url = `url('icons/${m[1]}.svg')`;
+
+        return `<span class="dgx-ico-trilha" aria-hidden="true" style="display:inline-block;width:1em;height:1em;vertical-align:-0.14em;background-color:currentColor;-webkit-mask:${url} center/contain no-repeat;mask:${url} center/contain no-repeat"></span>`;
+    }
+
+    return esc(v || padrao);
 }

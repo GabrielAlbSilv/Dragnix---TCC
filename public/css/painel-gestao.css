@@ -1,0 +1,485 @@
+/* ============================================================
+   DRAGNIX — css/painel-gestao.css  (PAINEL DE ADM E PROFESSOR)
+   Usado pelo js/painel-gestao.js na pag-inicial.html.
+   Mesmo visual dos cards da página inicial (vidro + brilho roxo).
+
+   [GX-ESCONDE]   tira a visão de aluno para adm/professor
+   [GX-NUMEROS]   cards de números
+   [GX-CARD]      cards (atalhos, status, dúvidas)
+   [GX-ATALHOS]
+   [GX-STATUS]
+   [GX-CELULAR]
+   ============================================================ */
+
+
+/* [GX-ESCONDE] — adm e professor não veem trilhas e progresso de aluno */
+.is-gestao #painel,
+.is-gestao .secao-titulo,
+.is-gestao .features {
+    display: none !important;
+}
+
+.gx {
+    --gx-roxo: #8b3fd9;
+    --gx-verde: #58cc02;
+    --gx-verm: #ff4b4b;
+    --gx-amarelo: #f59e0b;
+
+    display: grid;
+    gap: clamp(14px, 1.8vw, 22px);
+    margin-top: clamp(1.5rem, 3vw, 2.5rem);
+}
+
+.gx-ico {
+    width: 18px;
+    height: 18px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    vertical-align: -3px;
+}
+
+.gx-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.gx-mut {
+    color: var(--theme-text-secondary);
+    font-size: 12px;
+}
+
+
+/* [GX-NUMEROS] */
+.gx-numeros {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 12px;
+}
+
+.gx-num {
+    --gx-cor: #8b3fd9;
+
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+    padding: 16px 18px;
+    border-radius: 20px;
+    border: 1px solid color-mix(in srgb, var(--gx-cor) 40%, var(--theme-border));
+    background:
+        radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--gx-cor) 18%, transparent), transparent 60%),
+        var(--theme-surface);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--gx-cor) 14%, transparent);
+}
+
+.gx-num__ico {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    color: var(--gx-cor);
+    background: color-mix(in srgb, var(--gx-cor) 16%, transparent);
+}
+
+.gx-num__ico .gx-ico {
+    width: 22px;
+    height: 22px;
+}
+
+.gx-num strong {
+    display: block;
+    font-size: clamp(1.4rem, 2.2vw, 1.8rem);
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--theme-text);
+}
+
+.gx-num span:not(.gx-num__ico) {
+    display: block;
+    color: var(--theme-text-secondary);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+
+/* [GX-CARD] */
+.gx-grade {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: clamp(14px, 1.8vw, 22px);
+}
+
+.gx-grade--uma {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.gx-card {
+    min-width: 0;
+    padding: clamp(16px, 2vw, 22px);
+    border-radius: 24px;
+    border: 1px solid var(--theme-border);
+    background:
+        radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--gx-roxo) 10%, transparent), transparent 60%),
+        var(--theme-surface);
+    color: var(--theme-text);
+}
+
+.gx-card__topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+
+.gx-card__topo h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--theme-text-title, var(--theme-text));
+}
+
+.gx-card__rodape {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 14px;
+}
+
+.gx-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--gx-roxo);
+    font-weight: 700;
+    font-size: 13px;
+    text-decoration: none;
+}
+
+.gx-link:hover {
+    text-decoration: underline;
+}
+
+html[data-theme="dark"] .gx-link {
+    color: #c4a1f5;
+}
+
+.gx-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 40px;
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 999px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--gx-roxo) 78%, #fff), var(--gx-roxo));
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+    transition: transform .15s, opacity .15s;
+}
+
+.gx-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+}
+
+.gx-btn:disabled {
+    opacity: .55;
+    cursor: wait;
+}
+
+.gx-btn--sec {
+    background: transparent;
+    color: var(--theme-text);
+    border: 1px solid var(--theme-border);
+}
+
+.gx-btn--perigo {
+    background: transparent;
+    color: var(--gx-verm);
+    border: 1px solid color-mix(in srgb, var(--gx-verm) 45%, transparent);
+}
+
+
+/* [GX-ATALHOS] */
+.gx-atalhos {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+}
+
+.gx-atalho {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+    padding: 12px 14px;
+    border-radius: 16px;
+    border: 1px solid var(--theme-border);
+    background: color-mix(in srgb, var(--theme-surface) 70%, transparent);
+    color: var(--theme-text);
+    text-decoration: none;
+    transition: border-color .15s, transform .15s;
+}
+
+.gx-atalho:hover {
+    border-color: var(--gx-roxo);
+    transform: translateY(-1px);
+}
+
+.gx-atalho__ico {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    color: var(--gx-roxo);
+    background: color-mix(in srgb, var(--gx-roxo) 14%, transparent);
+}
+
+.gx-atalho__txt {
+    display: grid;
+    min-width: 0;
+}
+
+.gx-atalho__txt b {
+    font-size: 14px;
+}
+
+.gx-atalho__txt small {
+    color: var(--theme-text-secondary);
+    font-size: 12px;
+}
+
+.gx-atalho--destaque {
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--gx-roxo), #6d28d9);
+    color: #fff;
+    box-shadow: 0 0 20px color-mix(in srgb, var(--gx-roxo) 40%, transparent);
+}
+
+.gx-atalho--destaque .gx-atalho__ico {
+    color: #fff;
+    background: rgba(255, 255, 255, .18);
+}
+
+.gx-atalho--destaque .gx-atalho__txt small {
+    color: rgba(255, 255, 255, .8);
+}
+
+.gx-atalho:focus-visible,
+.gx-btn:focus-visible,
+.gx-aba:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--gx-roxo) 55%, transparent);
+    outline-offset: 2px;
+}
+
+
+/* [GX-STATUS] */
+.gx-selo {
+    padding: 4px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--theme-text-secondary);
+    background: color-mix(in srgb, var(--theme-text) 8%, transparent);
+}
+
+.gx-selo.is-ok {
+    color: #15803d;
+    background: color-mix(in srgb, var(--gx-verde) 18%, transparent);
+}
+
+.gx-selo.is-erro {
+    color: var(--gx-verm);
+    background: color-mix(in srgb, var(--gx-verm) 15%, transparent);
+}
+
+html[data-theme="dark"] .gx-selo.is-ok {
+    color: #7ee03a;
+}
+
+.gx-status {
+    display: grid;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.gx-st {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--theme-text) 4%, transparent);
+}
+
+.gx-st__ponto {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--theme-text-secondary);
+}
+
+.gx-st__ponto.is-espera {
+    animation: gxPulsar 1s ease-in-out infinite;
+}
+
+.gx-st__ponto.is-ok {
+    background: var(--gx-verde);
+    box-shadow: 0 0 8px var(--gx-verde);
+}
+
+.gx-st__ponto.is-lento {
+    background: var(--gx-amarelo);
+    box-shadow: 0 0 8px var(--gx-amarelo);
+}
+
+.gx-st__ponto.is-erro {
+    background: var(--gx-verm);
+    box-shadow: 0 0 8px var(--gx-verm);
+}
+
+.gx-st__nome {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+}
+
+.gx-st__nome b {
+    font-size: 14px;
+}
+
+.gx-st__nome small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--theme-text-secondary);
+    font-size: 11px;
+    font-family: ui-monospace, monospace;
+}
+
+.gx-st__estado {
+    flex: none;
+    max-width: 55%;             /* o motivo do Nix desligado pode ser longo */
+    font-weight: 800;
+    font-size: 13px;
+    text-align: right;
+}
+
+.gx-st__estado small {
+    display: block;
+    color: var(--theme-text-secondary);
+    font-weight: 600;
+    font-size: 11px;
+}
+
+@keyframes gxPulsar {
+    50% { opacity: .3; }
+}
+
+
+/* [GX-CELULAR] */
+@media (max-width: 900px) {
+    .gx-grade {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .gx-numeros {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .gx-num {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+        padding: 14px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .gx-st__ponto.is-espera {
+        animation: none;
+    }
+
+    .gx-atalho,
+    .gx-btn {
+        transition: none;
+    }
+}
+
+/* Cards de número compactos: cabem 4 ou 5 por linha na maioria das telas */
+.gx-numeros {
+    grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+}
+
+.gx-num {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px;
+}
+
+.gx-num__ico {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+}
+
+
+/* [GX-ATALHOS-CONTADOR] número no canto do atalho (trilhas / dúvidas sem resposta) */
+.gx-atalho {
+    position: relative;
+}
+
+.gx-atalho__qtd {
+    flex: none;
+    min-width: 26px;
+    margin-left: auto;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--gx-roxo) 14%, transparent);
+    color: var(--gx-roxo);
+    font-size: 12px;
+    font-weight: 800;
+    text-align: center;
+}
+
+html[data-theme="dark"] .gx-atalho__qtd {
+    color: #c4a1f5;
+}
+
+.gx-atalho__qtd.is-alerta {
+    background: var(--gx-verm);
+    color: #fff;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--gx-verm) 55%, transparent);
+}
+
+.gx-atalho__qtd[hidden] {
+    display: none;
+}

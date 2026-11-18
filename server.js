@@ -1,6 +1,7 @@
 require('dotenv').config({ quiet: true });
 
 const express = require('express');
+const compression = require('compression');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
@@ -9,6 +10,8 @@ const crypto = require('crypto');
 const { execFileSync } = require('child_process');
 const db = require('./db');
 const {registerBackupRoutes} = require('./backup');
+const mailer = require('./mailer');
+const { registrarChatbot } = require('./chatbot');
 
 // As tabelas (inclusive lesson_evaluations, track_evaluations,
 // evaluations e login_attempts) não são mais criadas aqui: o
@@ -27,8 +30,16 @@ const PORT =
 
 const HOST = '0.0.0.0';
 
-const SECRET =
-  process.env.JWT_SECRET || 'dev-secret';
+const EM_PRODUCAO =
+  process.env.NODE_ENV === 'production' || !!process.env.RENDER;
+
+// Sem JWT_SECRET em produção, qualquer pessoa poderia gerar um token
+// de administrador com o segredo padrão. Nesse caso usa um segredo
+// aleatório (os logins valem até o servidor reiniciar) e avisa no log.
+const SECRET = process.env.JWT_SECRET || (EM_PRODUCAO
+  ? (console.warn('[AVISO] JWT_SECRET não definido: usando um segredo aleatório. Defina JWT_SECRET no Render para os logins não caírem a cada reinício.'),
+    crypto.randomBytes(32).toString('hex'))
+  : 'dev-secret');
 
 const app = express();
 
@@ -103,7 +114,8 @@ app.use((req, res, next) => {
   if (
     (
       req.path === '/api/me/avatar' ||
-      req.path === '/api/admin/avatars'
+      req.path === '/api/admin/avatars' ||
+      /^\/api\/admin\/badges(\/\d+)?$/.test(req.path)
     ) &&
     req.headers.authorization
   ) {
@@ -129,6 +141,104 @@ app.use((req, res, next) => {
 
   return json(req, res, next);
 });
+// ============================================================
+// DESEMPENHO: COMPRESSÃO E CACHE DOS ARQUIVOS
+// ============================================================
+//
+// 1) Respostas de texto (HTML, CSS, JS, JSON da API) vão comprimidas
+//    (gzip): bem menos dados pela internet.
+// 2) VERSÃO_ARQUIVOS muda sozinha a cada deploy (é um resumo do
+//    conteúdo de public/js e public/css). As páginas .html saem com
+//    "?v=<versão>" em todos os js/ e css/, e esses arquivos ficam
+//    guardados no navegador até a próxima versão. Resultado: trocar de
+//    página não baixa nem confere de novo dezenas de arquivos, e
+//    ninguém fica com arquivo velho depois de um deploy.
+//    (Não precisa mais trocar ?v=1, ?v=2... à mão nos .html.)
+// 3) Imagens: guardadas por 1 hora e conferidas em segundo plano.
+
+app.use(compression());
+
+const VERSAO_ARQUIVOS = (() => {
+  const hash = crypto.createHash('sha1');
+
+  const ler = pasta => {
+    let itens = [];
+    try {
+      itens = fs.readdirSync(pasta, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    itens
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach(item => {
+        const caminho = path.join(pasta, item.name);
+        if (item.isDirectory()) return ler(caminho);
+        if (/\.(js|css)$/i.test(item.name)) {
+          hash.update(item.name);
+          hash.update(fs.readFileSync(caminho));
+        }
+      });
+  };
+
+  ler(path.join(PUBLIC_DIR, 'js'));
+  ler(path.join(PUBLIC_DIR, 'css'));
+
+  return hash.digest('hex').slice(0, 10);
+})();
+
+// js/x.js e css/x.css (com ou sem ?v=antigo) -> ?v=<versão atual>
+const comVersao = html =>
+  html.replace(
+    /(\s(?:src|href)=")((?:js|css)\/[^"?#]+\.(?:js|css))(?:\?v=[^"#]*)?"/g,
+    (_, inicio, arquivo) => `${inicio}${arquivo}?v=${VERSAO_ARQUIVOS}"`
+  );
+
+const htmlEmMemoria = new Map();
+
+app.get(['/', /^\/[a-z0-9-]+\.html$/i], (req, res, next) => {
+  const nome = req.path === '/' ? 'index.html' : req.path.slice(1);
+  const arquivo = path.join(PUBLIC_DIR, nome);
+
+  if (path.dirname(arquivo) !== PUBLIC_DIR) return next();
+
+  let html = htmlEmMemoria.get(nome);
+
+  if (html === undefined) {
+    try {
+      html = comVersao(fs.readFileSync(arquivo, 'utf8'));
+    } catch {
+      return next();
+    }
+    htmlEmMemoria.set(nome, html);
+  }
+
+  // a página em si sempre é conferida (é ela que aponta a versão nova)
+  res.set('Cache-Control', 'no-cache');
+  res.type('html').send(html);
+});
+
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+
+  if (/\.(js|css)$/i.test(req.path)) {
+    res.set(
+      'Cache-Control',
+      req.query.v === VERSAO_ARQUIVOS
+        ? 'public, max-age=31536000, immutable'
+        : 'no-cache'
+    );
+  } else if (/\.(png|jpe?g|gif|webp|svg|ico|avif|woff2?|ttf|mp4|webm)$/i.test(req.path)) {
+    res.set(
+      'Cache-Control',
+      req.path.startsWith('/uploads/')
+        ? 'public, max-age=31536000, immutable'
+        : 'public, max-age=3600, stale-while-revalidate=86400'
+    );
+  }
+
+  next();
+});
+
 // Arquivos estáticos do frontend.
 app.use(
   express.static(PUBLIC_DIR)
@@ -202,9 +312,9 @@ const sign = user =>
 // FOTO DE PERFIL (AVATAR)
 // ============================================================
 //
-// O banco guarda só o nome do arquivo (coluna users.avatar).
-// O arquivo fica direto em UPLOAD_DIR (sem subpastas), por isso
-// é incluído automaticamente no backup e na restauração.
+// A imagem fica dentro do banco (coluna users.avatar), como data URL.
+// Veja "FOTO GUARDADA NO PRÓPRIO BANCO" logo abaixo. Os nomes de
+// arquivo em UPLOAD_DIR são do formato antigo e continuam aceitos.
 
 const AVATAR_MAX_BYTES = 2 * 1024 * 1024;
 
@@ -234,12 +344,98 @@ function safeAvatarFile(value) {
     : null;
 }
 
+// ------------------------------------------------------------
+// FOTO GUARDADA NO PRÓPRIO BANCO (TURSO)
+// ------------------------------------------------------------
+// O disco do Render é apagado a cada deploy, então arquivos em
+// UPLOAD_DIR somem. Por isso a imagem agora fica dentro do banco,
+// como data URL ("data:image/jpeg;base64,..."):
+//   • users.avatar          → foto enviada pelo usuário
+//                             ou "preset:<id>" (avatar da galeria)
+//   • avatar_presets.file   → imagem do avatar da galeria
+// Não precisa mudar o esquema (as colunas já são TEXT) e as fotos
+// entram no backup junto com as tabelas.
+// Nomes de arquivo antigos (avatar_*.jpg / preset_*.png) continuam
+// aceitos enquanto o arquivo existir.
+
+const AVATAR_DATA_RE =
+  /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+
+const PRESET_REF_RE = /^preset:(\d+)$/;
+
+const isAvatarData = value =>
+  AVATAR_DATA_RE.test(String(value || ''));
+
+// Versão curta da imagem: entra no endereço, assim o navegador
+// pode guardar a foto em cache e busca a nova quando ela muda.
+const avatarVersion = value =>
+  crypto
+    .createHash('sha1')
+    .update(String(value))
+    .digest('hex')
+    .slice(0, 12);
+
+function toAvatarData({ buffer, type }) {
+  const mime = type === 'jpg' ? 'jpeg' : type;
+
+  return `data:image/${mime};base64,${buffer.toString('base64')}`;
+}
+
 function avatarUrl(user) {
-  const file = safeAvatarFile(user?.avatar);
+  const value = String(user?.avatar || '');
+
+  if (isAvatarData(value) && user?.id != null) {
+    return `/api/avatar/u/${Number(user.id)}/${avatarVersion(value)}`;
+  }
+
+  const preset = value.match(PRESET_REF_RE);
+
+  if (preset) {
+    return `/api/avatar/p/${preset[1]}`;
+  }
+
+  const file = safeAvatarFile(value);
 
   return file
     ? '/uploads/' + file
     : null;
+}
+
+// Endereço público de um avatar da galeria (linha de avatar_presets).
+function presetUrl(row) {
+  if (isAvatarData(row?.file)) {
+    return `/api/avatar/p/${Number(row.id)}`;
+  }
+
+  return PRESET_FILE_RE.test(String(row?.file || ''))
+    ? '/uploads/' + row.file
+    : null;
+}
+
+// Envia a imagem guardada no banco (confere o formato de novo).
+function sendAvatarData(res, value, cacheSeconds) {
+  const match = String(value || '').match(AVATAR_DATA_RE);
+
+  if (!match) {
+    return res.status(404).end();
+  }
+
+  const buffer = Buffer.from(
+    value.slice(value.indexOf(',') + 1),
+    'base64'
+  );
+
+  if (!detectImageType(buffer)) {
+    return res.status(404).end();
+  }
+
+  res.set({
+    'Content-Type': 'image/' + match[1],
+    'Cache-Control': `public, max-age=${cacheSeconds}`,
+    'X-Content-Type-Options': 'nosniff'
+  });
+
+  return res.send(buffer);
 }
 
 // Descobre o formato pelo conteúdo real do arquivo,
@@ -532,6 +728,15 @@ registerBackupRoutes(
 );
 
 // ============================================================
+// ASSISTENTE DE DÚVIDAS COM IA (chatbot.js)
+// ============================================================
+// Responde com base no conteúdo das trilhas (chatbot/base.json).
+// Precisa da variável GROQ_API_KEY; sem ela, a tela de Dúvidas
+// mostra que o assistente não está configurado.
+
+registrarChatbot(app, db, auth);
+
+// ============================================================
 // AUTENTICAÇÃO
 // ============================================================
 
@@ -561,6 +766,18 @@ app.post('/api/auth/register', async (req, res) => {
     if (password !== confirm) {
       return res.status(400).json({
         error: 'As senhas não coincidem'
+      });
+    }
+
+    if (!/^[^@ ]+@[^@ ]+[.][^@ ]+$/.test(cleanEmail) || cleanEmail.length > 120) {
+      return res.status(400).json({
+        error: 'Informe um e-mail válido'
+      });
+    }
+
+    if (cleanName.length < NAME_MIN || cleanName.length > NAME_MAX) {
+      return res.status(400).json({
+        error: `O nome deve ter de ${NAME_MIN} a ${NAME_MAX} caracteres`
       });
     }
 
@@ -686,6 +903,268 @@ app.post('/api/auth/login', async (req, res) => {
     });
   }
 });
+
+// ============================================================
+// RECUPERAÇÃO DE SENHA (CÓDIGO POR E-MAIL)
+// ============================================================
+
+const RESET_CODE_TTL_MINUTES = 15;
+const RESET_CODE_TTL_MS = RESET_CODE_TTL_MINUTES * 60 * 1000;
+const RESET_RESEND_COOLDOWN_MS = 60 * 1000;
+const RESET_MAX_ATTEMPTS = 5;
+
+// O código nunca é guardado em texto puro: só o HMAC dele.
+const hashResetCode = (email, code) =>
+  crypto
+    .createHmac('sha256', SECRET)
+    .update(`${email}:${code}`)
+    .digest('hex');
+
+// Passo 1: gera o código e envia por e-mail.
+// A resposta é sempre a mesma, exista a conta ou não, para que
+// ninguém descubra quais e-mails estão cadastrados.
+app.post('/api/auth/forgot-password', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '')
+      .trim()
+      .toLowerCase();
+
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({
+        error: 'Informe um e-mail válido.'
+      });
+    }
+
+    if (!mailer.isConfigured()) {
+      console.error(
+        '[RECUPERAR SENHA] Envio de e-mail não configurado ' +
+        '(defina BREVO_API_KEY + MAIL_FROM_EMAIL, ou RESEND_API_KEY).'
+      );
+
+      return res.status(503).json({
+        error: 'O envio de e-mails não está disponível no momento.'
+      });
+    }
+
+    const generic = {
+      ok: true,
+      message:
+        'Se este e-mail estiver cadastrado, enviamos um código de ' +
+        `6 dígitos. Ele vale por ${RESET_CODE_TTL_MINUTES} minutos.`
+    };
+
+    const user = await db.prepare(
+      'SELECT name, email FROM users WHERE email=?'
+    ).get(email);
+
+    if (!user) {
+      return res.json(generic);
+    }
+
+    const now = Date.now();
+
+    const previous = await db.prepare(
+      'SELECT sent_at FROM password_resets WHERE email=?'
+    ).get(email);
+
+    // Pedidos muito seguidos não geram novo e-mail.
+    if (
+      previous &&
+      now - Number(previous.sent_at) < RESET_RESEND_COOLDOWN_MS
+    ) {
+      return res.json(generic);
+    }
+
+    const code = String(crypto.randomInt(0, 1000000))
+      .padStart(6, '0');
+
+    await db.prepare(`
+      INSERT INTO password_resets (
+        email, code_hash, expires_at, attempts, sent_at
+      )
+      VALUES (?, ?, ?, 0, ?)
+      ON CONFLICT(email) DO UPDATE SET
+        code_hash=excluded.code_hash,
+        expires_at=excluded.expires_at,
+        attempts=0,
+        sent_at=excluded.sent_at
+    `).run(
+      email,
+      hashResetCode(email, code),
+      now + RESET_CODE_TTL_MS,
+      now
+    );
+
+    try {
+      await mailer.sendPasswordResetEmail({
+        to: user.email,
+        name: user.name,
+        code,
+        minutes: RESET_CODE_TTL_MINUTES
+      });
+    } catch (mailError) {
+      // Sem e-mail enviado o código não serve: apaga para
+      // não travar uma nova tentativa.
+      await db.prepare(
+        'DELETE FROM password_resets WHERE email=?'
+      ).run(email);
+
+      console.error(
+        '[RECUPERAR SENHA] Falha ao enviar e-mail:',
+        mailError.message
+      );
+    }
+
+    return res.json(generic);
+
+  } catch (error) {
+    console.error('Erro ao solicitar recuperação de senha:', error);
+
+    return res.status(500).json({
+      error: 'Erro interno ao solicitar o código'
+    });
+  }
+});
+
+
+// Passo 2: confere o código e grava a nova senha.
+app.post('/api/auth/reset-password', async (req, res) => {
+  try {
+    const email = String(req.body?.email || '')
+      .trim()
+      .toLowerCase();
+
+    const code = String(req.body?.code || '').trim();
+    const password = req.body?.password;
+    const confirm = req.body?.confirm;
+
+    if (!email || !/^\d{6}$/.test(code)) {
+      return res.status(400).json({
+        error: 'Informe o e-mail e o código de 6 dígitos.',
+        code: 'INVALID_RESET_CODE'
+      });
+    }
+
+    if (typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({
+        error: 'A nova senha deve ter pelo menos 6 caracteres.'
+      });
+    }
+
+    if (password !== confirm) {
+      return res.status(400).json({
+        error: 'As senhas não coincidem'
+      });
+    }
+
+    // Tudo na mesma transação: tentativas simultâneas não
+    // conseguem "escapar" do limite de erros.
+    const result = await db.transaction(async () => {
+      const row = await db.prepare(`
+        SELECT code_hash, expires_at, attempts
+        FROM password_resets
+        WHERE email=?
+      `).get(email);
+
+      if (!row) {
+        return { status: 'invalid' };
+      }
+
+      const discard = () => db.prepare(
+        'DELETE FROM password_resets WHERE email=?'
+      ).run(email);
+
+      if (Number(row.expires_at) < Date.now()) {
+        await discard();
+        return { status: 'invalid' };
+      }
+
+      if (Number(row.attempts) >= RESET_MAX_ATTEMPTS) {
+        await discard();
+        return { status: 'locked' };
+      }
+
+      const expected = Buffer.from(row.code_hash, 'hex');
+      const received = Buffer.from(hashResetCode(email, code), 'hex');
+
+      const match =
+        expected.length === received.length &&
+        crypto.timingSafeEqual(expected, received);
+
+      if (!match) {
+        const attempts = Number(row.attempts) + 1;
+
+        if (attempts >= RESET_MAX_ATTEMPTS) {
+          await discard();
+          return { status: 'locked' };
+        }
+
+        await db.prepare(
+          'UPDATE password_resets SET attempts=? WHERE email=?'
+        ).run(attempts, email);
+
+        return {
+          status: 'wrong',
+          remainingAttempts: RESET_MAX_ATTEMPTS - attempts
+        };
+      }
+
+      const changed = await db.prepare(
+        'UPDATE users SET password=? WHERE email=?'
+      ).run(bcrypt.hashSync(password, 10), email);
+
+      await discard();
+
+      // Quem acabou de redefinir a senha não deve continuar
+      // bloqueado por tentativas de login anteriores.
+      await db.prepare(
+        'DELETE FROM login_attempts WHERE email=?'
+      ).run(email);
+
+      return changed.changes
+        ? { status: 'ok' }
+        : { status: 'invalid' };
+    });
+
+    if (result.status === 'ok') {
+      return res.json({
+        ok: true,
+        message: 'Senha redefinida! Entre com a nova senha.'
+      });
+    }
+
+    if (result.status === 'wrong') {
+      return res.status(400).json({
+        error:
+          'Código incorreto. Restam ' +
+          result.remainingAttempts + ' tentativa(s).',
+        code: 'WRONG_RESET_CODE',
+        remainingAttempts: result.remainingAttempts
+      });
+    }
+
+    if (result.status === 'locked') {
+      return res.status(400).json({
+        error:
+          'Muitas tentativas incorretas. Solicite um novo código.',
+        code: 'RESET_CODE_LOCKED'
+      });
+    }
+
+    return res.status(400).json({
+      error: 'Código inválido ou expirado. Solicite um novo código.',
+      code: 'INVALID_RESET_CODE'
+    });
+
+  } catch (error) {
+    console.error('Erro ao redefinir senha:', error);
+
+    return res.status(500).json({
+      error: 'Erro interno ao redefinir a senha'
+    });
+  }
+});
+
 
 
 // ============================================================
@@ -841,8 +1320,11 @@ app.post(
   '/api/me/avatar',
   auth,
   async (req, res) => {
+<<<<<<< HEAD
     let savedFile = null;
 
+=======
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
     try {
       // Aceita base64 puro ou data URL (data:image/jpeg;base64,...).
       const upload = readImageUpload(req.body);
@@ -853,30 +1335,17 @@ app.post(
         });
       }
 
-      const { buffer, type } = upload;
-
-      const filename =
-        `avatar_${req.user.id}_` +
-        crypto.randomBytes(8).toString('hex') +
-        '.' + type;
-
-      fs.writeFileSync(
-        path.join(UPLOAD_DIR, filename),
-        buffer
-      );
-
-      savedFile = filename;
+      // A foto fica no próprio banco (não some no deploy do Render).
+      const data = toAvatarData(upload);
 
       const previous = req.user.avatar;
 
       await db.prepare(
         'UPDATE users SET avatar=? WHERE id=?'
-      ).run(filename, req.user.id);
+      ).run(data, req.user.id);
 
-      // Só apaga a foto antiga depois de gravar a nova no banco.
-      if (previous && previous !== filename) {
-        removeAvatarFile(previous);
-      }
+      // Apaga o arquivo antigo, se a foto ainda era do formato em disco.
+      removeAvatarFile(previous);
 
       const user = await db
         .prepare('SELECT * FROM users WHERE id=?')
@@ -888,11 +1357,6 @@ app.post(
       });
     } catch (error) {
       console.error('Erro ao salvar foto de perfil:', error);
-
-      // Não deixa arquivo órfão se o banco falhou.
-      if (savedFile) {
-        removeAvatarFile(savedFile);
-      }
 
       return res.status(500).json({
         error: 'Erro ao salvar a foto de perfil'
@@ -913,15 +1377,73 @@ const presetRows = async () =>
        ORDER BY position, id`
     )
     .all())
+<<<<<<< HEAD
     .filter(
       row =>
         PRESET_FILE_RE.test(row.file)
     )
+=======
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
     .map(row => ({
       id: row.id,
       label: row.label || '',
-      url: '/uploads/' + row.file
-    }));
+      url: presetUrl(row)
+    }))
+    .filter(row => row.url);
+
+// ------------------------------------------------------------
+// IMAGENS GUARDADAS NO BANCO (públicas, como eram as de /uploads)
+// ------------------------------------------------------------
+// A foto do usuário só abre com a versão certa no endereço, então
+// não dá para listar fotos trocando o número do usuário.
+
+app.get(
+  '/api/avatar/u/:id/:version',
+  async (req, res) => {
+    const id = Number(req.params.id);
+
+    const row = Number.isInteger(id)
+      ? await db
+          .prepare('SELECT avatar FROM users WHERE id=?')
+          .get(id)
+      : null;
+
+    if (
+      !row ||
+      !isAvatarData(row.avatar) ||
+      avatarVersion(row.avatar) !== req.params.version
+    ) {
+      return res.status(404).end();
+    }
+
+    // O endereço muda quando a foto muda: pode ficar em cache por 1 ano.
+    return sendAvatarData(res, row.avatar, 31536000);
+  }
+);
+
+app.get(
+  '/api/avatar/p/:id',
+  async (req, res) => {
+    const id = Number(req.params.id);
+
+    const row = Number.isInteger(id)
+      ? await db
+          .prepare('SELECT file FROM avatar_presets WHERE id=?')
+          .get(id)
+      : null;
+
+    if (!row) {
+      return res.status(404).end();
+    }
+
+    // Avatar antigo da galeria (arquivo em disco).
+    if (PRESET_FILE_RE.test(String(row.file || ''))) {
+      return res.redirect('/uploads/' + row.file);
+    }
+
+    return sendAvatarData(res, row.file, 86400);
+  }
+);
 
 // Lista para qualquer usuário logado escolher.
 app.get(
@@ -946,12 +1468,12 @@ app.post(
       const preset = Number.isInteger(id)
         ? await db
             .prepare(
-              'SELECT file FROM avatar_presets WHERE id=?'
+              'SELECT id, file FROM avatar_presets WHERE id=?'
             )
             .get(id)
         : null;
 
-      if (!preset || !PRESET_FILE_RE.test(preset.file)) {
+      if (!preset || !presetUrl(preset)) {
         return res.status(404).json({
           error: 'Avatar não encontrado'
         });
@@ -959,9 +1481,17 @@ app.post(
 
       const previous = req.user.avatar;
 
+<<<<<<< HEAD
+=======
+      // Galeria no banco: guarda só a referência "preset:<id>".
+      const value = isAvatarData(preset.file)
+        ? 'preset:' + preset.id
+        : preset.file;
+
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
       await db.prepare(
         'UPDATE users SET avatar=? WHERE id=?'
-      ).run(preset.file, req.user.id);
+      ).run(value, req.user.id);
 
       // Se a pessoa tinha uma foto própria, ela deixa de ser usada.
       removeAvatarFile(previous);
@@ -990,8 +1520,11 @@ app.post(
   auth,
   adm,
   async (req, res) => {
+<<<<<<< HEAD
     let savedFile = null;
 
+=======
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
     try {
       const total = Number(
         (await db
@@ -1021,17 +1554,18 @@ app.post(
         .trim()
         .slice(0, PRESET_LABEL_MAX);
 
-      const filename =
-        'preset_' +
-        crypto.randomBytes(8).toString('hex') +
-        '.' + upload.type;
+      // A imagem fica no próprio banco (não some no deploy do Render).
+      const data = toAvatarData(upload);
 
-      fs.writeFileSync(
-        path.join(UPLOAD_DIR, filename),
-        upload.buffer
-      );
+      const duplicate = await db
+        .prepare('SELECT id FROM avatar_presets WHERE file=?')
+        .get(data);
 
-      savedFile = filename;
+      if (duplicate) {
+        return res.status(400).json({
+          error: 'Essa imagem já está na galeria'
+        });
+      }
 
       const position =
         Number(
@@ -1047,7 +1581,7 @@ app.post(
            (file, label, position, created_at)
          VALUES (?, ?, ?, ?)`
       ).run(
-        filename,
+        data,
         label || null,
         position,
         new Date().toISOString()
@@ -1060,11 +1594,6 @@ app.post(
       });
     } catch (error) {
       console.error('Erro ao adicionar avatar:', error);
-
-      // Não deixa arquivo órfão se o banco falhou.
-      if (savedFile) {
-        removePresetFile(savedFile);
-      }
 
       return res.status(500).json({
         error: 'Erro ao adicionar o avatar'
@@ -1098,8 +1627,13 @@ app.delete(
 
       // Quem estava usando este avatar volta a ficar sem foto.
       await db.prepare(
+<<<<<<< HEAD
         'UPDATE users SET avatar=NULL WHERE avatar=?'
       ).run(preset.file);
+=======
+        'UPDATE users SET avatar=NULL WHERE avatar=? OR avatar=?'
+      ).run(preset.file, 'preset:' + preset.id);
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
       await db.prepare(
         'DELETE FROM avatar_presets WHERE id=?'
@@ -1157,9 +1691,9 @@ app.delete(
 // CONSTANTES E UTILIDADES
 // ============================================================
 
-const MAX_HEARTS = 5;
+let MAX_HEARTS = 5;        // regras de negócio: vidas.maximo
 
-const REGEN_MS =
+let REGEN_MS =             // regras de negócio: vidas.minutos_recarga
   30 * 60 * 1000;
 
 const dayStr = date =>
@@ -1266,6 +1800,21 @@ const one = async (
     .prepare(sql)
     .get(...args);
 
+<<<<<<< HEAD
+=======
+// Consultas independentes AO MESMO TEMPO (uma única espera pelo Turso
+// em vez de uma por consulta). Dentro de transação, uma de cada vez.
+// Uso: const [a, b] = await juntos(() => consultaA, () => consultaB);
+async function juntos(...tarefas) {
+  if (db.emTransacao && db.emTransacao()) {
+    const resultado = [];
+    for (const tarefa of tarefas) resultado.push(await tarefa());
+    return resultado;
+  }
+  return Promise.all(tarefas.map(tarefa => tarefa()));
+}
+
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 // Como Array.map, mas para callbacks que consultam o banco:
 // executa um item por vez, na ordem (seguro dentro de transações).
 const mapAsync = async (
@@ -1587,15 +2136,173 @@ async function unlocked(uid) {
 // GAMIFICAÇÃO
 // ============================================================
 
-const LEVEL = xp =>
-  Math.floor(
-    Math.sqrt(
-      Math.max(0, xp) / 40
-    )
-  ) + 1;
+// ============================================================
+// REGRAS DE NEGÓCIO (configuráveis pelo administrador)
+// ============================================================
+//
+// Ficam na tabela app_settings (chave 'regras', JSON) e são editadas
+// na tela "Regras de negócio" do painel (admin.html#regras).
+// Enquanto nada for salvo, valem os valores padrão abaixo — os mesmos
+// que antes eram fixos no código.
+//
+//   niveis   → XP mínimo e nome de cada nível (o 1º começa em 0 XP)
+//   xp       → XP padrão de módulo novo, XP por acerto, bônus de lição
+//              perfeita e % do XP ao refazer (2ª, 3ª, 4ª vez ou mais)
+//   moedas   → moedas por módulo (só na 1ª vez), bônus perfeito, missão
+//   vidas    → máximo, minutos para recuperar 1 vida, custo da recarga
+//   missoes  → metas das missões diárias
 
-const LEVEL_XP = level =>
-  (level - 1) ** 2 * 40;
+const NOMES_NIVEL_PADRAO = [
+  'Ovo de dragão', 'Filhote curioso', 'Dragão aprendiz', 'Dragão estudioso',
+  'Dragão poupador', 'Dragão investidor', 'Guardião do tesouro', 'Dragão estrategista',
+  'Dragão sábio', 'Dragão lendário', 'Mestre das finanças', 'Dragão ancião',
+  'Senhor dos cofres', 'Dragão imperial', 'Lenda Dragnix'
+];
+
+const REGRAS_PADRAO = Object.freeze({
+  // mesma curva de antes: (nível - 1)² × 40 XP
+  niveis: NOMES_NIVEL_PADRAO.map((nome, i) => ({ xp: i * i * 40, nome })),
+  xp: {
+    modulo_padrao: 10,
+    por_acerto: 2,
+    bonus_perfeito: 10,
+    repeticao: [50, 30, 20]          // % do XP na 2ª, 3ª e 4ª+ conclusão
+  },
+  moedas: {
+    por_modulo: 5,
+    bonus_perfeito: 5,
+    missao: 10
+  },
+  vidas: {
+    maximo: 5,
+    minutos_recarga: 30,
+    custo_recarga: 30
+  },
+  missoes: {
+    licoes: 1,
+    acertos: 5,
+    xp: 30
+  }
+});
+
+let REGRAS = JSON.parse(JSON.stringify(REGRAS_PADRAO));
+
+const LEVEL = xp => {
+  const total = Math.max(0, Number(xp) || 0);
+  let nivel = 1;
+
+  REGRAS.niveis.forEach((n, i) => {
+    if (total >= n.xp) nivel = i + 1;
+  });
+
+  return nivel;
+};
+
+// XP mínimo do nível (acima do último nível, repete o último)
+const LEVEL_XP = level => {
+  const lista = REGRAS.niveis;
+  const i = Math.max(1, Math.min(Number(level) || 1, lista.length)) - 1;
+  return lista[i].xp;
+};
+
+const nomeNivel = level =>
+  REGRAS.niveis[Math.max(1, Math.min(Number(level) || 1, REGRAS.niveis.length)) - 1].nome;
+
+const inteiro = (v, min, max, campo) => {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < min || n > max) {
+    throw new Error(`${campo}: use um número inteiro entre ${min} e ${max}.`);
+  }
+  return n;
+};
+
+// Confere tudo o que o painel enviou (lança erro com mensagem clara)
+function validarRegras(entrada) {
+  const r = entrada && typeof entrada === 'object' ? entrada : {};
+
+  if (!Array.isArray(r.niveis) || r.niveis.length < 2 || r.niveis.length > 50) {
+    throw new Error('Cadastre de 2 a 50 níveis.');
+  }
+
+  const niveis = r.niveis.map((n, i) => {
+    const nome = String(n?.nome ?? '').replace(/\s+/g, ' ').trim();
+    if (!nome || nome.length > 40) {
+      throw new Error(`Nível ${i + 1}: dê um nome de até 40 caracteres.`);
+    }
+    return { xp: inteiro(n?.xp, 0, 10000000, `Nível ${i + 1}`), nome };
+  });
+
+  if (niveis[0].xp !== 0) {
+    throw new Error('O nível 1 precisa começar em 0 XP.');
+  }
+
+  for (let i = 1; i < niveis.length; i++) {
+    if (niveis[i].xp <= niveis[i - 1].xp) {
+      throw new Error(`O nível ${i + 1} precisa de mais XP que o nível ${i}.`);
+    }
+  }
+
+  const rep = Array.isArray(r.xp?.repeticao) ? r.xp.repeticao : [];
+
+  return {
+    niveis,
+    xp: {
+      modulo_padrao: inteiro(r.xp?.modulo_padrao, 0, 100000, 'XP padrão de módulo'),
+      por_acerto: inteiro(r.xp?.por_acerto, 0, 10000, 'XP por acerto'),
+      bonus_perfeito: inteiro(r.xp?.bonus_perfeito, 0, 100000, 'Bônus de lição perfeita'),
+      repeticao: [0, 1, 2].map(i => inteiro(rep[i], 0, 100, `XP ao refazer (${i + 2}ª vez)`))
+    },
+    moedas: {
+      por_modulo: inteiro(r.moedas?.por_modulo, 0, 100000, 'Moedas por módulo'),
+      bonus_perfeito: inteiro(r.moedas?.bonus_perfeito, 0, 100000, 'Bônus de moedas'),
+      missao: inteiro(r.moedas?.missao, 0, 100000, 'Moedas por missão')
+    },
+    vidas: {
+      maximo: inteiro(r.vidas?.maximo, 1, 99, 'Máximo de vidas'),
+      minutos_recarga: inteiro(r.vidas?.minutos_recarga, 1, 1440, 'Minutos para recuperar uma vida'),
+      custo_recarga: inteiro(r.vidas?.custo_recarga, 0, 100000, 'Custo da recarga')
+    },
+    missoes: {
+      licoes: inteiro(r.missoes?.licoes, 1, 100, 'Meta de lições'),
+      acertos: inteiro(r.missoes?.acertos, 1, 1000, 'Meta de acertos'),
+      xp: inteiro(r.missoes?.xp, 1, 100000, 'Meta de XP')
+    }
+  };
+}
+
+// Leva as regras para as partes do servidor que usam esses números
+function aplicarRegras(regras) {
+  REGRAS = regras;
+  MAX_HEARTS = regras.vidas.maximo;
+  REGEN_MS = regras.vidas.minutos_recarga * 60 * 1000;
+
+  const m = regras.missoes;
+  MISSIONS.licao[1] = `Conclua ${m.licoes} ${m.licoes === 1 ? 'lição' : 'lições'}`;
+  MISSIONS.licao[3] = m.licoes;
+  MISSIONS.acertos[1] = `Acerte ${m.acertos} ${m.acertos === 1 ? 'questão' : 'questões'}`;
+  MISSIONS.acertos[3] = m.acertos;
+  MISSIONS.xp[1] = `Ganhe ${m.xp} XP`;
+  MISSIONS.xp[3] = m.xp;
+}
+
+// Lê as regras salvas (na inicialização e depois de salvar)
+async function carregarRegras() {
+  try {
+    const row = await db.prepare(
+      `SELECT value FROM app_settings WHERE key = 'regras'`
+    ).get();
+
+    aplicarRegras(row ? validarRegras(JSON.parse(row.value)) : JSON.parse(JSON.stringify(REGRAS_PADRAO)));
+  } catch (error) {
+    console.error('Regras de negócio inválidas ou indisponíveis; usando as padrão:', error.message);
+    aplicarRegras(JSON.parse(JSON.stringify(REGRAS_PADRAO)));
+  }
+}
+
+// % do XP numa conclusão (1ª = 100%)
+const percentualXp = conclusao =>
+  conclusao <= 1 ? 100 : REGRAS.xp.repeticao[Math.min(conclusao, 4) - 2];
+
 
 const BADGES = {
   primeira: [
@@ -1673,6 +2380,7 @@ const MISSIONS = {
 
 async function stats(uid) {
 
+<<<<<<< HEAD
   const lessonXp = (await one(
     `SELECT COALESCE(SUM(xp), 0) AS v
      FROM progress
@@ -1722,12 +2430,41 @@ async function stats(uid) {
        WHERE id=?`,
       uid
     );
+=======
+  // Tudo numa consulta só (antes eram 6 idas ao banco, uma depois da outra)
+  const linha = await one(
+    `SELECT
+       (SELECT COALESCE(SUM(xp), 0) FROM progress WHERE user_id=?1) AS lesson_xp,
+       (SELECT COALESCE(SUM(xp_awarded), 0) FROM challenge_rewards WHERE user_id=?1) AS challenge_xp,
+       (SELECT COUNT(*)
+          FROM tracks t
+         WHERE EXISTS(SELECT 1 FROM lessons WHERE track_id=t.id)
+           AND NOT EXISTS(
+             SELECT 1 FROM lessons l
+              WHERE l.track_id=t.id
+                AND l.id NOT IN(SELECT lesson_id FROM progress WHERE user_id=?1)
+           )) AS tracks,
+       (SELECT COUNT(*) FROM progress WHERE user_id=?1) AS lessons,
+       (SELECT COUNT(*) FROM progress WHERE user_id=?1 AND perfect=1) AS perfect,
+       u.streak AS streak,
+       u.last_day AS last_day,
+       u.coins AS coins
+     FROM (SELECT 1) AS um
+     LEFT JOIN users u ON u.id=?1`,
+    uid
+  );
+
+  const xp = Number(linha.lesson_xp || 0) + Number(linha.challenge_xp || 0);
+  const user = linha.streak === null && linha.last_day === null && linha.coins === null ? undefined : linha;
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
   return {
     xp,
     level: LEVEL(xp),
-    tracks,
+    level_name: nomeNivel(LEVEL(xp)),
+    tracks: Number(linha.tracks || 0),
     streak: streakOf(user),
+<<<<<<< HEAD
     coins:
       user?.coins || 0,
 
@@ -1767,6 +2504,25 @@ async function awardBadges(uid) {
           row => row.code
         )
     );
+=======
+    coins: user?.coins || 0,
+    lessons: Number(linha.lessons || 0),
+    perfect: Number(linha.perfect || 0)
+  };
+}
+
+async function awardBadges(uid, pronto) {
+  // O perfil já carrega estes dados: passa em "pronto" para não buscar de novo
+  const [state, haveRows, customRows] = pronto
+    ? [pronto.state, null, pronto.customRows]
+    : await juntos(
+        () => stats(uid),
+        () => db.prepare(`SELECT code FROM badges WHERE user_id=?`).all(uid),
+        () => db.prepare(`SELECT * FROM custom_badges WHERE active=1 ORDER BY id`).all()
+      );
+
+  const have = pronto ? pronto.have : new Set(haveRows.map(row => row.code));
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
   const fresh = [];
 
@@ -1794,11 +2550,176 @@ async function awardBadges(uid) {
         code
       );
 
+      have.add(code);
+
       fresh.push({
         icon: badge[0],
         name: badge[1]
       });
     }
+  }
+
+  // Conquistas criadas pelos administradores
+  fresh.push(
+    ...await awardCustomBadges(uid, state, have, customRows)
+  );
+
+  return fresh;
+}
+
+// ============================================================
+// CONQUISTAS CRIADAS PELOS ADMINISTRADORES (custom_badges)
+// ============================================================
+//
+// Cada conquista tem um ícone (emoji ou imagem guardada no banco
+// como data URL, igual às fotos de perfil) e UMA condição. Quando
+// o aluno atinge a condição, ela é gravada em badges com o código
+// "custom:<id>" (mesma tabela das conquistas fixas acima).
+//
+// A verificação roda ao concluir um módulo e ao abrir o perfil,
+// então conquistas novas também valem para quem já cumpriu a
+// condição antes de ela existir.
+
+const CUSTOM_BADGE_CONDITIONS = {
+  licoes: {
+    label: 'Concluir lições',
+    texto: v => `Conclua ${v} ${v === 1 ? 'lição' : 'lições'}`,
+    check: (s, v) => s.lessons >= v
+  },
+  perfeitas: {
+    label: 'Lições sem nenhum erro',
+    texto: v => `Termine ${v} ${v === 1 ? 'lição' : 'lições'} sem errar`,
+    check: (s, v) => s.perfect >= v
+  },
+  trilhas: {
+    label: 'Concluir trilhas (qualquer uma)',
+    texto: v => `Conclua ${v} ${v === 1 ? 'trilha' : 'trilhas'}`,
+    check: (s, v) => s.tracks >= v
+  },
+  trilha: {
+    label: 'Concluir uma trilha específica',
+    track: true,
+    texto: (v, b) => `Conclua a trilha "${b.track_title || 'escolhida'}"`,
+    check: (s, v, b) => s.doneTracks.has(Number(b.track_id))
+  },
+  sequencia: {
+    label: 'Dias seguidos estudando',
+    texto: v => `Estude ${v} ${v === 1 ? 'dia' : 'dias'} seguidos`,
+    check: (s, v) => s.streak >= v
+  },
+  nivel: {
+    label: 'Alcançar um nível',
+    texto: v => `Alcance o nível ${v}`,
+    check: (s, v) => s.level >= v
+  },
+  xp: {
+    label: 'Acumular XP',
+    texto: v => `Acumule ${v} XP`,
+    check: (s, v) => s.xp >= v
+  },
+  moedas: {
+    label: 'Juntar moedas',
+    texto: v => `Junte ${v} moedas`,
+    check: (s, v) => s.coins >= v
+  },
+  desafios: {
+    label: 'Vencer desafios',
+    texto: v => `Vença ${v} ${v === 1 ? 'desafio' : 'desafios'}`,
+    check: (s, v) => s.challenges >= v
+  }
+};
+
+const CUSTOM_BADGE_PREFIX = 'custom:';
+
+// Ícone para o navegador: emoji como texto, imagem como endereço.
+const customBadgeIcon = row =>
+  isAvatarData(row?.icon)
+    ? `/api/badge-icon/${Number(row.id)}/${avatarVersion(row.icon)}`
+    : String(row?.icon || '🏆');
+
+const customBadgeDescription = row => {
+  if (String(row?.description || '').trim()) {
+    return row.description;
+  }
+
+  const cond = CUSTOM_BADGE_CONDITIONS[row?.condition_type];
+
+  return cond
+    ? cond.texto(Number(row.condition_value) || 1, row)
+    : '';
+};
+
+// Dados extras usados só por algumas condições.
+async function customBadgeExtras(uid) {
+  const [done, challenges] = await juntos(
+    () => db.prepare(
+      `SELECT t.id
+       FROM tracks t
+       WHERE EXISTS(
+         SELECT 1 FROM lessons WHERE track_id=t.id
+       )
+       AND NOT EXISTS(
+         SELECT 1
+         FROM lessons l
+         WHERE l.track_id=t.id
+         AND l.id NOT IN(
+           SELECT lesson_id FROM progress WHERE user_id=?
+         )
+       )`
+    ).all(uid),
+    () => one(
+      `SELECT COUNT(*) AS v
+       FROM challenge_rewards
+       WHERE user_id=?`,
+      uid
+    )
+  );
+
+  return {
+    doneTracks: new Set(done.map(row => Number(row.id))),
+    challenges: Number(challenges?.v || 0)
+  };
+}
+
+// Concede as conquistas criadas pelos administradores.
+// Nunca derruba a conclusão do módulo: erros só vão para o log.
+async function awardCustomBadges(uid, state, have, carregadas) {
+  const fresh = [];
+
+  try {
+    const rows = carregadas
+      ? carregadas.filter(row => row.active)
+      : await db.prepare(
+          `SELECT * FROM custom_badges WHERE active=1 ORDER BY id`
+        ).all();
+
+    let extras = null;
+
+    for (const row of rows) {
+      const code = CUSTOM_BADGE_PREFIX + row.id;
+      const cond = CUSTOM_BADGE_CONDITIONS[row.condition_type];
+
+      if (have.has(code) || !cond) continue;
+
+      if (!extras) {
+        extras = await customBadgeExtras(uid);
+      }
+
+      if (cond.check({ ...state, ...extras }, Number(row.condition_value) || 1, row)) {
+        await db.prepare(
+          `INSERT OR IGNORE INTO badges(user_id, code) VALUES(?,?)`
+        ).run(uid, code);
+
+        have.add(code);
+
+        fresh.push({
+          icon: customBadgeIcon(row),
+          name: row.name
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao conceder conquistas personalizadas:', error);
   }
 
   return fresh;
@@ -3883,6 +4804,7 @@ app.get(
   auth,
   async (req, res) => {
     try {
+<<<<<<< HEAD
       const done =
         new Set(
           (await db
@@ -3978,6 +4900,76 @@ app.get(
              ORDER BY position,id`
           )
           .all())
+=======
+      // Tudo que a tela precisa, buscado AO MESMO TEMPO (antes: 13 idas
+      // ao banco, uma depois da outra)
+      const [
+        progresso,
+        lessons,
+        questoesPorModulo,
+        respostasPorModulo,
+        trilhasDoBanco,
+        heartState,
+        state
+      ] = await juntos(
+        () => db.prepare(
+          `SELECT lesson_id, review_count
+           FROM progress
+           WHERE user_id=?`
+        ).all(req.user.id),
+        () => db.prepare(
+          `SELECT
+             id,
+             track_id,
+             title,
+             position,
+             xp
+           FROM lessons
+           ORDER BY position,id`
+        ).all(),
+        () => db.prepare(
+          `SELECT
+             lesson_id l,
+             COUNT(*) n
+           FROM questions
+           GROUP BY lesson_id`
+        ).all(),
+        () => db.prepare(
+          `SELECT
+             q.lesson_id l,
+             COUNT(*) n
+           FROM answers a
+           JOIN questions q
+             ON q.id=a.question_id
+           WHERE a.user_id=?
+           GROUP BY q.lesson_id`
+        ).all(req.user.id),
+        () => db.prepare(
+          `SELECT *
+           FROM tracks
+           ORDER BY position,id`
+        ).all(),
+        () => hearts(req.user.id),
+        () => stats(req.user.id)
+      );
+
+      const done = new Set(progresso.map(row => row.lesson_id));
+
+      const completionCounts = Object.fromEntries(
+        progresso.map(row => [row.lesson_id, Number(row.review_count || 1)])
+      );
+
+      const questionCount = Object.fromEntries(
+        questoesPorModulo.map(row => [row.l, row.n])
+      );
+
+      const answerCount = Object.fromEntries(
+        respostasPorModulo.map(row => [row.l, row.n])
+      );
+
+      const tracks =
+        trilhasDoBanco
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
           .map(
             track => ({
               ...track,
@@ -4102,6 +5094,7 @@ app.get(
         }
       }
 
+<<<<<<< HEAD
       const heartState =
         await hearts(
           req.user.id
@@ -4112,10 +5105,13 @@ app.get(
           req.user.id
         );
 
+=======
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
       res.json({
         tracks,
         xp: state.xp,
         level: state.level,
+        level_name: state.level_name,
         coins: state.coins,
         streak: state.streak,
         hearts:
@@ -4162,9 +5158,26 @@ app.get(
           GROUP BY lesson_id
         `).all();
 
+      // Notas que o próprio usuário já deu (a tela mostra e deixa trocar)
+      const minhasLicoes = await db.prepare(
+        'SELECT lesson_id, rating FROM lesson_evaluations WHERE user_id=?'
+      ).all(req.user.id);
+
+      const minhasTrilhas = await db.prepare(
+        'SELECT track_id, rating FROM track_evaluations WHERE user_id=?'
+      ).all(req.user.id);
+
       res.json({
         ok: true,
-        ratings
+        ratings,
+        mine: {
+          lessons: Object.fromEntries(
+            minhasLicoes.map(r => [r.lesson_id, Number(r.rating)])
+          ),
+          tracks: Object.fromEntries(
+            minhasTrilhas.map(r => [r.track_id, Number(r.rating)])
+          )
+        }
       });
 
     } catch (error) {
@@ -4205,6 +5218,7 @@ app.get(
         });
       }
 
+<<<<<<< HEAD
       const done =
         await isDone(
           req.user.id,
@@ -4217,6 +5231,36 @@ app.get(
         );
 
       const falta = await trilhasFaltando(req.user, lesson.track_id);
+=======
+      // Verificações independentes AO MESMO TEMPO (antes: uma por vez)
+      const [done, heartState, falta, previous] = await juntos(
+        () => isDone(req.user.id, lesson.id),
+        () => hearts(req.user.id),
+        () => trilhasFaltando(req.user, lesson.track_id),
+        () => isStaff(req.user)
+          ? null
+          : one(
+              `SELECT id
+               FROM lessons
+               WHERE track_id=?
+               AND (
+                 position<?
+                 OR (
+                   position=?
+                   AND id<?
+                 )
+               )
+               ORDER BY
+                 position DESC,
+                 id DESC
+               LIMIT 1`,
+              lesson.track_id,
+              lesson.position,
+              lesson.position,
+              lesson.id
+            )
+      );
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
       if (falta.length) {
         return res.status(403).json({
@@ -4227,6 +5271,7 @@ app.get(
       if (
         !isStaff(req.user)
       ) {
+<<<<<<< HEAD
         const previous =
           await one(
             `SELECT id
@@ -4249,6 +5294,8 @@ app.get(
             lesson.id
           );
 
+=======
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
         if (
           previous &&
           !await isDone(
@@ -4845,6 +5892,11 @@ app.post(
 // CONCLUSÃO DA LIÇÃO
 // ============================================================
 
+<<<<<<< HEAD
+=======
+const repeatedSemQuestoes = (semQuestoes, anterior) => semQuestoes && !!anterior;
+
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 app.post('/api/lessons/:id/complete', auth, async (req, res) => {
   try {
     const lesson = await db.prepare(
@@ -4902,6 +5954,13 @@ app.post('/api/lessons/:id/complete', auth, async (req, res) => {
 
       const perfect = total > 0 && result.c === total ? 1 : 0;
 
+<<<<<<< HEAD
+=======
+      // Módulo sem questões já concluído: refazer não dá XP de novo
+      // (senão bastaria reenviar a conclusão várias vezes).
+      const semQuestoes = total === 0;
+
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
       // Consulta quantas vezes o aluno concluiu o módulo.
       const previousProgress = await db.prepare(
         `SELECT xp, perfect, review_count
@@ -4916,6 +5975,7 @@ app.post('/api/lessons/:id/complete', auth, async (req, res) => {
         : 1;
 
       // 1ª = 100%, 2ª = 50%, 3ª = 30%, demais = 20%.
+<<<<<<< HEAD
       const xpMultiplier =
         completionNumber === 1 ? 1 :
         completionNumber === 2 ? 0.5 :
@@ -4931,6 +5991,25 @@ app.post('/api/lessons/:id/complete', auth, async (req, res) => {
 
       // Moedas são concedidas apenas na primeira conclusão.
       const coins = repeated ? 0 : 5 + (perfect ? 5 : 0);
+=======
+      // % das regras de negócio (padrão: 100%, 50%, 30%, 20%)
+      const xpMultiplier =
+        percentualXp(completionNumber) / 100;
+
+      const originalXp =
+        Number(lesson.xp || 0) +
+        result.c * REGRAS.xp.por_acerto +
+        (perfect ? REGRAS.xp.bonus_perfeito : 0);
+
+      const gained = repeatedSemQuestoes(semQuestoes, previousProgress)
+        ? 0
+        : Math.floor(originalXp * xpMultiplier);
+
+      // Moedas são concedidas apenas na primeira conclusão.
+      const coins = repeated
+        ? 0
+        : REGRAS.moedas.por_modulo + (perfect ? REGRAS.moedas.bonus_perfeito : 0);
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
       if (repeated) {
         await db.prepare(
@@ -4976,6 +6055,14 @@ app.post('/api/lessons/:id/complete', auth, async (req, res) => {
         xp: gained,
         lessons: repeated ? 0 : 1
     });
+
+    // As respostas desta tentativa já foram usadas: apaga para que
+    // uma nova conclusão exija responder tudo outra vez.
+    await db.prepare(
+      `DELETE FROM answers
+       WHERE user_id=?
+       AND question_id IN (SELECT id FROM questions WHERE lesson_id=?)`
+    ).run(uid, lesson.id);
 
     // Mantém a sequência diária do aluno.
     const user = await one(
@@ -5187,6 +6274,87 @@ app.post(
   }
 );
 // ============================================================
+// ÚLTIMO MÓDULO (card "Continue de onde parou" da página inicial)
+// ============================================================
+//
+// Usado pelo public/js/iniciopainel.js. Não existe tabela de
+// "módulo aberto", então usa o último módulo concluído (progress)
+// e sugere o próximo da mesma trilha que ainda falta fazer.
+// Sem nenhum módulo concluído devolve { last: null }.
+
+app.get(
+  '/api/me/last-activity',
+  auth,
+  async (req, res) => {
+    try {
+      const uid = req.user.id;
+
+      const recent = await db.prepare(`
+        SELECT p.lesson_id, l.track_id
+        FROM progress p
+        JOIN lessons l ON l.id = p.lesson_id
+        WHERE p.user_id = ? AND p.done_at IS NOT NULL
+        ORDER BY p.done_at DESC
+        LIMIT 1
+      `).get(uid);
+
+      if (!recent) {
+        return res.json({ last: null });
+      }
+
+      const track = await db.prepare(
+        'SELECT id, title, icon, color FROM tracks WHERE id = ?'
+      ).get(recent.track_id);
+
+      const lessons = await db.prepare(`
+        SELECT l.id, l.title,
+               CASE WHEN p.done_at IS NULL THEN 0 ELSE 1 END AS done
+        FROM lessons l
+        LEFT JOIN progress p
+               ON p.lesson_id = l.id AND p.user_id = ?
+        WHERE l.track_id = ?
+        ORDER BY l.position, l.id
+      `).all(uid, recent.track_id);
+
+      if (!track || !lessons.length) {
+        return res.json({ last: null });
+      }
+
+      const lastIndex = Math.max(
+        0,
+        lessons.findIndex(l => Number(l.id) === Number(recent.lesson_id))
+      );
+
+      // Próximo módulo ainda não feito (depois do último; senão, qualquer um da trilha).
+      let index = lessons.findIndex((l, i) => i > lastIndex && !l.done);
+      if (index < 0) index = lessons.findIndex(l => !l.done);
+      if (index < 0) index = lastIndex;
+
+      const lesson = lessons[index];
+      const doneCount = lessons.filter(l => l.done).length;
+
+      res.json({
+        last: {
+          lesson_id: lesson.id,
+          lesson_title: lesson.title,
+          module_number: index + 1,
+          total_modules: lessons.length,
+          track_id: track.id,
+          track_title: track.title,
+          track_icon: track.icon,
+          track_color: track.color,
+          pct: Math.round(doneCount / lessons.length * 100),
+          done: !!lesson.done
+        }
+      });
+    } catch (error) {
+      console.error('Erro em /api/me/last-activity:', error);
+      res.status(500).json({ error: 'Erro ao carregar o último módulo' });
+    }
+  }
+);
+
+// ============================================================
 // PERFIL
 // ============================================================
 
@@ -5198,6 +6366,7 @@ app.get(
       const uid =
         req.user.id;
 
+<<<<<<< HEAD
       const state =
         await stats(uid);
 
@@ -5235,6 +6404,73 @@ app.get(
               row => row.code
             )
         );
+=======
+      // Tudo buscado AO MESMO TEMPO (antes: 23 idas ao banco em fila)
+      const [
+        state,
+        activity,
+        claimRows,
+        badgeRows,
+        challengeBadges,
+        week,
+        customRows
+      ] = await juntos(
+        () => stats(uid),
+        () => todayAct(uid),
+        () => db.prepare(
+          `SELECT code
+           FROM claims
+           WHERE user_id=?
+           AND day=?`
+        ).all(uid, today()),
+        () => db.prepare(
+          `SELECT code
+           FROM badges
+           WHERE user_id=?`
+        ).all(uid),
+        () => db.prepare(`
+          SELECT
+            c.badge_code AS code,
+            c.badge_icon AS icon,
+            c.badge_name AS name,
+            c.badge_description AS description,
+            CASE WHEN r.id IS NULL THEN 0 ELSE 1 END AS got
+          FROM challenges c
+          LEFT JOIN challenge_rewards r
+            ON r.challenge_id=c.id
+            AND r.user_id=?
+          WHERE (c.enabled = 1 AND c.deleted_at IS NULL)
+          OR r.id IS NOT NULL
+          ORDER BY c.id
+        `).all(uid),
+        () => db.prepare(
+          `SELECT
+             day,
+             xp
+           FROM activity
+           WHERE user_id=?
+           ORDER BY day DESC
+           LIMIT 7`
+        ).all(uid),
+        () => db.prepare(
+          `SELECT b.*, t.title AS track_title
+           FROM custom_badges b
+           LEFT JOIN tracks t ON t.id = b.track_id
+           ORDER BY b.id`
+        ).all()
+      );
+
+      const claimed = new Set(claimRows.map(row => row.code));
+      const have = new Set(badgeRows.map(row => row.code));
+
+      // Conquistas criadas depois que o aluno já cumpriu a condição
+      // (usa os dados acima; só grava se houver conquista nova)
+      try {
+        await awardBadges(uid, { state, have, customRows });
+      } catch (error) {
+        console.error('Erro ao conferir conquistas:', error);
+      }
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
       const challengeBadges =
         await db.prepare(`
@@ -5284,6 +6520,20 @@ app.get(
           LEVEL_XP(
             state.level + 1
           ),
+
+        nextLevelName:
+          state.level < REGRAS.niveis.length
+            ? nomeNivel(state.level + 1)
+            : null,
+
+        maxLevel:
+          REGRAS.niveis.length,
+
+        heartsMax:
+          REGRAS.vidas.maximo,
+
+        refillCost:
+          REGRAS.vidas.custo_recarga,
 
         missions:
           Object.entries(
@@ -5336,7 +6586,20 @@ app.get(
             name: row.name,
             desc: row.description,
             got: Boolean(row.got)
-          }))
+          })),
+
+          // Criadas pelos administradores (inativas só para quem já ganhou)
+          ...customRows
+            .filter(row =>
+              row.active || have.has(CUSTOM_BADGE_PREFIX + row.id)
+            )
+            .map(row => ({
+              code: CUSTOM_BADGE_PREFIX + row.id,
+              icon: customBadgeIcon(row),
+              name: row.name,
+              desc: customBadgeDescription(row),
+              got: have.has(CUSTOM_BADGE_PREFIX + row.id)
+            }))
         ],
 
 
@@ -5367,9 +6630,9 @@ app.post(
   async (req, res) => {
     try {
       const mission =
-        MISSIONS[
-          req.params.code
-        ];
+        Object.prototype.hasOwnProperty.call(MISSIONS, req.params.code)
+          ? MISSIONS[req.params.code]
+          : null;
 
       if (!mission) {
         return res.status(404).json({
@@ -5416,9 +6679,16 @@ app.post(
         if (inserted) {
           await db.prepare(
             `UPDATE users
+<<<<<<< HEAD
              SET coins=coins+10
              WHERE id=?`
           ).run(
+=======
+             SET coins=coins+?
+             WHERE id=?`
+          ).run(
+            REGRAS.moedas.missao,
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
             req.user.id
           );
         }
@@ -5450,7 +6720,7 @@ app.post(
   auth,
   async (req, res) => {
     try {
-      const COST = 30;
+      const COST = REGRAS.vidas.custo_recarga;
 
       // Saldo conferido e descontado na mesma transação:
       // compras simultâneas não gastam a mesma moeda duas vezes.
@@ -5529,6 +6799,30 @@ app.get(
   auth,
   async (req, res) => {
     try {
+      // Período inteiro numa chamada só: ?from=AAAA-MM&to=AAAA-MM
+      // (o Controle financeiro buscava 12 meses com 12 chamadas)
+      const mes = v => /^\d{4}-\d{2}$/.test(String(v || ''));
+
+      if (mes(req.query.from) && mes(req.query.to)) {
+        const [de, ate] = [req.query.from, req.query.to].sort();
+
+        const entries = await db.prepare(
+          `SELECT
+             id,
+             kind,
+             category,
+             description,
+             amount,
+             day
+           FROM finance
+           WHERE user_id=?
+           AND substr(day,1,7) BETWEEN ? AND ?
+           ORDER BY day DESC,id DESC`
+        ).all(req.user.id, de, ate);
+
+        return res.json({ from: de, to: ate, entries });
+      }
+
       const month =
         /^\d{4}-\d{2}$/.test(
           req.query.month || ''
@@ -5712,6 +7006,7 @@ app.get(
   auth,
   async (req, res) => {
     try {
+      // XP total = módulos + desafios (o mesmo XP do perfil e do nível)
       const rows =
         await db
           .prepare(
@@ -5721,54 +7016,124 @@ app.get(
                u.avatar,
                u.streak,
                u.last_day,
-               COALESCE(
-                 SUM(p.xp),
-                 0
-               ) xp
+               COALESCE((SELECT SUM(p.xp) FROM progress p WHERE p.user_id=u.id), 0) +
+               COALESCE((SELECT SUM(r.xp_awarded) FROM challenge_rewards r WHERE r.user_id=u.id), 0) AS xp
              FROM users u
-             LEFT JOIN progress p
-               ON p.user_id=u.id
              WHERE u.role='comum'
-             GROUP BY u.id
-             ORDER BY xp DESC,u.name
-             LIMIT 20`
+             ORDER BY xp DESC, u.name`
           )
           .all();
 
+      const linhas = rows.map((row, i) => ({
+        posicao: i + 1,
+        name: row.name,
+        avatar_url: avatarUrl(row),
+        xp: row.xp,
+        level: LEVEL(row.xp),
+        level_name: nomeNivel(LEVEL(row.xp)),
+        streak: streakOf(row),
+        me: row.id === req.user.id
+      }));
+
+      const top = linhas.slice(0, 20);
+
+      // ?completo=1 (tabela de classificação geral): top 20 + a posição
+      // de quem está vendo, mesmo fora do top 20, e o total de alunos
+      if (req.query.completo) {
+        return res.json({
+          ranking: top,
+          eu: linhas.find(l => l.me) || null,
+          total_alunos: linhas.length
+        });
+      }
+
+      // formato de sempre: só a lista (top 20)
       res.json(
-        rows.map(
-          row => ({
-            name:
-              row.name,
-
-            avatar_url:
-              avatarUrl(row),
-
-            xp:
-              row.xp,
-
-            level:
-              LEVEL(row.xp),
-
-            streak:
-              streakOf(row),
-
-            me:
-              row.id ===
-              req.user.id
-          })
-        )
+        top.map(({ posicao, level_name, ...resto }) => resto)
       );
     } catch (error) {
       console.error(
         'Erro ao carregar ranking:',
         error
       );
-
       res.status(500).json({
         error:
           'Erro ao carregar ranking'
       });
+    }
+  }
+);
+
+
+// ============================================================
+// RANKING DA SEMANA (ganhador da semana)
+// ============================================================
+//
+// Soma o XP que cada aluno ganhou de segunda a domingo da semana
+// atual (horário de Brasília), a partir da tabela activity (o mesmo
+// XP do gráfico semanal do perfil). O 1º colocado é o ganhador da
+// semana. Também devolve o XP total, o nível e a posição de quem
+// está pedindo, mesmo fora do top 20.
+// A rota /api/ranking (XP total) continua igual.
+
+app.get(
+  '/api/ranking/semana',
+  auth,
+  async (req, res) => {
+    try {
+      const hoje = today();
+      const base = new Date(hoje + 'T12:00:00Z');
+      const diaSemana = (base.getUTCDay() + 6) % 7;          // segunda = 0
+      const inicio = new Date(base.getTime() - diaSemana * 864e5).toISOString().slice(0, 10);
+      const fim = new Date(base.getTime() + (6 - diaSemana) * 864e5).toISOString().slice(0, 10);
+
+      const rows = await db.prepare(
+        `SELECT
+           u.id,
+           u.name,
+           u.avatar,
+           u.streak,
+           u.last_day,
+           COALESCE((SELECT SUM(p.xp) FROM progress p WHERE p.user_id = u.id), 0)
+             + COALESCE((SELECT SUM(r.xp_awarded) FROM challenge_rewards r WHERE r.user_id = u.id), 0) AS xp,
+           COALESCE((SELECT SUM(a.xp) FROM activity a
+                     WHERE a.user_id = u.id AND a.day BETWEEN ? AND ?), 0) AS week_xp
+         FROM users u
+         WHERE u.role = 'comum'
+         ORDER BY week_xp DESC, xp DESC, u.name`
+      ).all(inicio, fim);
+
+      const linha = (row, i) => ({
+        posicao: i + 1,
+        name: row.name,
+        avatar_url: avatarUrl(row),
+        week_xp: Number(row.week_xp) || 0,
+        xp: Number(row.xp) || 0,
+        level: LEVEL(Number(row.xp) || 0),
+        level_name: nomeNivel(LEVEL(Number(row.xp) || 0)),
+        streak: streakOf(row),
+        me: row.id === req.user.id
+      });
+
+      const todos = rows.map(linha);
+      const meu = todos.find(r => r.me) || null;
+      const lider = todos[0] && todos[0].week_xp > 0 ? todos[0] : null;
+
+      res.json({
+        ok: true,
+        semana: {
+          inicio,
+          fim,
+          dias_restantes: 6 - diaSemana
+        },
+        ganhador: lider,
+        ranking: todos.slice(0, 20),
+        eu: meu,
+        total_alunos: todos.length
+      });
+    } catch (error) {
+      console.error('Erro ao carregar ranking da semana:', error);
+      res.status(500).json({ error: 'Erro ao carregar o ranking da semana' });
     }
   }
 );
@@ -6476,6 +7841,593 @@ app.post(
 );
 
 // ============================================================
+// ADMIN - CONQUISTAS (criar, editar, excluir) — só administradores
+// ============================================================
+
+// Ícone de imagem guardado no banco (público, como os avatares).
+app.get(
+  '/api/badge-icon/:id/:version',
+  async (req, res) => {
+    const id = Number(req.params.id);
+
+    const row = Number.isInteger(id)
+      ? await db.prepare('SELECT icon FROM custom_badges WHERE id=?').get(id)
+      : null;
+
+    if (
+      !row ||
+      !isAvatarData(row.icon) ||
+      avatarVersion(row.icon) !== req.params.version
+    ) {
+      return res.status(404).end();
+    }
+
+    return sendAvatarData(res, row.icon, 31536000);
+  }
+);
+
+// Emoji: texto curto, sem marcação
+const BADGE_EMOJI_RE = /^[^<>"'&\s]{1,16}$/u;
+
+// Lê e valida os campos enviados pelo formulário.
+// Retorna { data } ou { status, error }.
+async function readCustomBadge(body, current = null) {
+  const name = String(body?.name ?? current?.name ?? '').replace(/\s+/g, ' ').trim();
+  const description = String(body?.description ?? current?.description ?? '').replace(/\s+/g, ' ').trim();
+  const conditionType = String(body?.condition_type ?? current?.condition_type ?? '');
+  const cond = CUSTOM_BADGE_CONDITIONS[conditionType];
+
+  if (!name || name.length > 60) {
+    return { status: 400, error: 'Dê um nome de até 60 caracteres para a conquista.' };
+  }
+
+  if (description.length > 200) {
+    return { status: 400, error: 'A descrição deve ter no máximo 200 caracteres.' };
+  }
+
+  if (!cond) {
+    return { status: 400, error: 'Escolha uma condição válida.' };
+  }
+
+  let value = cond.track
+    ? 1
+    : Number(body?.condition_value ?? current?.condition_value);
+
+  if (!Number.isInteger(value) || value < 1 || value > 1000000) {
+    return { status: 400, error: 'O valor da condição deve ser um número inteiro entre 1 e 1.000.000.' };
+  }
+
+  let trackId = null;
+
+  if (cond.track) {
+    trackId = Number(body?.track_id ?? current?.track_id);
+
+    const track = Number.isInteger(trackId)
+      ? await db.prepare('SELECT id FROM tracks WHERE id=?').get(trackId)
+      : null;
+
+    if (!track) {
+      return { status: 400, error: 'Escolha a trilha da condição.' };
+    }
+  }
+
+  // Ícone: imagem nova > emoji novo > o que já estava salvo
+  let icon = current?.icon || null;
+
+  if (body?.icon_data) {
+    const upload = readImageUpload({ data: body.icon_data });
+
+    if (upload.error) {
+      return { status: upload.status, error: upload.error };
+    }
+
+    icon = toAvatarData(upload);
+  } else if (body?.icon != null && String(body.icon).trim()) {
+    const emoji = String(body.icon).trim();
+
+    if (!BADGE_EMOJI_RE.test(emoji)) {
+      return { status: 400, error: 'Use um emoji (ou envie uma imagem) como ícone.' };
+    }
+
+    icon = emoji;
+  }
+
+  if (!icon) {
+    return { status: 400, error: 'Escolha um emoji ou envie uma imagem para o ícone.' };
+  }
+
+  const active = body?.active === undefined
+    ? (current ? Number(current.active) : 1)
+    : (body.active ? 1 : 0);
+
+  return {
+    data: {
+      name,
+      description,
+      icon,
+      condition_type: conditionType,
+      condition_value: value,
+      track_id: trackId,
+      active
+    }
+  };
+}
+
+// Formato enviado para o painel
+function shapeCustomBadge(row, earned) {
+  return {
+    id: row.id,
+    code: CUSTOM_BADGE_PREFIX + row.id,
+    name: row.name,
+    description: row.description || '',
+    desc: customBadgeDescription(row),
+    icon: customBadgeIcon(row),
+    icon_is_image: isAvatarData(row.icon),
+    emoji: isAvatarData(row.icon) ? '' : row.icon,
+    condition_type: row.condition_type,
+    condition_value: Number(row.condition_value),
+    track_id: row.track_id == null ? null : Number(row.track_id),
+    track_title: row.track_title || null,
+    active: Boolean(row.active),
+    created_at: row.created_at,
+    earned: Number(earned || 0)
+  };
+}
+
+const CUSTOM_BADGE_SELECT = `
+  SELECT b.*, t.title AS track_title
+  FROM custom_badges b
+  LEFT JOIN tracks t ON t.id = b.track_id
+`;
+
+app.get(
+  '/api/admin/badges',
+  auth,
+  adm,
+  async (req, res) => {
+    try {
+      const counts = new Map(
+        (await db.prepare(
+          'SELECT code, COUNT(*) AS n FROM badges GROUP BY code'
+        ).all()).map(row => [row.code, Number(row.n)])
+      );
+
+      const custom = await db.prepare(
+        `${CUSTOM_BADGE_SELECT} ORDER BY b.id DESC`
+      ).all();
+
+      const tracks = await db.prepare(
+        'SELECT id, title FROM tracks ORDER BY position, id'
+      ).all();
+
+      res.json({
+        ok: true,
+        custom: custom.map(row =>
+          shapeCustomBadge(row, counts.get(CUSTOM_BADGE_PREFIX + row.id))
+        ),
+        builtin: Object.entries(BADGES).map(([code, badge]) => ({
+          code,
+          icon: badge[0],
+          name: badge[1],
+          desc: badge[2],
+          earned: counts.get(code) || 0
+        })),
+        conditions: Object.entries(CUSTOM_BADGE_CONDITIONS).map(([id, cond]) => ({
+          id,
+          label: cond.label,
+          track: Boolean(cond.track)
+        })),
+        tracks
+      });
+    } catch (error) {
+      console.error('Erro ao listar conquistas:', error);
+      res.status(500).json({ error: 'Erro ao carregar as conquistas' });
+    }
+  }
+);
+
+app.post(
+  '/api/admin/badges',
+  auth,
+  adm,
+  async (req, res) => {
+    try {
+      const parsed = await readCustomBadge(req.body);
+
+      if (parsed.error) {
+        return res.status(parsed.status).json({ error: parsed.error });
+      }
+
+      const d = parsed.data;
+
+      const result = await db.prepare(
+        `INSERT INTO custom_badges(
+           name, description, icon, condition_type,
+           condition_value, track_id, active, created_at
+         )
+         VALUES(?,?,?,?,?,?,?,?)`
+      ).run(
+        d.name, d.description, d.icon, d.condition_type,
+        d.condition_value, d.track_id, d.active, new Date().toISOString()
+      );
+
+      const row = await db.prepare(
+        `${CUSTOM_BADGE_SELECT} WHERE b.id=?`
+      ).get(result.lastInsertRowid);
+
+      res.json({ ok: true, badge: shapeCustomBadge(row, 0) });
+    } catch (error) {
+      console.error('Erro ao criar conquista:', error);
+      res.status(500).json({ error: 'Erro ao criar a conquista' });
+    }
+  }
+);
+
+app.put(
+  '/api/admin/badges/:id',
+  auth,
+  adm,
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+
+      const current = Number.isInteger(id)
+        ? await db.prepare('SELECT * FROM custom_badges WHERE id=?').get(id)
+        : null;
+
+      if (!current) {
+        return res.status(404).json({ error: 'Conquista não encontrada' });
+      }
+
+      const parsed = await readCustomBadge(req.body, current);
+
+      if (parsed.error) {
+        return res.status(parsed.status).json({ error: parsed.error });
+      }
+
+      const d = parsed.data;
+
+      await db.prepare(
+        `UPDATE custom_badges
+         SET name=?, description=?, icon=?, condition_type=?,
+             condition_value=?, track_id=?, active=?
+         WHERE id=?`
+      ).run(
+        d.name, d.description, d.icon, d.condition_type,
+        d.condition_value, d.track_id, d.active, id
+      );
+
+      const row = await db.prepare(`${CUSTOM_BADGE_SELECT} WHERE b.id=?`).get(id);
+      const earned = await one(
+        'SELECT COUNT(*) AS n FROM badges WHERE code=?',
+        CUSTOM_BADGE_PREFIX + id
+      );
+
+      res.json({ ok: true, badge: shapeCustomBadge(row, earned?.n) });
+    } catch (error) {
+      console.error('Erro ao editar conquista:', error);
+      res.status(500).json({ error: 'Erro ao salvar a conquista' });
+    }
+  }
+);
+
+app.delete(
+  '/api/admin/badges/:id',
+  auth,
+  adm,
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+
+      if (!Number.isInteger(id) || id <= 0) {
+        return res.status(404).json({ error: 'Conquista não encontrada' });
+      }
+
+      // A conquista e quem já ganhou: tudo ou nada.
+      await db.transaction(async () => {
+        await db.prepare('DELETE FROM badges WHERE code=?').run(CUSTOM_BADGE_PREFIX + id);
+        await db.prepare('DELETE FROM custom_badges WHERE id=?').run(id);
+      });
+
+      res.json({ ok: true });
+    } catch (error) {
+      console.error('Erro ao excluir conquista:', error);
+      res.status(500).json({ error: 'Erro ao excluir a conquista' });
+    }
+  }
+);
+
+// ============================================================
+// ADMIN - RESULTADOS DAS AVALIAÇÕES (administradores e professores)
+// ============================================================
+//
+// Junta as notas de 1 a 5 dadas pelos alunos:
+//   track_evaluations  → nota da trilha
+//   lesson_evaluations → nota de cada módulo
+// Devolve, por trilha e por módulo: média, quantidade e quantas
+// notas de cada valor (1 a 5), além das avaliações mais recentes.
+
+app.get(
+  '/api/admin/evaluations',
+  auth,
+  staff,
+  async (req, res) => {
+    try {
+      const vazia = () => [0, 0, 0, 0, 0];
+
+      const resumir = linhas => {
+        const mapa = new Map();
+
+        for (const row of linhas) {
+          const id = Number(row.item_id);
+          const atual = mapa.get(id) || { count: 0, soma: 0, dist: vazia() };
+          const n = Number(row.n);
+          const nota = Number(row.rating);
+
+          atual.count += n;
+          atual.soma += nota * n;
+          atual.dist[nota - 1] += n;
+          mapa.set(id, atual);
+        }
+
+        return mapa;
+      };
+
+      const dados = item => ({
+        average: item && item.count ? Math.round((item.soma / item.count) * 10) / 10 : null,
+        count: item ? item.count : 0,
+        dist: item ? item.dist : vazia()
+      });
+
+      const trilhas = resumir(await db.prepare(
+        `SELECT track_id AS item_id, rating, COUNT(*) AS n
+         FROM track_evaluations
+         GROUP BY track_id, rating`
+      ).all());
+
+      const modulos = resumir(await db.prepare(
+        `SELECT lesson_id AS item_id, rating, COUNT(*) AS n
+         FROM lesson_evaluations
+         GROUP BY lesson_id, rating`
+      ).all());
+
+      const tracks = await db.prepare(
+        `SELECT id, title, icon, color
+         FROM tracks
+         ORDER BY position, id`
+      ).all();
+
+      const lessons = await db.prepare(
+        `SELECT id, track_id, title
+         FROM lessons
+         ORDER BY position, id`
+      ).all();
+
+      const recent = await db.prepare(
+        `SELECT * FROM (
+           SELECT 'trilha' AS kind, e.rating, e.created_at,
+                  u.name AS user_name, t.title AS item_title,
+                  t.title AS track_title
+           FROM track_evaluations e
+           JOIN users u ON u.id = e.user_id
+           JOIN tracks t ON t.id = e.track_id
+           UNION ALL
+           SELECT 'modulo' AS kind, e.rating, e.created_at,
+                  u.name AS user_name, l.title AS item_title,
+                  t.title AS track_title
+           FROM lesson_evaluations e
+           JOIN users u ON u.id = e.user_id
+           JOIN lessons l ON l.id = e.lesson_id
+           LEFT JOIN tracks t ON t.id = l.track_id
+         )
+         ORDER BY created_at DESC
+         LIMIT 30`
+      ).all();
+
+      const todas = [...trilhas.values(), ...modulos.values()];
+      const totalCount = todas.reduce((s, x) => s + x.count, 0);
+      const totalSoma = todas.reduce((s, x) => s + x.soma, 0);
+
+      res.json({
+        ok: true,
+        totals: {
+          count: totalCount,
+          average: totalCount ? Math.round((totalSoma / totalCount) * 10) / 10 : null,
+          tracks: [...trilhas.values()].reduce((s, x) => s + x.count, 0),
+          lessons: [...modulos.values()].reduce((s, x) => s + x.count, 0)
+        },
+        tracks: tracks.map(t => ({
+          id: t.id,
+          title: t.title,
+          icon: t.icon,
+          color: t.color,
+          rating: dados(trilhas.get(Number(t.id))),
+          lessons: lessons
+            .filter(l => Number(l.track_id) === Number(t.id))
+            .map((l, i) => ({
+              id: l.id,
+              number: i + 1,
+              title: l.title,
+              rating: dados(modulos.get(Number(l.id)))
+            }))
+        })),
+        recent: recent.map(r => ({
+          kind: r.kind,
+          rating: Number(r.rating),
+          created_at: r.created_at,
+          user_name: r.user_name,
+          item_title: r.item_title,
+          track_title: r.track_title
+        }))
+      });
+    } catch (error) {
+      console.error('Erro ao carregar avaliações:', error);
+      res.status(500).json({ error: 'Erro ao carregar as avaliações' });
+    }
+  }
+);
+
+// ============================================================
+// REGRAS DE NEGÓCIO — ROTAS
+// ============================================================
+
+// Leitura para o app (textos como "Troque 30 moedas por vidas",
+// nome dos níveis e % do XP ao refazer um módulo)
+app.get(
+  '/api/regras',
+  auth,
+  (req, res) => {
+    res.json({ ok: true, regras: REGRAS });
+  }
+);
+
+// Painel: regras atuais, padrão e quantos alunos há em cada nível
+app.get(
+  '/api/admin/regras',
+  auth,
+  adm,
+  async (req, res) => {
+    try {
+      const alunos = await db.prepare(
+        `SELECT
+           COALESCE((SELECT SUM(p.xp) FROM progress p WHERE p.user_id = u.id), 0)
+             + COALESCE((SELECT SUM(r.xp_awarded) FROM challenge_rewards r WHERE r.user_id = u.id), 0) AS xp
+         FROM users u
+         WHERE u.role = 'comum'`
+      ).all();
+
+      const salvo = await db.prepare(
+        `SELECT updated_at FROM app_settings WHERE key = 'regras'`
+      ).get();
+
+      res.json({
+        ok: true,
+        regras: REGRAS,
+        padrao: REGRAS_PADRAO,
+        atualizado_em: salvo ? salvo.updated_at : null,
+        alunos_xp: alunos.map(a => Number(a.xp) || 0)
+      });
+    } catch (error) {
+      console.error('Erro ao carregar regras:', error);
+      res.status(500).json({ error: 'Erro ao carregar as regras' });
+    }
+  }
+);
+
+app.put(
+  '/api/admin/regras',
+  auth,
+  adm,
+  async (req, res) => {
+    let regras;
+
+    try {
+      regras = validarRegras(req.body?.regras);
+    } catch (error) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    try {
+      await db.prepare(
+        `INSERT INTO app_settings (key, value, updated_at)
+         VALUES ('regras', ?, ?)
+         ON CONFLICT(key) DO UPDATE SET
+           value = excluded.value,
+           updated_at = excluded.updated_at`
+      ).run(JSON.stringify(regras), new Date().toISOString());
+
+      aplicarRegras(regras);
+
+      res.json({ ok: true, regras: REGRAS });
+    } catch (error) {
+      console.error('Erro ao salvar regras:', error);
+      res.status(500).json({ error: 'Erro ao salvar as regras' });
+    }
+  }
+);
+
+// XP de cada módulo de uma trilha (definido no formulário da trilha).
+// O valor fica guardado como padrão da trilha (app_settings 'xp_trilhas'),
+// usado nos módulos novos; com "aplicar", vale também para os que já existem.
+async function lerXpTrilhas() {
+  const row = await db.prepare(
+    `SELECT value FROM app_settings WHERE key = 'xp_trilhas'`
+  ).get();
+
+  try {
+    const mapa = row ? JSON.parse(row.value) : {};
+    return mapa && typeof mapa === 'object' ? mapa : {};
+  } catch {
+    return {};
+  }
+}
+
+app.get(
+  '/api/admin/xp-trilhas',
+  auth,
+  staff,
+  async (req, res) => {
+    try {
+      res.json({
+        ok: true,
+        padrao: REGRAS.xp.modulo_padrao,
+        por_acerto: REGRAS.xp.por_acerto,
+        bonus_perfeito: REGRAS.xp.bonus_perfeito,
+        trilhas: await lerXpTrilhas()
+      });
+    } catch (error) {
+      console.error('Erro ao ler o XP das trilhas:', error);
+      res.status(500).json({ error: 'Erro ao ler o XP das trilhas' });
+    }
+  }
+);
+
+app.put(
+  '/api/admin/tracks/:id/module-xp',
+  auth,
+  staff,
+  async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const xp = Number(req.body?.xp);
+      const aplicar = req.body?.aplicar === true;
+
+      if (!Number.isInteger(xp) || xp < 0 || xp > 100000) {
+        return res.status(400).json({ error: 'O XP do módulo deve ser um número inteiro entre 0 e 100.000.' });
+      }
+
+      const track = Number.isInteger(id)
+        ? await db.prepare('SELECT id FROM tracks WHERE id = ?').get(id)
+        : null;
+
+      if (!track) {
+        return res.status(404).json({ error: 'Trilha não encontrada' });
+      }
+
+      const mapa = await lerXpTrilhas();
+      mapa[id] = xp;
+
+      await db.prepare(
+        `INSERT INTO app_settings (key, value, updated_at)
+         VALUES ('xp_trilhas', ?, ?)
+         ON CONFLICT(key) DO UPDATE SET
+           value = excluded.value,
+           updated_at = excluded.updated_at`
+      ).run(JSON.stringify(mapa), new Date().toISOString());
+
+      const r = aplicar
+        ? await db.prepare('UPDATE lessons SET xp = ? WHERE track_id = ?').run(xp, id)
+        : { changes: 0 };
+
+      res.json({ ok: true, xp, modulos_atualizados: r.changes });
+    } catch (error) {
+      console.error('Erro ao definir o XP dos módulos:', error);
+      res.status(500).json({ error: 'Erro ao definir o XP dos módulos' });
+    }
+  }
+);
+
+// ============================================================
 // ADMIN - CRUD GENÉRICO
 // ============================================================
 
@@ -6489,7 +8441,7 @@ app.post(
         req.params.res;
 
       if (
-        !FIELDS[resource]
+        !Object.prototype.hasOwnProperty.call(FIELDS, resource)
       ) {
         return res.status(404).json({
           error:
@@ -6557,7 +8509,7 @@ app.put(
         req.params.res;
 
       if (
-        !FIELDS[resource]
+        !Object.prototype.hasOwnProperty.call(FIELDS, resource)
       ) {
         return res.status(404).json({
           error:
@@ -6641,7 +8593,7 @@ app.delete(
       const user =
         await db
           .prepare(
-            `SELECT avatar
+            `SELECT avatar, email
              FROM users
              WHERE id=?`
           )
@@ -6662,7 +8614,8 @@ app.delete(
         'claims',
         'finance',
         'lesson_evaluations',
-        'track_evaluations'
+        'track_evaluations',
+        'evaluations'
       ];
 
       // Dados dependentes e a conta: tudo ou nada.
@@ -6681,6 +8634,14 @@ app.delete(
           `DELETE FROM users
            WHERE id=?`
         ).run(id);
+<<<<<<< HEAD
+=======
+
+        // Código de recuperação e bloqueio de login do e-mail apagado
+        for (const t of ['password_resets', 'login_attempts']) {
+          await db.prepare(`DELETE FROM ${t} WHERE email=?`).run(user.email);
+        }
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
       });
 
       // Remove também a foto de perfil do usuário excluído.
@@ -6717,7 +8678,7 @@ app.delete(
         req.params.res;
 
       if (
-        !FIELDS[resource]
+        !Object.prototype.hasOwnProperty.call(FIELDS, resource)
       ) {
         return res.status(404).json({
           error:
@@ -6775,7 +8736,7 @@ app.get(
           .map(
             ({ avatar, ...user }) => ({
               ...user,
-              avatar_url: avatarUrl({ avatar })
+              avatar_url: avatarUrl({ id: user.id, avatar })
             })
           )
       );
@@ -7077,6 +9038,7 @@ app.post(
     }
   }
 );
+<<<<<<< HEAD
 // ==========================================================
 // AVALIAÇÃO DO MÓDULO
 // ==========================================================
@@ -7227,6 +9189,8 @@ app.post(
   }
 );
 
+=======
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 // ============================================================
 // PAINEL DE DÚVIDAS (CHAT)
 // ============================================================
@@ -7270,7 +9234,7 @@ const shapeDoubt = (row, viewer, hasReplies) => ({
     id: row.user_id,
     name: row.author_name,
     role: row.author_role,
-    avatar_url: avatarUrl({ avatar: row.author_avatar })
+    avatar_url: avatarUrl({ id: row.user_id, avatar: row.author_avatar })
   },
   mine: row.user_id === viewer.id,
   can_delete:
@@ -7479,17 +9443,6 @@ app.delete('/api/doubts/:id', auth, async (req, res) => {
 // 404 DA API
 // ==========================================================
 
-app.use(
-  '/api',
-  (req, res) => {
-
-    res.status(404).json({
-      error:
-        'Endpoint não encontrado'
-    });
-
-  }
-);
 // ============================================================
 // 404 DAS APIs
 // ============================================================
@@ -7559,6 +9512,10 @@ app.use(
 let server = null;
 
 db.ready()
+<<<<<<< HEAD
+=======
+  .then(carregarRegras)
+>>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
   .then(() => {
     server =
       app.listen(

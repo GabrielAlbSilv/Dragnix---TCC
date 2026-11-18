@@ -5,25 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dragnix</title>
     <link rel="icon" href="css/images/dranix_icon_white_nobackground.png" type="image/png">
+    <script>
+        // Aplica o tema salvo antes de desenhar (evita piscar claro/escuro)
+        try {
+            const t = localStorage.getItem('dragnix-theme');
+            document.documentElement.setAttribute('data-theme',
+                t === 'dark' || t === 'light' ? t
+                    : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+        } catch (e) {}
+    </script>
     <link rel="stylesheet" href="css/style_splash_screen.css">
 </head>
 <body>
-    <div class="splash">
-        
-        <img
+    <div class="splash" role="status" aria-live="polite">
+
+        <div class="splash-logo">
+            <img
                 src="css/images/dragnix_dragon_black_nobackground.png"
                 data-logo-light="css/images/dragnix_dragon_black_nobackground.png"
                 data-logo-dark="css/images/dranix_icon_white_nobackground.png"
                 alt="Dragnix"
                 class="logo"
             >
-        <div class="nome">
-            Dragnix - Versão Web - Versão 1.0
         </div>
+
+        <div class="nome">Dragnix</div>
+        <div class="splash-tag">Versão Web · V. 1.4</div>
+
         <div class="saudacao" id="saudacao"></div>
-        <div class="carregando">
+
+        <div class="carregando" aria-hidden="true">
             <div class="barra"></div>
         </div>
+        <div class="splash-status" id="splashStatus">Preparando tudo…</div>
     </div>
     <div class="versao" id="versao"></div>
     <script>
@@ -46,19 +60,22 @@
     </script>
 
     <script>
-        // Mesma splash em dois momentos:
+        // Mesma splash em três momentos:
         //  - ao abrir o site (sem login): depois vai para a tela de login
         //  - após login/cadastro (com login): mostra a saudação e vai para o app
+        //  - ao sair (?logout=1): mostra a despedida e volta para o login
             const logado = !!localStorage.getItem('token');
             const params = new URLSearchParams(window.location.search);
             const logout = params.get('logout') === '1';
             const nomeLogout = params.get('nome') || '';
             const saudacao = document.getElementById('saudacao');
+            const statusEl = document.getElementById('splashStatus');
             if (logout) {
 
                 saudacao.textContent = nomeLogout
                     ? 'Até logo, ' + nomeLogout + '!'
                     : 'Até logo!';
+                statusEl.textContent = 'Saindo com segurança…';
             } else if (logado) {
 
                 const user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -67,12 +84,15 @@
                 saudacao.textContent = nome
                     ? 'Bem-vindo, ' + nome + '!'
                     : 'Bem-vindo!';
+                statusEl.textContent = 'Carregando sua área…';
 
+            } else {
+                statusEl.textContent = 'Abrindo a tela de entrada…';
             }
             setTimeout(() => {
 
                 if (logado) {
-                    location.replace('app.html');
+                    location.replace('pag-inicial.html');
                 } else {
                     location.replace('index.html?splash=1');
                 }

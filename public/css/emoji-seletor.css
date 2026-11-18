@@ -1,0 +1,176 @@
+/* ============================================================
+   DRAGNIX — css/emoji-seletor.css  (CAIXINHA PARA ESCOLHER EMOJI)
+   Usado pelo js/emoji-seletor.js nas janelas do painel (admin.html).
+   ============================================================ */
+
+.emj {
+    margin: -4px 0 12px;
+}
+
+.emj__linha {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.emj__previa {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: color-mix(in srgb, #8b3fd9 14%, transparent);
+    font-size: 24px;
+    line-height: 1;
+}
+
+.emj__abrir {
+    min-height: 40px;
+    padding: 6px 14px;
+    border: 1px solid var(--theme-border);
+    border-radius: 999px;
+    background: var(--theme-surface);
+    color: var(--theme-text);
+    font: inherit;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.emj__abrir:hover,
+.emj__abrir[aria-expanded="true"] {
+    border-color: #8b3fd9;
+    color: #8b3fd9;
+}
+
+html[data-theme="dark"] .emj__abrir:hover,
+html[data-theme="dark"] .emj__abrir[aria-expanded="true"] {
+    color: #c4a1f5;
+}
+
+.emj__dica {
+    color: var(--theme-text-secondary);
+    font-size: 12px;
+}
+
+.emj__painel {
+    margin-top: 10px;
+    padding: 10px;
+    border: 1px solid var(--theme-border);
+    border-radius: 16px;
+    background: var(--theme-surface);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .12);
+}
+
+.emj__painel[hidden] {
+    display: none;
+}
+
+.emj__abas {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    overflow-x: auto;
+}
+
+.emj__aba {
+    flex: none;
+    min-height: 32px;
+    padding: 4px 12px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--theme-text-secondary);
+    font: inherit;
+    font-weight: 700;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.emj__aba.is-on {
+    background: #8b3fd9;
+    color: #fff;
+}
+
+.emj__grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+    gap: 4px;
+}
+
+.emj__item {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    transition: transform .12s, background-color .12s;
+}
+
+.emj__item:hover {
+    transform: scale(1.12);
+    background: color-mix(in srgb, #8b3fd9 10%, transparent);
+}
+
+.emj__item.is-on {
+    border-color: #8b3fd9;
+    background: color-mix(in srgb, #8b3fd9 16%, transparent);
+}
+
+.emj__item:focus-visible,
+.emj__aba:focus-visible,
+.emj__abrir:focus-visible {
+    outline: 3px solid #ffd43b;
+    outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .emj__item {
+        transition: none;
+    }
+}
+
+/* ícones do site (máscara do SVG, na cor do texto) */
+.emj__svg {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    background-color: currentColor;
+}
+
+.emj__item--site {
+    color: var(--theme-text);
+}
+
+.emj__item--site.is-on {
+    color: #8b3fd9;
+}
+
+.emj__previa .emj__svg {
+    color: #8b3fd9;
+}
+
+html[data-theme="dark"] .emj__previa .emj__svg {
+    color: #c4a1f5;
+}
+
+.emj__nome {
+    color: #8b3fd9;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+html[data-theme="dark"] .emj__nome {
+    color: #c4a1f5;
+}
+
+.emj__nome:empty {
+    display: none;
+}

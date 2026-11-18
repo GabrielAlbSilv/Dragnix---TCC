@@ -1,0 +1,33 @@
+/* ============================================================
+   DRAGNIX — css/cdb.css  (CALCULADORA DE CDB)
+   O resto do visual (cards, campos, gráfico) vem do css/controle.css.
+   ============================================================ */
+
+.cdb-check {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.cdb-check input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--dgx-verde, #58cc02);
+}
+
+.cf-campo[hidden] {
+    display: none;
+}
+
+.cdb-stats {
+    margin-bottom: 14px;
+}
+
+.cdb-legenda {
+    margin-top: 10px;
+}

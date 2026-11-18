@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<!--
+============================================================
+ DRAGNIX — CONTROLE FINANCEIRO
+ Use Ctrl+F e procure o código entre colchetes:
+
+ [ICONE-ABA]        ícone da aba do navegador
+ [CABECALHO]        botão do menu lateral + logo + menu horizontal + tema + perfil
+ [PERFIL]           foto e nome (ao clicar abre o card com conquistas e Sair)
+ [MENU-LATERAL]     menu lateral com submenus (Controle financeiro, Educação financeira)
+ [TOPO]             título da página, pesquisa por data e abas das ferramentas
+ [VIEW-GASTOS]      "Gastos do mês": saldo, gráficos e histórico
+   [CF-RESUMO]        card de saldo, receitas e gastos
+   [CF-LINHA]         gráfico de linhas Receita x Gastos (drill down ano > mês > dia)
+   [CF-PIZZA]         gráfico de pizza dos gastos (filtro por mês e dia)
+   [CF-HISTORICO]     lista dos lançamentos
+ [VIEW-SIMULADOR]   simulador de investimentos
+ [VIEW-RESERVA]     reserva de emergência
+ [VIEW-REGRA]       regra 50/30/20
+ [RODAPE]           rodapé (redes sociais, contato, selos)
+ [SCRIPTS]          arquivos .js usados na página
+
+ O balão de DÚVIDAS (chat fixo) é criado sozinho pelo js/shell-extra.js.
+============================================================
+-->
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Controle Financeiro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- [ICONE-ABA] troque o arquivo em href para mudar o ícone da aba -->
+<link rel="icon" href="css/images/dranix_icon_white_nobackground.png" type="image/png">
+<meta name="theme-color" content="#111827">
+
+<!-- mesma base da página inicial -->
+<link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/login-modern.css">
+<link rel="stylesheet" href="css/pag-inicial.css">
+<!-- peças compartilhadas: submenu, card do perfil e chat de dúvidas -->
+<link rel="stylesheet" href="css/shell-extra.css?v=2">
+<!-- só desta página -->
+<link rel="stylesheet" href="css/controle.css?v=2">
+<!-- ranking da semana + ganhador -->
+<link rel="stylesheet" href="css/ranking-semana.css">
+<!-- acessibilidade: surdos (avisos visuais, Libras) e comando por voz -->
+<link rel="stylesheet" href="css/cdb.css?v=1">
+<link rel="stylesheet" href="css/gamificacao.css?v=1">
+<link rel="stylesheet" href="css/acessibilidade.css?v=2">
+<!-- [CSS-CRITICO] garante tamanho dos ícones e submenu mesmo se css/shell-extra.css não carregar -->
+<style id="cfCritico">
+  .side-menu svg.sx-ico,.side-menu .sx-sublink svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  .sx-group:not(.is-open) .sx-sub{display:none}
+  .sx-sublink{display:flex;align-items:center;gap:10px;padding:8px 12px;text-decoration:none;color:inherit}
+</style>
+
+  <!-- estrutura do novo design (por último) -->
+  <link rel="stylesheet" href="css/dragnix-shell.css">
+</head>
+<body class="dragnix-login dragnix-page">
+<a class="a11y-pular" href="#conteudo">Ir para o conteúdo</a>
+
+  <!-- ================= [CABECALHO] ================= -->
+  <!-- Ordem na linha: [menu lateral][logo] ..... [tema][perfil] -->
+  <header class="site-header">
+    <div class="wrap">
+      <nav class="nav" aria-label="Menu principal">
+
+        <!-- botão do MENU LATERAL (no celular abre a gaveta; no computador recolhe/expande) -->
+        <button class="side-toggle" id="sideToggle" type="button"
+                aria-label="Abrir navegação" aria-controls="sideMenu" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+        </button>
+
+        <!-- [LOGO-TOPO] volta para a página inicial -->
+        <a href="pag-inicial.html" class="logo" aria-label="Dragnix: ir para a página inicial">
+          <img src="css/images/logo-dragnix-1.png" alt="Dragnix">
+        </a>
+
+        <!-- botão de TEMA (js/theme.js): lua = ir para o escuro | sol = ir para o claro -->
+        <button class="theme-toggle" id="themeToggle" type="button" data-theme-toggle onclick="toggleTheme()"
+                aria-label="Ativar modo escuro" title="Ativar modo escuro">
+          <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+        </button>
+
+        <!-- [PERFIL] o js/profile.js troca nome e foto; o js/shell-extra.js abre o card (conquistas, missões, sair) -->
+        <div class="user-profile" id="userProfile">
+          <button class="user-profile__link" id="profileToggle" type="button" onclick="window.sxPerfil && window.sxPerfil(event)" aria-label="Abrir perfil e conquistas">
+            <span class="user-avatar" id="userAvatar">S</span>
+            <span class="user-name" id="userName">Seu nome</span>
+          </button>
+        </div>
+
+      </nav>
+    </div>
+  </header>
+  <!-- ================= FIM DO [CABECALHO] ================= -->
+
+  <!-- ================= [MENU-LATERAL] + CONTEÚDO ================= -->
+  <div class="layout">
+
+    <aside class="side-menu" id="sideMenu" aria-label="Navegação financeira">
+
+      <!-- [LOGO-MENU] logo Dragnix no topo do menu (preta no tema claro, branca no escuro) -->
+      <a class="side-logo" href="pag-inicial.html" aria-label="Dragnix">
+        <img src="css/images/dranix_name_black_nobackground.png"
+             data-logo-light="css/images/dranix_name_black_nobackground.png"
+             data-logo-dark="css/images/dranix_name_white_nobackground.png" alt="Dragnix">
+      </a>
+
+      <!-- ícones do menu lateral (não precisa mexer) -->
+      <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <symbol id="side-i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+        <symbol id="side-i-wallet" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
+        <symbol id="side-i-cap" viewBox="0 0 24 24"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></symbol>
+        <symbol id="side-i-bank" viewBox="0 0 24 24"><path d="M10 18v-7"/><path d="M11.119 2.205a2 2 0 0 1 1.762 0l7.84 3.846A.5.5 0 0 1 20.5 7h-17a.5.5 0 0 1-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></symbol>
+        <symbol id="side-i-trophy" viewBox="0 0 24 24"><path d="M10 14.66V17a1 1 0 0 1-1 1 2 2 0 0 0-2 2v2"/><path d="M14 14.66V17a1 1 0 0 0 1 1 2 2 0 0 1 2 2v2"/><path d="M17.916 10H19.5A2.5 2.5 0 0 0 22 7.5V5a1 1 0 0 0-1-1h-3"/><path d="M4 22h16"/><path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/><path d="M6.084 10H4.5A2.5 2.5 0 0 1 2 7.5V5a1 1 0 0 1 1-1h3"/></symbol>
+        <symbol id="side-i-calc" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></symbol>
+        <symbol id="side-i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+        <symbol id="side-i-pie" viewBox="0 0 24 24"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/></symbol>
+        <symbol id="side-i-map" viewBox="0 0 24 24"><path d="M14.106 5.553a2 2 0 0 0 1.788 0l3.659-1.83A1 1 0 0 1 21 4.619v12.764a1 1 0 0 1-.553.894l-4.553 2.277a2 2 0 0 1-1.788 0l-4.212-2.106a2 2 0 0 0-1.788 0l-3.659 1.83A1 1 0 0 1 3 19.381V6.618a1 1 0 0 1 .553-.894l4.553-2.277a2 2 0 0 1 1.788 0z"/><path d="M15 5.764v15"/><path d="M9 3.236v15"/></symbol>
+        <symbol id="side-i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+        <symbol id="side-i-award" viewBox="0 0 24 24"><path d="m15.477 12.89 1.515 8.526a.5.5 0 0 1-.81.47l-3.58-2.687a1 1 0 0 0-1.197 0l-3.586 2.686a.5.5 0 0 1-.81-.469l1.514-8.526"/><circle cx="12" cy="8" r="6"/></symbol>
+        <symbol id="side-i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M20 21a8 8 0 0 0-16 0"/></symbol>
+        <symbol id="side-i-chat" viewBox="0 0 24 24"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z"/></symbol>
+        <symbol id="side-i-briefcase" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><rect width="20" height="14" x="2" y="6" rx="2"/></symbol>
+        <symbol id="side-i-logout" viewBox="0 0 24 24"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></symbol>
+        <symbol id="side-i-settings" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915"/><circle cx="12" cy="12" r="3"/></symbol>
+        <symbol id="side-i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><path d="M16 3.128a4 4 0 0 1 0 7.744"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><circle cx="9" cy="7" r="4"/></symbol>
+        <symbol id="side-i-smile" viewBox="0 0 24 24"><path d="M15 10V9"/><path d="M16.472 15a6 6 0 01-8.943 0"/><path d="M9 10V9"/><circle cx="12" cy="12" r="10"/></symbol>
+        <symbol id="side-i-back" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol>
+        <symbol id="side-i-dashboard" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol>
+        <symbol id="side-i-school" viewBox="0 0 24 24"><path d="M14 21v-3a2 2 0 0 0-4 0v3"/><path d="M18 4.933V21"/><path d="m4 6 7.106-3.79a2 2 0 0 1 1.788 0L20 6"/><path d="m6 11-3.52 2.147a1 1 0 0 0-.48.854V19a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5a1 1 0 0 0-.48-.853L18 11"/><path d="M6 4.933V21"/><circle cx="12" cy="9" r="2"/></symbol>
+      </svg>
+
+      <div class="side-head">
+        <p class="side-title">Finanças</p>
+        <button class="side-close" id="sideClose" type="button" aria-label="Fechar navegação">&times;</button>
+      </div>
+
+      <!-- Troque cada href pelo endereço da página.
+           Grupos com submenu: .sx-group (o js/shell-extra.js abre/fecha e destaca o subitem atual). -->
+      <nav class="side-nav" aria-label="Finanças">
+        <a class="side-link" href="pag-inicial.html">
+          <span class="side-link__icon"><svg class="side-ico" aria-hidden="true"><use href="#side-i-home"/></svg></span>
+          <span>Início</span>
+        </a>
+
+
+        <!-- CONTROLE FINANCEIRO + submenu -->
+        <div class="sx-group" data-sx-grupo="controle">
+          <div class="sx-group__head">
+            <!-- clicar aqui só abre/fecha o submenu (não navega) -->
+            <a class="side-link" href="controle-financeiro.html" data-sx-abrir>
+              <span class="side-link__icon"><svg class="side-ico" aria-hidden="true"><use href="#side-i-wallet"/></svg></span>
+              <span>Controle financeiro</span>
+            </a>
+            <button class="sx-group__toggle" type="button" aria-expanded="false" aria-controls="sub-controle" aria-label="Mostrar subitens">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#side-i-chevron"/></svg>
+            </button>
+          </div>
+          <div class="sx-sub" id="sub-controle">
+            <div class="sx-sub__inner">
+              <a class="sx-sublink" href="#gastos" data-cf-view="gastos"><svg class="sx-ico" aria-hidden="true"><use href="#side-i-wallet"/></svg><span>Gastos do mês</span></a>
+              <a class="sx-sublink" href="#simulador" data-cf-view="simulador"><svg class="sx-ico" aria-hidden="true"><use href="#side-i-calc"/></svg><span>Simulador</span></a>
+              <a class="sx-sublink" href="#reserva" data-cf-view="reserva"><svg class="sx-ico" aria-hidden="true"><use href="#side-i-shield"/></svg><span>Reserva de emergência</span></a>
+              <a class="sx-sublink" href="#regra" data-cf-view="regra"><svg class="sx-ico" aria-hidden="true"><use href="#side-i-pie"/></svg><span>Regra 50/30/20</span></a>
+            </div>
+          </div>
+        </div>
+
+        <!-- EDUCAÇÃO FINANCEIRA: página própria (educacao-financeira.html) -->
+        <a class="side-link" href="educacao-financeira.html">
+          <span class="side-link__icon"><svg class="side-ico" aria-hidden="true"><use href="#side-i-cap"/></svg></span>
+          <span>Educação financeira</span>
+        </a>
+
+        <a class="side-link" href="#cdb" data-cf-view="cdb">
+          <span class="side-link__icon"><svg class="side-ico" aria-hidden="true"><use href="#side-i-bank"/></svg></span>
+          <span>CDB</span>
+        </a>
+
+        <!-- O Ranking fica em "Minha área" (app.html#ranking). A tela #ranking
+             desta página continua funcionando para links antigos. -->
+      </nav>
+
+      <!-- RODAPÉ DO MENU: imagem de fundo (troque no css/login-modern.css, em --side-art) -->
+      <div class="side-art" aria-hidden="true"></div>
+
+    </aside>
+
+    <div class="side-overlay" id="sideOverlay"></div>
+
+  <main class="container cf-main" id="conteudo" tabindex="-1">
+
+    <!-- ícones desta página (não precisa mexer) -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+      <symbol id="cf-i-calendar" viewBox="0 0 24 24"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/></symbol>
+      <symbol id="cf-i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="cf-i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+      <symbol id="cf-i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+      <symbol id="cf-i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol>
+      <symbol id="cf-i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
+      <symbol id="cf-i-wallet" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
+      <symbol id="cf-i-up" viewBox="0 0 24 24"><path d="M16 7h6v6"/><path d="m22 7-8.5 8.5-5-5L2 17"/></symbol>
+      <symbol id="cf-i-down" viewBox="0 0 24 24"><path d="M16 17h6v-6"/><path d="m22 17-8.5-8.5-5 5L2 7"/></symbol>
+      <symbol id="cf-i-list" viewBox="0 0 24 24"><path d="M3 5h.01"/><path d="M3 12h.01"/><path d="M3 19h.01"/><path d="M8 5h13"/><path d="M8 12h13"/><path d="M8 19h13"/></symbol>
+      <symbol id="cf-i-calc" viewBox="0 0 24 24"><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></symbol>
+      <symbol id="cf-i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></symbol>
+      <symbol id="cf-i-pie" viewBox="0 0 24 24"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/></symbol>
+    </svg>
+
+    <!-- ================= [GAMIFICACAO] nível, XP, sequência, moedas e vidas (js/gamificacao.js) ================= -->
+    <div class="gm-barra" id="gmBarra" hidden></div>
+
+
+    <!-- ================= [TOPO] ================= -->
+    <div class="cf-topo">
+      <div class="cf-topo__titulo">
+        <h1 id="cfTitulo">Gastos do mês</h1>
+        <p id="cfSubtitulo">Acompanhe o que entra e o que sai do seu bolso.</p>
+      </div>
+
+      <!-- [CF-DATA] pesquisa por data: abre um calendário; ao clicar numa data, o histórico mostra aquele dia -->
+      <div class="cf-topo__acoes" id="cfAcoesGastos">
+        <div class="cf-data" id="cfData">
+          <button class="cf-pill" id="cfDataBtn" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="cfCal">
+            <span class="cf-pill__icone" aria-hidden="true"><svg class="cf-ico"><use href="#cf-i-calendar"/></svg></span>
+            <span class="cf-pill__txt" id="cfDataTxt">Pesquisa por data</span>
+            <svg class="cf-ico cf-pill__seta" aria-hidden="true"><use href="#cf-i-chevron"/></svg>
+          </button>
+          <div class="cf-cal" id="cfCal" role="dialog" aria-label="Escolher uma data" hidden></div>
+        </div>
+        <!-- "Adicionar registro" do topo ficou de fora: o formulário "Novo lançamento" é o card fixo abaixo dos gráficos -->
+      </div>
+    </div>
+
+    <!-- as ferramentas agora são escolhidas só pelo menu lateral (Controle financeiro > Simulador, Reserva, Regra) -->
+    <!-- ================= [VIEW-GASTOS] ================= -->
+    <section class="cf-view" id="view-gastos" aria-label="Gastos do mês">
+
+      <p class="cf-demo" id="cfDemo" hidden>Mostrando <b>dados de exemplo</b>: ainda não há lançamentos salvos neste navegador.</p>
+
+      <div class="cf-painel">
+
+        <!-- coluna da esquerda -->
+        <div class="cf-col">
+
+          <!-- ===== [CF-RESUMO] saldo, receitas e gastos ===== -->
+          <article class="cf-card cf-card--verde cf-resumo" aria-label="Resumo do período">
+            <div class="cf-resumo__topo">
+              <span class="cf-icone" aria-hidden="true"><svg class="cf-ico"><use href="#cf-i-wallet"/></svg></span>
+              <div class="cf-resumo__saldo">
+                <p class="cf-rotulo">Saldo</p>
+                <strong class="cf-saldo" id="cfSaldo" aria-live="polite">R$ 0,00</strong>
+              </div>
+              <span class="cf-indicador" id="cfIndicador"></span>
+            </div>
+
+            <div class="cf-mini">
+              <div class="cf-mini__item cf-mini__item--receita">
+                <svg class="cf-ico" aria-hidden="true"><use href="#cf-i-up"/></svg>
+                <span><small>Receitas</small><strong id="cfReceita">R$ 0,00</strong></span>
+              </div>
+              <div class="cf-mini__item cf-mini__item--gasto">
+                <svg class="cf-ico" aria-hidden="true"><use href="#cf-i-down"/></svg>
+                <span><small>Gastos</small><strong id="cfGasto">R$ 0,00</strong></span>
+              </div>
+            </div>
+          </article>
+
+          <!-- ===== [CF-LINHA] Receita x Gastos com drill down ===== -->
+          <article class="cf-card cf-card--roxo cf-linha" aria-label="Receita versus gastos">
+            <div class="cf-card__cab">
+              <h2>Receita × Gastos</h2>
+              <button class="cf-mini-btn" id="cfTabelaBtn" type="button" aria-pressed="false">Ver tabela</button>
+            </div>
+            <!-- migalhas do drill down: Ano > Mês > Dia -->
+            <nav class="cf-migalhas" id="cfMigalhas" aria-label="Nível do gráfico"></nav>
+            <ul class="cf-legenda" aria-label="Legenda">
+              <li><i class="cf-marca cf-marca--receita" aria-hidden="true"></i>Receita</li>
+              <li><i class="cf-marca cf-marca--gasto" aria-hidden="true"></i>Gastos</li>
+            </ul>
+            <div class="cf-grafico" id="cfLinha"></div>
+            <div class="cf-tabela-wrap" id="cfLinhaTabela" hidden></div>
+            <p class="cf-dica" id="cfLinhaDica">Clique em um ponto para detalhar.</p>
+          </article>
+        </div>
+
+        <!-- ===== [CF-PIZZA] gastos por despesa ===== -->
+        <article class="cf-card cf-card--verde cf-pizza" aria-label="Gastos por despesa">
+          <div class="cf-card__cab">
+            <h2>Gastos por despesa</h2>
+          </div>
+          <div class="cf-grafico cf-grafico--pizza" id="cfPizza"></div>
+          <ul class="cf-pizza__lista" id="cfPizzaLista" aria-label="Despesas do período"></ul>
+        </article>
+      </div>
+
+      <!-- ===== [CF-NOVO-LANCAMENTO] formulário para registrar receita ou gasto (grava em /finance) ===== -->
+      <article class="cf-card cf-card--roxo cf-novo" aria-label="Novo lançamento">
+        <h2>Novo lançamento</h2>
+        <form id="formLanc" novalidate>
+          <div class="cf-campo-duplo">
+            <label class="cf-campo"><span>Tipo</span>
+              <select name="tipo" id="lancTipo"><option value="gasto">Gasto</option><option value="receita">Receita</option></select>
+            </label>
+            <label class="cf-campo"><span>Categoria</span>
+              <select name="categoria" id="lancCategoria"></select>
+            </label>
+          </div>
+          <label class="cf-campo"><span>Descrição (opcional)</span><input name="descricao" maxlength="60" placeholder="Ex.: Mercado do mês" autocomplete="off"></label>
+          <div class="cf-campo-duplo">
+            <label class="cf-campo"><span>Valor (R$)</span><input name="valor" inputmode="decimal" placeholder="0,00" autocomplete="off"></label>
+            <label class="cf-campo"><span>Data</span><input name="dia" type="date"></label>
+          </div>
+          <p class="cf-erro" id="lancErro" role="alert" hidden></p>
+          <button class="cf-enviar" type="submit">Adicionar</button>
+        </form>
+      </article>
+
+      <!-- ===== [CF-HISTORICO] ===== -->
+      <section class="cf-historico" aria-label="Histórico de lançamentos">
+        <div class="cf-historico__cab">
+          <div>
+            <h2>Histórico</h2>
+            <p id="cfHistSub">Registro dos gastos e ganhos</p>
+          </div>
+          <button class="cf-chip" id="cfChipData" type="button" hidden>
+            <span id="cfChipTxt"></span>
+            <svg class="cf-ico" aria-hidden="true"><use href="#cf-i-x"/></svg>
+          </button>
+        </div>
+        <ul class="cf-lista" id="cfLista"></ul>
+        <button class="cf-mais" id="cfMais" type="button" hidden>Mostrar mais</button>
+      </section>
+    </section>
+
+    <!-- ================= [VIEW-EDUCACAO] trilhas de conhecimento (vêm do servidor: GET /tracks) ================= -->
+
+    <!-- ================= [VIEW-SIMULADOR] ================= -->
+    <section class="cf-view" id="view-simulador" aria-label="Simulador de investimentos" hidden>
+      <div class="cf-painel cf-painel--ferr">
+        <article class="cf-card cf-card--roxo cf-form">
+          <h2>Simulador de investimentos</h2>
+          <p class="cf-desc">Veja quanto seu dinheiro pode render com juros compostos. Os aportes entram no fim de cada mês.</p>
+          <form id="formSim" novalidate>
+            <label class="cf-campo"><span>Valor inicial (R$)</span><input name="inicial" inputmode="decimal" placeholder="1.000,00" autocomplete="off"></label>
+            <label class="cf-campo"><span>Aporte mensal (R$)</span><input name="aporte" inputmode="decimal" placeholder="300,00" autocomplete="off"></label>
+            <div class="cf-campo-duplo">
+              <label class="cf-campo"><span>Taxa de juros (%)</span><input name="taxa" inputmode="decimal" placeholder="10,5" autocomplete="off"></label>
+              <label class="cf-campo"><span>Período da taxa</span>
+                <select name="taxaTipo"><option value="ano">ao ano</option><option value="mes">ao mês</option></select>
+              </label>
+            </div>
+            <div class="cf-campo-duplo">
+              <label class="cf-campo"><span>Prazo</span><input name="prazo" inputmode="numeric" placeholder="5" autocomplete="off"></label>
+              <label class="cf-campo"><span>Unidade</span>
+                <select name="prazoTipo"><option value="ano">anos</option><option value="mes">meses</option></select>
+              </label>
+            </div>
+          </form>
+        </article>
+
+        <article class="cf-card cf-card--verde cf-result cf-result--sim" aria-live="polite">
+          <h2>Resultado</h2>
+          <div class="cf-stats" id="simStats"></div>
+          <div class="cf-grafico" id="simGrafico"></div>
+          <ul class="cf-legenda" aria-label="Legenda">
+            <li><i class="cf-marca cf-marca--receita" aria-hidden="true"></i>Valor acumulado</li>
+            <li><i class="cf-marca cf-marca--gasto" aria-hidden="true"></i>Total investido</li>
+          </ul>
+          <p class="cf-dica">Simulação com taxa constante, sem impostos nem inflação. Não é recomendação de investimento.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ================= [VIEW-RESERVA] ================= -->
+    <section class="cf-view" id="view-reserva" aria-label="Reserva de emergência" hidden>
+      <div class="cf-painel cf-painel--ferr">
+        <article class="cf-card cf-card--roxo cf-form">
+          <h2>Reserva de emergência</h2>
+          <p class="cf-desc">Descubra quanto guardar para atravessar imprevistos sem se endividar.</p>
+          <form id="formRes" novalidate>
+            <label class="cf-campo"><span>Despesas essenciais por mês (R$)</span>
+              <input name="despesas" inputmode="decimal" placeholder="2.500,00" autocomplete="off">
+            </label>
+            <button class="cf-link" id="resUsarMedia" type="button">Usar a média dos meus gastos recentes</button>
+            <label class="cf-campo"><span>Cobrir quantos meses?</span>
+              <select name="meses">
+                <option value="3">3 meses (renda muito estável)</option>
+                <option value="6" selected>6 meses (CLT, recomendado)</option>
+                <option value="9">9 meses</option>
+                <option value="12">12 meses (autônomo / renda variável)</option>
+              </select>
+            </label>
+            <label class="cf-campo"><span>Quanto já tem guardado (R$)</span><input name="atual" inputmode="decimal" placeholder="0,00" autocomplete="off"></label>
+            <label class="cf-campo"><span>Quanto consegue guardar por mês (R$)</span><input name="aporte" inputmode="decimal" placeholder="400,00" autocomplete="off"></label>
+          </form>
+        </article>
+
+        <article class="cf-card cf-card--verde cf-result" aria-live="polite">
+          <h2>Sua meta</h2>
+          <div class="cf-stats" id="resStats"></div>
+          <div class="cf-progresso" id="resProgresso"></div>
+          <p class="cf-dica" id="resMsg"></p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ================= [VIEW-REGRA] ================= -->
+    <section class="cf-view" id="view-regra" aria-label="Regra 50/30/20" hidden>
+      <div class="cf-painel cf-painel--ferr">
+        <article class="cf-card cf-card--roxo cf-form">
+          <h2>Regra 50/30/20</h2>
+          <p class="cf-desc">Divida sua renda líquida: 50% para necessidades, 30% para desejos e 20% para poupança e dívidas.</p>
+          <form id="formRegra" novalidate>
+            <label class="cf-campo"><span>Renda líquida mensal (R$)</span>
+              <input name="renda" inputmode="decimal" placeholder="4.000,00" autocomplete="off">
+            </label>
+            <button class="cf-link" id="regraUsarReceita" type="button">Usar a receita do mês selecionado</button>
+            <fieldset class="cf-fieldset">
+              <legend>Quanto você gasta hoje (opcional)</legend>
+              <label class="cf-campo"><span>Necessidades (moradia, comida, transporte…)</span><input name="hojeNec" inputmode="decimal" placeholder="0,00" autocomplete="off"></label>
+              <label class="cf-campo"><span>Desejos (lazer, streaming, restaurantes…)</span><input name="hojeDes" inputmode="decimal" placeholder="0,00" autocomplete="off"></label>
+              <label class="cf-campo"><span>Poupança e dívidas</span><input name="hojePou" inputmode="decimal" placeholder="0,00" autocomplete="off"></label>
+            </fieldset>
+          </form>
+        </article>
+
+        <article class="cf-card cf-card--verde cf-result" aria-live="polite">
+          <h2>Sua divisão ideal</h2>
+          <div class="cf-barra-regra" id="regraBarra" role="img" aria-label="Divisão 50, 30 e 20 por cento"></div>
+          <div class="cf-regra-itens" id="regraItens"></div>
+        </article>
+      </div>
+    </section>
+
+    <!-- ================= [VIEW-CDB] calculadora de CDB (js/cdb.js) ================= -->
+    <section class="cf-view" id="view-cdb" aria-label="CDB" hidden>
+      <div class="cf-painel cf-painel--ferr">
+      <article class="cf-card cf-card--roxo cf-form">
+        <h2>Calculadora de CDB</h2>
+        <p class="cf-desc">Simule quanto uma aplicação em CDB rende, já com o imposto de renda regressivo.</p>
+        <form id="formCdb" novalidate>
+          <label class="cf-campo"><span>Valor inicial (R$)</span><input name="inicial" inputmode="decimal" placeholder="1.000,00" autocomplete="off"></label>
+          <label class="cf-campo"><span>Aporte mensal (R$)</span><input name="aporte" inputmode="decimal" placeholder="200,00" autocomplete="off"></label>
+          <div class="cf-campo-duplo">
+            <label class="cf-campo"><span>Tipo de taxa</span><select name="tipo"><option value="cdi">Pós-fixado (% do CDI)</option><option value="pre">Prefixado (% ao ano)</option></select></label>
+            <label class="cf-campo"><span id="cdbRotuloTaxa">% do CDI</span><input name="taxa" inputmode="decimal" placeholder="100" autocomplete="off"></label>
+          </div>
+          <label class="cf-campo" id="cdbCampoCdi"><span>CDI atual (% ao ano)</span><input name="cdi" inputmode="decimal" autocomplete="off"></label>
+          <div class="cf-campo-duplo">
+            <label class="cf-campo"><span>Prazo</span><input name="prazo" inputmode="numeric" placeholder="12" autocomplete="off"></label>
+            <label class="cf-campo"><span>Unidade</span><select name="prazoTipo"><option value="mes">meses</option><option value="ano">anos</option></select></label>
+          </div>
+          <label class="cdb-check"><input type="checkbox" name="ir" checked> Descontar imposto de renda</label>
+        </form>
+      </article>
+      <article class="cf-card cf-card--verde cf-result" aria-live="polite">
+        <h2>Resultado</h2>
+        <div class="cf-stats cdb-stats" id="cdbStats"></div>
+        <div class="cf-grafico" id="cdbGrafico"></div>
+        <ul class="cf-legenda cdb-legenda" aria-label="Legenda">
+          <li><i class="cf-marca cf-marca--receita" aria-hidden="true"></i>Valor bruto</li>
+          <li><i class="cf-marca cf-marca--gasto" aria-hidden="true"></i>Total investido</li>
+        </ul>
+        <p class="cf-dica">IR regressivo: 22,5% até 180 dias, 20% até 360, 17,5% até 720 e 15% acima. Simulação, não é recomendação de investimento.</p>
+      </article>
+    </div>
+    </section>
+
+    <!-- ================= [VIEW-RANKING] (js/ranking.js) ================= -->
+    <section class="cf-view" id="view-ranking" aria-label="Ranking" hidden>
+      <div class="tr-lista" id="rkLista" aria-live="polite"><p class="cf-vazio" id="rkMsg">Carregando ranking…</p></div>
+    </section>
+
+  </main>
+
+  </div><!-- fim .layout -->
+
+<!-- ============================================================
+[RODAPE]
+============================================================ -->
+<footer class="dgx-footer" aria-label="Rodapé">
+
+<!-- Ícones usados no rodapé (não precisa mexer) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+<symbol id="dgx-i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol>
+<symbol id="dgx-i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+<symbol id="dgx-i-whatsapp" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol>
+<symbol id="dgx-i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></symbol>
+<symbol id="dgx-i-instagram" viewBox="0 0 24 24"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></symbol>
+<symbol id="dgx-i-linkedin" viewBox="0 0 24 24"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></symbol>
+<symbol id="dgx-i-facebook" viewBox="0 0 24 24"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></symbol>
+<symbol id="dgx-i-youtube" viewBox="0 0 24 24"><path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17"/><path d="m10 15 5-3-5-3z"/></symbol>
+<symbol id="dgx-i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+<symbol id="dgx-i-card" viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></symbol>
+<symbol id="dgx-i-award" viewBox="0 0 24 24"><circle cx="12" cy="8" r="6"/><path d="M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"/></symbol>
+</svg>
+
+<div class="dgx-footer-inner">
+
+<div class="dgx-footer-grid">
+
+    <!-- ===== 1) MARCA + REDES SOCIAIS ===== -->
+    <section class="dgx-footer-col dgx-footer-brand">
+
+        <img
+            class="dgx-footer-logo"
+            src="css/images/dranix_name_white_nobackground.png"
+            alt="Dragnix"
+        >
+
+        <p class="dgx-footer-text">
+            Aprenda. Evolua. Conquiste.<br>
+            Trilhas de aprendizado para a sua jornada.
+        </p>
+
+        <h2 class="dgx-footer-title">Redes sociais</h2>
+
+        <!--
+            REDES SOCIAIS
+            • Troque o "#" de cada link pelo endereço do seu perfil.
+            • Para usar SUA imagem no lugar do ícone: apague a linha <svg ...> e
+                tire os comentários da linha <img ...> logo acima dela.
+            • Para mudar o TAMANHO: edite --social-size (imagem) e
+                --social-box (quadrado do botão) em css/login-modern.css, em ".dgx-footer".
+            • Não usa uma rede? É só apagar o <li> inteiro dela.
+        -->
+        <ul class="dgx-social">
+            <li>
+                <a class="dgx-social-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="Instagram da Dragnix">
+                    <!-- <img class="dgx-social-img" src="css/images/instagram.png" alt=""> -->
+                    <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-instagram"/></svg>
+                </a>
+            </li>
+            <li>
+                <a class="dgx-social-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn da Dragnix">
+                    <!-- <img class="dgx-social-img" src="css/images/linkedin.png" alt=""> -->
+                    <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-linkedin"/></svg>
+                </a>
+            </li>
+            <li>
+                <a class="dgx-social-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="Facebook da Dragnix">
+                    <!-- <img class="dgx-social-img" src="css/images/facebook.png" alt=""> -->
+                    <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-facebook"/></svg>
+                </a>
+            </li>
+            <li>
+                <a class="dgx-social-link" href="#" target="_blank" rel="noopener noreferrer" aria-label="YouTube da Dragnix">
+                    <!-- <img class="dgx-social-img" src="css/images/youtube.png" alt=""> -->
+                    <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-youtube"/></svg>
+                </a>
+            </li>
+        </ul>
+
+    </section>
+
+    <!-- ===== 2) DADOS DE CONTATO ===== -->
+    <!-- Troque os dados de exemplo pelos reais da sua empresa -->
+    <section class="dgx-footer-col">
+
+        <h2 class="dgx-footer-title">Contato</h2>
+
+        <ul class="dgx-contact">
+            <li>
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-mail"/></svg>
+                <div>
+                    <span class="dgx-contact-label">E-mail de suporte</span>
+                    <a href="mailto:suporte@dragnix.com">suporte@dragnix.com</a>
+                </div>
+            </li>
+            <li>
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-phone"/></svg>
+                <div>
+                    <span class="dgx-contact-label">Telefone</span>
+                    <a href="tel:+55112776-3337">(11) 2776-3337</a>
+                </div>
+            </li>
+            <li>
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-whatsapp"/></svg>
+                <div>
+                    <span class="dgx-contact-label">WhatsApp</span>
+                    <a href="https://wa.me/551127763336" target="_blank" rel="noopener noreferrer">(11) 2776-3336</a>
+                </div>
+            </li>
+            <li>
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-clock"/></svg>
+                <div>
+                    <span class="dgx-contact-label">Horário de atendimento</span>
+                    <span>Seg. a Sex., das 9h às 18h</span>
+                </div>
+            </li>
+        </ul>
+
+    </section>
+
+    <!-- ===== 3) LINKS SECUNDÁRIOS ===== -->
+    <!-- Troque cada "#" pelo endereço da página (ex.: quem-somos.html) -->
+    <nav class="dgx-footer-col" aria-label="Links institucionais">
+
+        <h2 class="dgx-footer-title">Institucional</h2>
+
+        <ul class="dgx-footer-links">
+            <li><a href="#">Quem somos</a></li>
+            <li><a href="#">Política de privacidade</a></li>
+            <li><a href="#">Termos de uso</a></li>
+        </ul>
+
+    </nav>
+
+    <!-- ===== 4) SELOS E CERTIFICAÇÕES ===== -->
+    <section class="dgx-footer-col">
+
+        <h2 class="dgx-footer-title">Segurança e pagamento</h2>
+
+        <!--
+            SELOS
+            • Cada selo é um <li class="dgx-badge">. Apague os que não usa.
+            • Para usar uma imagem de selo (ex.: o selo oficial do SSL ou de uma
+                premiação): tire os comentários da linha <img ...>, ajuste o src
+                e apague o <svg> e o <span> se a imagem já tiver o texto.
+            • Para mudar o TAMANHO: edite --badge-height em css/login-modern.css,
+                em ".dgx-footer".
+        -->
+
+        <p class="dgx-footer-sub">Navegação segura</p>
+        <ul class="dgx-badges">
+            <li class="dgx-badge">
+                <!-- <img class="dgx-badge-img" src="css/images/selo-ssl.png" alt="Site seguro SSL"> -->
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-lock"/></svg>
+                <span>Site seguro (SSL)</span>
+            </li>
+        </ul>
+
+        <p class="dgx-footer-sub">Formas de pagamento</p>
+        <ul class="dgx-badges">
+            <li class="dgx-badge">
+                <!-- <img class="dgx-badge-img" src="css/images/pix.png" alt="Pix"> -->
+                <span>Pix</span>
+            </li>
+            <li class="dgx-badge">
+                <!-- <img class="dgx-badge-img" src="css/images/cartao.png" alt="Cartão de crédito"> -->
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-card"/></svg>
+                <span>Cartão</span>
+            </li>
+            <li class="dgx-badge">
+                <!-- <img class="dgx-badge-img" src="css/images/boleto.png" alt="Boleto"> -->
+                <span>Boleto</span>
+            </li>
+        </ul>
+
+        <p class="dgx-footer-sub">Premiações</p>
+        <ul class="dgx-badges">
+            <li class="dgx-badge">
+                <!-- <img class="dgx-badge-img" src="css/images/premio.png" alt="Nome da premiação"> -->
+                <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-award"/></svg>
+                <span>Impacto Criativo e Acessibilidade - FMU 2026</span>
+            </li>
+        </ul>
+
+    </section>
+
+</div>
+
+<!-- ===== DIREITOS AUTORAIS ===== -->
+<div class="dgx-footer-bottom">
+    <p>&copy; 2026 Dragnix. Todos os direitos reservados.</p>
+</div>
+
+</div>
+
+</footer>
+
+  <!-- ================= [SCRIPTS] ================= -->
+  <!-- barra e mini-telas de carregamento (antes dos scripts que buscam dados) -->
+  <script src="js/carregando.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/menu.js"></script>
+  <!-- api.js: funções api() / me() / esc() / logout() -->
+  <script src="js/api.js"></script>
+  <script src="js/profile.js"></script>
+  <!-- submenus, card do perfil (conquistas + sair) e chat de dúvidas -->
+  <script src="js/shell-extra.js?v=3"></script>
+  <!-- lógica desta página -->
+  <script src="js/controle.js?v=3"></script>
+  <script src="js/cdb.js?v=1"></script>
+  <script src="js/ranking-semana.js"></script>
+  <script src="js/ranking.js?v=2"></script>
+  <script src="js/gamificacao.js?v=1"></script>
+  <!-- botão "← Voltar" no topo do conteúdo -->
+  <script src="js/voltar.js"></script>
+  <!-- card "Quem somos" do rodapé (equipe) -->
+  <script src="js/quem-somos.js?v=1"></script>
+  <!-- cards "Política de privacidade" e "Termos de uso" do rodapé -->
+  <script src="js/documentos.js"></script>
+  <script src="js/acessibilidade.js?v=3"></script>
+</body>
+</html>

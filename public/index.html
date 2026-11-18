@@ -23,23 +23,30 @@ type="image/png"
 
 <link rel="stylesheet" href="css/style.css">
 <link rel="stylesheet" href="css/login-modern.css">
-
+<!-- Cenário da guilda e acessibilidade -->
+<link rel="stylesheet" href="css/login-guilda.css">
+<link rel="stylesheet" href="css/acessibilidade.css?v=2">
 </head>
 
 <body class="login-page dragnix-login">
+
+<!-- leitores de tela / teclado: pula direto para o formulário de entrada -->
+<a class="a11y-pular" href="#conteudo">Ir para o conteúdo</a>
 
 <!--MENU HORIZONTAL-->
 
 <header class="site-header">
 <div class="wrap">
-<nav class="nav">
+<nav class="nav" aria-label="Menu principal">
     <a href="#" class="logo">
-        <img src="uploads/3876be936bd3b5ea.png" alt="Logo dragão">
+        <img src="css/images/logo-dragnix-1.png" alt="Dragnix">
     </a>
-    <!-- botão do MENU LATERAL (no celular abre a gaveta; no computador recolhe/expande) -->
-    <button class="side-toggle" id="sideToggle" type="button"
-            aria-label="Abrir navegação" aria-controls="sideMenu" aria-expanded="false">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+
+    <!-- botão de TEMA (js/theme.js): lua = ir para o escuro | sol = ir para o claro -->
+    <button class="theme-toggle" id="themeToggle" type="button" data-theme-toggle onclick="toggleTheme()"
+            aria-label="Ativar modo escuro" title="Ativar modo escuro">
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
     </button>
 
 </nav>
@@ -47,51 +54,25 @@ type="image/png"
 </header>
 <!--FIM DO MENU HORIZONTAL-->
 
-<!-- ================= MENU LATERAL + CONTEÚDO ================= -->
+<!-- ================= CONTEÚDO ================= -->
 <div class="layout">
 
-<aside class="side-menu" id="sideMenu" aria-label="Navegação financeira">
+<!-- (o login não tem menu lateral) -->
 
-    <!-- ícones do menu lateral (não precisa mexer) -->
-    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
-        <symbol id="side-i-wallet" viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></symbol>
-        <symbol id="side-i-cap" viewBox="0 0 24 24"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></symbol>
-        <symbol id="side-i-bank" viewBox="0 0 24 24"><path d="M10 18v-7"/><path d="M11.12 2.198a2 2 0 0 1 1.76.006l7.866 3.847c.476.233.31.949-.22.949H3.474c-.53 0-.695-.716-.22-.949z"/><path d="M14 18v-7"/><path d="M18 18v-7"/><path d="M3 22h18"/><path d="M6 18v-7"/></symbol>
-    </svg>
-
-    <div class="side-head">
-        <p class="side-title">Finanças</p>
-        <button class="side-close" id="sideClose" type="button" aria-label="Fechar navegação">&times;</button>
-    </div>
-
-    <!-- Troque cada href pelo endereço da página.
-         A página em que você está fica destacada sozinha. -->
-    <nav class="side-nav">
-        <a class="side-link" href="controle-financeiro.html">
-            <span class="side-link__icon"><svg class="side-ico" aria-hidden="true"><use href="#side-i-wallet"/></svg></span>
-            <span>Controle financeiro</span>
-        </a>
-        <a class="side-link" href="educacao-financeira.html">
-            <span class="side-link__icon"><svg class="side-ico" aria-hidden="true"><use href="#side-i-cap"/></svg></span>
-            <span>Educação financeira</span>
-        </a>
-        <a class="side-link" href="cdb.html">
-            <span class="side-link__icon"><svg class="side-ico" aria-hidden="true"><use href="#side-i-bank"/></svg></span>
-            <span>CDB</span>
-        </a>
-    </nav>
-
-    <!-- RODAPÉ DO MENU: imagem de fundo (troque no CSS, em --side-art) -->
-    <div class="side-art" aria-hidden="true"></div>
-
-</aside>
-
-<div class="side-overlay" id="sideOverlay"></div>
 
 
 <!-- ESTRUTURA PRINCIPAL -->
-<main class="login-layout">
-
+<main class="login-layout" id="conteudo" tabindex="-1">
+<!-- Cenário e personagens da guilda -->
+<div class="login-cena" aria-hidden="true">
+    <img
+        class="login-cena__personagens"
+        src="css/images/personagens-grap.png"
+        onerror="this.onerror=null; this.src='css/images/personagens1.png'"
+        alt=""
+        draggable="false"
+    >
+</div>
 <!-- LADO DIREITO: AUTENTICAÇÃO -->
 <section class="login-content">
 
@@ -125,6 +106,7 @@ type="image/png"
         <!-- ABAS -->
         <div
             class="tabs login-tabs"
+            id="loginTabs"
             aria-label="Escolha a forma de acesso"
         >
 
@@ -147,7 +129,7 @@ type="image/png"
         </div>
 
         <!-- FORMULÁRIO ORIGINAL -->
-        <div class="card login-card">
+         <div class="card login-card" id="loginCard">
 
             <!-- NOME -->
             <input
@@ -229,7 +211,160 @@ type="image/png"
                 id="go"
                 type="button"
             >
-                Entrar
+                            Entrar
+            </button>
+
+            <!-- CADASTRO: concordância com os termos (aparece só na aba "Criar conta") -->
+            <p class="login-termos hide" id="termosAviso">
+                Ao criar sua conta, você concorda com os
+                <button type="button" data-doc="termos">Termos de uso</button>
+                e com a
+                <span style="white-space:nowrap"><button type="button" data-doc="privacidade">Política de privacidade</button>.</span>
+            </p>
+
+            <!-- ESQUECI A SENHA (aparece só na aba "Entrar") -->
+            <button
+                type="button"
+                class="link recover-link"
+                id="forgotBtn"
+            >
+                Esqueci minha senha
+            </button>
+
+        </div>
+
+        <!-- ================= RECUPERAR SENHA ================= -->
+        <div class="card login-card hide" id="recoverCard">
+
+            <!-- PASSO 1: E-MAIL -->
+            <div class="recover-step" id="recoverStep1">
+
+                <h2 class="recover-title">Recuperar senha</h2>
+
+                <p class="recover-text">
+                    Informe o e-mail da sua conta. Enviaremos um
+                    código de 6 dígitos para você.
+                </p>
+
+                <input
+                    id="recoverEmail"
+                    type="email"
+                    placeholder="E-mail"
+                    autocomplete="email"
+                    aria-label="E-mail da conta"
+                >
+
+                <button
+                    class="btn recover-main"
+                    id="recoverSend"
+                    type="button"
+                >
+                    Enviar código
+                </button>
+
+            </div>
+
+            <!-- PASSO 2: CÓDIGO + NOVA SENHA -->
+            <div class="recover-step hide" id="recoverStep2">
+
+                <h2 class="recover-title">Digite o código</h2>
+
+                <p class="recover-text" id="recoverInfo"></p>
+
+                <input
+                    id="recoverCode"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="6"
+                    placeholder="Código de 6 dígitos"
+                    autocomplete="one-time-code"
+                    aria-label="Código de 6 dígitos"
+                >
+
+                <div class="senha-box">
+                    <input
+                        id="recoverPass"
+                        type="password"
+                        placeholder="Nova senha (mín. 6 caracteres)"
+                        autocomplete="new-password"
+                        aria-label="Nova senha"
+                    >
+                    <button
+                        type="button"
+                        class="senha-btn"
+                        onclick="mostrarSenha('recoverPass', this)"
+                        aria-label="Mostrar senha"
+                    >
+                        <i data-lucide="eye"></i>
+                    </button>
+                </div>
+
+                <div class="senha-box">
+                    <input
+                        id="recoverPassConfirm"
+                        type="password"
+                        placeholder="Confirmar nova senha"
+                        autocomplete="new-password"
+                        aria-label="Confirmar nova senha"
+                    >
+                    <button
+                        type="button"
+                        class="senha-btn"
+                        onclick="mostrarSenha('recoverPassConfirm', this)"
+                        aria-label="Mostrar senha"
+                    >
+                        <i data-lucide="eye"></i>
+                    </button>
+                </div>
+
+                <button
+                    class="btn recover-main"
+                    id="recoverReset"
+                    type="button"
+                >
+                    Redefinir senha
+                </button>
+
+                <button
+                    type="button"
+                    class="link recover-link"
+                    id="recoverResend"
+                >
+                    Reenviar código
+                </button>
+
+            </div>
+
+            <!-- MENSAGENS -->
+            <div
+                class="err recover-msg"
+                id="recoverErr"
+                role="alert"
+                aria-live="polite"
+            ></div>
+
+            <div
+                class="recover-ok recover-msg"
+                id="recoverOk"
+                role="status"
+                aria-live="polite"
+            ></div>
+
+            <!-- DEPOIS DE REDEFINIR -->
+            <button
+                class="btn recover-main hide"
+                id="recoverDone"
+                type="button"
+            >
+                Ir para o login
+            </button>
+
+            <button
+                type="button"
+                class="link recover-link"
+                id="recoverBack"
+            >
+                &larr; Voltar ao login
             </button>
 
         </div>
@@ -246,7 +381,7 @@ type="image/png"
 </div><!-- fim .layout -->
 
 <!-- ============================================================
-RODAPÉ
+[RODAPE]
 ============================================================ -->
 <footer class="dgx-footer" aria-label="Rodapé">
 
@@ -274,9 +409,7 @@ RODAPÉ
 
         <img
             class="dgx-footer-logo"
-            src="css/images/dranix_name_black_nobackground.png"
-            data-logo-light="css/images/dranix_name_black_nobackground.png"
-            data-logo-dark="css/images/dranix_name_white_nobackground.png"
+            src="css/images/dranix_name_white_nobackground.png"
             alt="Dragnix"
         >
 
@@ -343,14 +476,14 @@ RODAPÉ
                 <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-phone"/></svg>
                 <div>
                     <span class="dgx-contact-label">Telefone</span>
-                    <a href="tel:+551100000000">(11) 0000-0000</a>
+                    <a href="tel:+55112776-3337">(11) 2776-3337</a>
                 </div>
             </li>
             <li>
                 <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-whatsapp"/></svg>
                 <div>
                     <span class="dgx-contact-label">WhatsApp</span>
-                    <a href="https://wa.me/5511900000000" target="_blank" rel="noopener noreferrer">(11) 90000-0000</a>
+                    <a href="https://wa.me/551127763336" target="_blank" rel="noopener noreferrer">(11) 2776-3336</a>
                 </div>
             </li>
             <li>
@@ -371,7 +504,7 @@ RODAPÉ
         <h2 class="dgx-footer-title">Institucional</h2>
 
         <ul class="dgx-footer-links">
-            <li><a href="teste.html">Quem somos</a></li>
+            <li><a href="#">Quem somos</a></li>
             <li><a href="#">Política de privacidade</a></li>
             <li><a href="#">Termos de uso</a></li>
         </ul>
@@ -424,7 +557,7 @@ RODAPÉ
             <li class="dgx-badge">
                 <!-- <img class="dgx-badge-img" src="css/images/premio.png" alt="Nome da premiação"> -->
                 <svg class="dgx-ico" aria-hidden="true"><use href="#dgx-i-award"/></svg>
-                <span>Nome da premiação</span>
+                <span>Impacto Criativo e Acessibilidade - FMU 2026</span>
             </li>
         </ul>
 
@@ -442,12 +575,22 @@ RODAPÉ
 </footer>
 
 <!-- SCRIPTS ORIGINAIS -->
+<!-- barra e mini-telas de carregamento (antes dos scripts que buscam dados) -->
+<script src="js/carregando.js"></script>
 <script src="js/icons.js"></script>
 <script src="js/api.js"></script>
 <script src="js/loginsplash.js"></script>
+<script src="js/recuperar-senha.js"></script>
 <script src="js/theme.js"></script>
 <script src="js/menu.js"></script>
-<script src="js/side-menu.js"></script>
+<!-- Efeito visual dos personagens da guilda -->
+<script src="js/login-cena.js"></script>
 
+<!-- Recursos de acessibilidade -->
+<!-- card "Quem somos" do rodapé (equipe) -->
+<script src="js/quem-somos.js?v=1"></script>
+<!-- cards "Política de privacidade" e "Termos de uso" do rodapé -->
+<script src="js/documentos.js"></script>
+<script src="js/acessibilidade.js?v=3"></script>
 </body>
 </html>

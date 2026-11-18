@@ -1,0 +1,467 @@
+/* ============================================================
+   DRAGNIX — css/login-guilda.css  (LOGIN COM CENA 3D DA GUILDA)
+   ============================================================
+
+   COMPUTADOR (a partir de 1051px):
+     • fundo      → salão da guilda (css/images/login_guilda.jpg)
+     • esquerda   → cena 3D com os personagens
+     • direita    → painel do login
+     • os personagens "ultrapassam" a borda do painel
+
+   TABLET e CELULAR (até 1050px):
+     • no topo, a guilda com os personagens, escurecendo até o preto
+     • o título "Bem-Vindo à DRAGNIX" sobre o degradê
+     • o formulário em blocos escuros logo abaixo
+
+   Carregue DEPOIS do login-modern.css:
+     <link rel="stylesheet" href="css/login-modern.css">
+     <link rel="stylesheet" href="css/login-guilda.css">
+
+   COMO PROCURAR: Ctrl+F e digite o código entre colchetes.
+
+   ORDEM DO ARQUIVO
+   ----------------
+   [BASE]              cena escondida por padrão + cores do painel escuro
+   [DESKTOP]           a partir de 1051px
+     [G1-FUNDO]          fundo da guilda
+     [G2-LAYOUT]         duas colunas: cena | login
+     [G3-PAINEL]         painel escuro do login (à direita)
+     [G4-CENA]           coluna da esquerda
+     [G5-PERSONAGENS]    personagens (ultrapassam o painel)
+   [TABLET]            até 1050px (tablet e celular: imagem no topo)
+     [T1-FUNDO]          fundo preto
+     [T2-TOPO]           guilda + personagens no topo (degradê)
+     [T3-TITULO]         título sobre o degradê
+     [T4-FORMULARIO]     formulário em blocos escuros
+   [TABLET]            só 761px a 1050px (imagem mais alta)
+   [CELULAR]           só até 760px (altura da imagem)
+   [MOVIMENTO]         quem prefere menos animação
+   ============================================================ */
+
+
+/* ############################################################
+   [BASE] — a cena começa escondida (cada tamanho de tela liga a sua)
+   ############################################################ */
+
+.login-cena {
+    display: none;
+}
+
+/* [IMAGEM-FUNDO] imagem da guilda: troque o nome do arquivo SÓ AQUI (vale para computador, tablet e celular) */
+.dragnix-login.login-page {
+    --login-guilda-img: url("images/background-guilda.png");
+}
+
+/* o rodapé nunca fica por baixo da cena; e a página não cria rolagem dupla */
+.dragnix-login.login-page {
+    overflow-x: clip;
+    overflow-y: visible;
+}
+
+.dragnix-login.login-page .dgx-footer {
+    z-index: 5;
+}
+
+/* cores da cena em cada tema (o botão de tema do cabeçalho troca entre elas) */
+.dragnix-login.login-page {                       /* TEMA CLARO */
+    --login-fade: #e9e4f3;                        /* cor onde a imagem do topo some (tablet/celular) */
+    --login-veil-a: rgba(244, 240, 252, .55);     /* véu claro sobre o fundo da guilda (computador) */
+    --login-veil-b: rgba(244, 240, 252, .30);
+    --login-veil-c: rgba(244, 240, 252, .62);
+    --login-painel: linear-gradient(165deg, rgba(255, 255, 255, .92), rgba(238, 232, 250, .9));
+    --login-painel-borda: rgba(122, 54, 179, .45);
+}
+
+html[data-theme="dark"] .dragnix-login.login-page {   /* TEMA ESCURO */
+    --login-fade: #07040f;
+    --login-veil-a: rgba(8, 4, 18, .55);
+    --login-veil-b: rgba(8, 4, 18, .25);
+    --login-veil-c: rgba(8, 4, 18, .7);
+    --login-painel: linear-gradient(165deg, rgba(30, 14, 56, .86), rgba(10, 6, 24, .9));
+    --login-painel-borda: rgba(139, 63, 217, .55);
+}
+
+/* tema escuro: textos e campos claros sobre o painel escuro */
+html[data-theme="dark"] .dragnix-login.login-page .login-content-inner {
+    --bg: rgba(255, 255, 255, .045);
+    --fg: #f2f2f2;
+    --bd: rgba(167, 139, 250, .3);
+    --mut: #b3adc4;
+    --ttt: #f5f5f5;
+    --ttts: #d6d1e2;
+    --ttte: #38e216;
+    --theme-text: #eeeeee;
+    --theme-text-title: #f5f5f5;
+    --theme-text-title-secondary: #d6d1e2;
+    --theme-text-title-emphasis: #38e216;
+    --theme-text-secondary: #b3adc4;
+    --theme-border: rgba(167, 139, 250, .3);
+    --theme-input: rgba(10, 6, 22, .75);
+    --theme-surface: rgba(255, 255, 255, .07);
+}
+
+/* tema claro: o painel é claro; o verde do "DRAGNIX" escurece para ler bem */
+html:not([data-theme="dark"]) .dragnix-login.login-page .login-content-inner {
+    --ttte: #2f9e14;
+    --theme-text-title-emphasis: #2f9e14;
+}
+
+
+/* ############################################################
+   [DESKTOP] — a partir de 1051px
+   ############################################################ */
+
+@media (min-width: 1051px) {
+
+    /* ========================================================
+       [G1-FUNDO] — SALÃO DA GUILDA NO FUNDO
+       (a luz do salão se mexe um pouco com o mouse: --px / --py)
+       ======================================================== */
+
+    .dragnix-login.login-page {
+        background:
+            linear-gradient(180deg, var(--login-veil-a), var(--login-veil-b) 40%, var(--login-veil-c)),
+            var(--login-guilda-img) calc(50% + var(--px, 0) * -14px) calc(50% + var(--py, 0) * -8px) / cover no-repeat;
+        background-attachment: fixed;
+    }
+
+    /* os borrões decorativos antigos saem para não pintar por cima do fundo */
+    .dragnix-login.login-page::before,
+    .dragnix-login.login-page::after {
+        display: none;
+    }
+
+
+    /* ========================================================
+       [G2-LAYOUT] — DUAS COLUNAS: CENA (esquerda) | LOGIN (direita)
+       ======================================================== */
+
+    .dragnix-login.login-page .login-layout {
+        position: relative;
+        z-index: 2;
+        display: grid;
+        grid-template-columns: minmax(0, 1.45fr) minmax(400px, .8fr);   /* largura: cena | login */
+        align-items: start;               /* painel e personagens começam logo abaixo do cabeçalho */
+        width: min(1320px, 100%);
+        margin: -14px auto 0;             /* SOBE o conjunto: mais negativo = mais para cima */
+        padding: 0 clamp(24px, 3vw, 56px) clamp(36px, 6vh, 72px);
+        min-height: min(760px, calc(100vh - 90px));
+    }
+
+    .dragnix-login.login-page .login-content {
+        grid-column: 2;
+        grid-row: 1;
+        align-items: flex-start;
+        justify-content: flex-end;
+        padding: 0;
+    }
+
+
+    /* ========================================================
+       [G3-PAINEL] — PAINEL ESCURO DO LOGIN
+       ======================================================== */
+
+    .dragnix-login.login-page .login-content-inner {
+        position: relative;
+        z-index: 2;
+        max-width: 500px;                 /* LARGURA do painel do login */
+        padding: 28px 32px 30px;
+        border-radius: 24px;
+        border: 1.5px solid var(--login-painel-borda);
+        background: var(--login-painel);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        box-shadow:
+            0 0 0 1px rgba(139, 63, 217, .18) inset,
+            0 0 36px rgba(139, 63, 217, .35),
+            0 30px 70px rgba(0, 0, 0, .55);
+    }
+
+    .dragnix-login.login-page .login-brand {
+        margin-bottom: 14px;
+    }
+
+    .dragnix-login.login-page .login-name-logo {
+        max-height: 84px;
+    }
+
+    .dragnix-login.login-page .login-form-heading h1 {
+        font-size: 38px;                  /* título "Bem-Vindo à DRAGNIX" */
+    }
+
+    .dragnix-login.login-page .login-form-heading h1 span {
+        font-size: 32px;
+    }
+
+    .dragnix-login.login-page .login-card {
+        padding: 22px;
+        box-shadow: none;
+    }
+
+
+    /* ========================================================
+       [G4-CENA] — COLUNA DA ESQUERDA (3D)
+       ======================================================== */
+
+    .login-cena {
+        position: relative;
+        z-index: 3;                       /* fica por cima do painel: é o que faz ultrapassar */
+        display: block;
+        grid-column: 1;
+        grid-row: 1;
+        align-self: stretch;
+        min-height: 520px;
+        perspective: 1100px;
+        pointer-events: none;             /* nunca bloqueia cliques no login */
+    }
+
+
+    /* ========================================================
+       [G5-PERSONAGENS] — OS PERSONAGENS ULTRAPASSAM O PAINEL
+       • width maior que 100% da coluna = invadem o painel do login
+       • left negativo = puxa para a esquerda
+       ======================================================== */
+
+    .login-cena__personagens {
+        position: absolute;
+        z-index: 2;
+        top: 0;                           /* POSIÇÃO: 0 = alinhado ao topo do painel; valor maior desce, negativo sobe */
+        left: -4%;
+        width: 110%;                      /* TAMANHO: aumente para ultrapassar mais o painel */
+        max-width: none;
+        height: auto;
+        user-select: none;
+        filter: drop-shadow(0 18px 24px rgba(0, 0, 0, .5));   /* só sombra escura, sem brilho roxo */
+        /* bordas suaves: some o corte reto da imagem (esquerda, direita e embaixo) */
+        -webkit-mask-image:
+            linear-gradient(90deg, transparent 0, #000 7%, #000 93%, transparent 100%),
+            linear-gradient(180deg, #000 82%, transparent 100%);
+        -webkit-mask-composite: source-in;
+        mask-image:
+            linear-gradient(90deg, transparent 0, #000 7%, #000 93%, transparent 100%),
+            linear-gradient(180deg, #000 78%, transparent 100%);
+        mask-composite: intersect;
+        transform-origin: 50% 90%;
+        transform:
+            translate3d(calc(var(--px, 0) * 16px), calc(var(--py, 0) * 9px), 0)
+            rotateY(calc(var(--px, 0) * 4deg))
+            rotateX(calc(var(--py, 0) * -2deg));
+        transition: transform .15s ease-out;
+        animation: login-cena-entrada .9s cubic-bezier(.2, .8, .2, 1) both;
+        will-change: transform;
+    }
+
+    @keyframes login-cena-entrada {
+        from { opacity: 0; translate: -40px 14px; }
+        to   { opacity: 1; translate: 0 0; }
+    }
+
+    /* o painel abre espaço no canto esquerdo para os personagens passarem por cima */
+    .dragnix-login.login-page .login-content-inner {
+        padding-left: 44px;
+    }
+}
+
+
+/* ############################################################
+   [TABLET] — 761px a 1050px  (e também o CELULAR, até 760px)
+   A imagem ocupa o topo da página, POR TRÁS da logo e do botão de
+   tema, e some suavemente na cor do fundo; o título fica por cima
+   do degradê e o formulário logo abaixo.
+   ############################################################ */
+
+@media (max-width: 1050px) {
+
+    .dragnix-login.login-page {
+        --login-hdr: 84px;                          /* altura do cabeçalho (logo + botão de tema) */
+        background: var(--login-fade);
+    }
+
+    /* ========================================================
+       [T1-FUNDO] — cabeçalho por cima da imagem
+       ======================================================== */
+
+    .dragnix-login.login-page::before,
+    .dragnix-login.login-page::after {
+        display: none;
+    }
+
+    .dragnix-login.login-page .site-header {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        z-index: 50;
+    }
+
+    .dragnix-login.login-page .login-layout {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+        padding: 0 0 24px;
+    }
+
+
+    /* ========================================================
+       [T2-TOPO] — GUILDA + PERSONAGENS (começa no topo da tela)
+       ======================================================== */
+
+    .login-cena {
+        position: relative;
+        display: block;
+        flex: none;
+        width: 100%;
+        height: calc(var(--login-hdr) + clamp(170px, 34vw, 300px));   /* ALTURA total da imagem (inclui o cabeçalho) */
+        overflow: hidden;
+        pointer-events: none;
+        background: var(--login-guilda-img) center 30% / cover no-repeat;
+    }
+
+    /* degradês: escurece atrás da logo/botão (topo) e some no fundo da página (base) */
+    .login-cena::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+            linear-gradient(180deg, color-mix(in srgb, var(--login-fade) 70%, transparent) 0, transparent calc(var(--login-hdr) + 20px)),
+            linear-gradient(180deg, transparent 35%, color-mix(in srgb, var(--login-fade) 80%, transparent) 72%, var(--login-fade) 100%);
+    }
+
+    .login-cena__personagens {
+        position: absolute;
+        z-index: 1;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        margin-inline: auto;                        /* centraliza */
+        width: auto;
+        height: auto;
+        max-width: 100%;
+        max-height: calc(100% - var(--login-hdr));  /* TAMANHO: ocupam só a parte abaixo do cabeçalho */
+        filter: drop-shadow(0 10px 18px rgba(0, 0, 0, .45));
+        /* bordas suaves (blur): esquerda, direita e base somem no fundo */
+        -webkit-mask-image:
+            linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%),
+            linear-gradient(180deg, #000 0, #000 60%, transparent 98%);
+        -webkit-mask-composite: source-in;
+        mask-image:
+            linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%),
+            linear-gradient(180deg, #000 0, #000 60%, transparent 98%);
+        mask-composite: intersect;
+    }
+
+
+    /* ========================================================
+       [T3-TITULO] — TÍTULO SOBRE O DEGRADÊ
+       ======================================================== */
+
+    .dragnix-login.login-page .login-content {
+        position: relative;
+        z-index: 2;
+        margin-top: -14px;                          /* quanto o título sobe sobre a imagem */
+        padding: 0 16px;
+        justify-content: center;
+    }
+
+    .dragnix-login.login-page .login-content-inner {
+        max-width: 480px;
+    }
+
+    /* [T3-TITULO] logo branca escondida em telas menores (sobe o formulário) */
+    .dragnix-login.login-page .login-name-logo {
+        display: none;
+    }
+
+    .dragnix-login.login-page .login-brand {
+        margin-bottom: 6px;
+    }
+
+    .dragnix-login.login-page .login-brand-description {
+        margin: 0 0 8px;
+        font-size: 14px;
+    }
+
+    .dragnix-login.login-page .login-form-heading {
+        text-align: center;
+    }
+
+    .dragnix-login.login-page .login-form-heading h1 {
+        font-size: clamp(26px, 6vw, 38px);
+    }
+
+    .dragnix-login.login-page .login-form-heading h1 span {
+        font-size: clamp(22px, 5vw, 32px);
+    }
+
+
+    /* ========================================================
+       [T4-FORMULARIO] — BLOCOS ARREDONDADOS
+       ======================================================== */
+
+    .dragnix-login.login-page .login-card {
+        border-radius: 20px;
+        box-shadow: none;
+        padding: 12px;                              /* TAMANHO do formulário: menor = mais compacto */
+    }
+
+    .dragnix-login.login-page .login-card input {
+        padding-top: 11px;
+        padding-bottom: 11px;
+        font-size: 15px;
+    }
+
+    .dragnix-login.login-page .login-card .btn,
+    .dragnix-login.login-page .login-tabs .btn {
+        padding-top: 11px;
+        padding-bottom: 11px;
+        font-size: 13px;
+    }
+
+    .dragnix-login.login-page .login-card .senha-box,
+    .dragnix-login.login-page .login-card input {
+        margin-bottom: 8px;
+    }
+}
+
+
+/* ------------------------------------------------------------
+   [TABLET] só o tablet (761px a 1050px): formulário um pouco mais largo
+   ------------------------------------------------------------ */
+
+@media (min-width: 761px) and (max-width: 1050px) {
+
+    .dragnix-login.login-page .login-content-inner {
+        max-width: 540px;
+    }
+}
+
+
+/* ############################################################
+   [CELULAR] — até 760px
+   (a base é a mesma do tablet; aqui só o que muda no celular)
+   ############################################################ */
+
+@media (max-width: 760px) {
+
+    .dragnix-login.login-page {
+        --login-hdr: 78px;
+    }
+
+    .login-cena {
+        height: calc(var(--login-hdr) + clamp(150px, 46vw, 230px));   /* ALTURA total da imagem */
+    }
+}
+
+
+/* ############################################################
+   [MOVIMENTO] — quem prefere menos animação
+   ############################################################ */
+
+@media (prefers-reduced-motion: reduce) {
+
+    .login-cena__personagens {
+        animation: none !important;
+        transition: none !important;
+        transform: none !important;
+    }
+}

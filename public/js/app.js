@@ -71,7 +71,21 @@ const normalizeLesson = lesson => ({
 // STATUS
 // ============================================================
 
+// Regras de negócio (GET /api/regras): % do XP ao refazer, custo das vidas...
+window.DGX_REGRAS = null;
+api('/regras').then(r => { window.DGX_REGRAS = r.regras; }).catch(() => {});
+
+// % do XP numa nova tentativa de um módulo já concluído N vezes
+const percentualRevisao = vezes => {
+  const rep = window.DGX_REGRAS?.xp?.repeticao || [50, 30, 20];
+  return vezes <= 1 ? rep[0] : vezes === 2 ? rep[1] : rep[2];
+};
+
 const setStats = d => {
+  if ($('lvl') && d.level_name) {
+    $('lvl').title = `Nível ${d.level} — ${d.level_name}`;
+  }
+
   if ($('xp')) {
     $('xp').innerHTML = icon('star') + ' ' + d.xp;
   }
@@ -120,7 +134,15 @@ window.addEventListener('unhandledrejection', e => {
 // ============================================================
 
 const refresh = () => {
-  return api('/tracks').then(setStats);
+  return api('/tracks').then(d => {
+    setStats(d);
+
+    if (Array.isArray(d.tracks)) {
+      window.TRACKS = d.tracks.map(normalizeTrack);
+    }
+
+    return d;
+  });
 };
 
 
@@ -206,12 +228,7 @@ async function challengeGet(trackId, force = false) {
 async function challengeOpen(trackId, challengeId) {
   if (challengeBusy) return;
 
-  challengeOverlay(`
-    <div class="student-challenge-loading">
-      ${icon('loader-circle')}
-      <p>Carregando desafio...</p>
-    </div>
-  `);
+  challengeOverlay((window.dgxCarregando ? window.dgxCarregando.html('Carregando desafio…') : '<p>Carregando desafio…</p>'));
 
   try {
     const challenges = await challengeGet(trackId, true);
@@ -1147,24 +1164,25 @@ async function home() {
   const tracks =
     arr(d.tracks).map(normalizeTrack);
 
-  console.log(
-    'TRILHAS RECEBIDAS:',
-    tracks
-  );
-
-  console.log(
-    'QUANTIDADE:',
-    tracks.length
-  );
-
   window.TRACKS =
     tracks;
+
+  // As avaliações começam a carregar JÁ, junto com os desafios
+  // (antes só começavam depois que todos os desafios chegavam)
+  const avaliacoesPromessa = api('/lessons/ratings');
+  avaliacoesPromessa.catch(() => {});
 
   
   // Carregar os desafios disponíveis sem bloquear
   // a exibição das trilhas em caso de erro.
   await Promise.all(
     tracks.map(async track => {
+      // Trilha bloqueada não tem desafio liberado: nem pergunta ao servidor
+      if (track.locked) {
+        track.challengeData = [];
+        return;
+      }
+
       try {
         track.challengeData = await challengeGet(track.id, true);
       } catch (error) {
@@ -1188,10 +1206,16 @@ async function home() {
   try {
 
     const ratingData =
-      await api('/lessons/ratings');
+      await avaliacoesPromessa;
 
     lessonRatings =
       arr(ratingData.ratings);
+
+    // Notas que este usuário já deu (módulos e trilhas)
+    window.MINHAS_NOTAS = {
+      lessons: ratingData.mine?.lessons || {},
+      tracks: ratingData.mine?.tracks || {}
+    };
 
   } catch (e) {
 
@@ -1418,579 +1442,256 @@ async function home() {
 
 
               // ==================================================
-              // CARD DA TRILHA
+              // CARD DA TRILHA  (visual em css/trilhas-mapa.css)
+              //
+              // Mapa dos módulos em linha do tempo:
+              //   feito    → círculo cheio com ✓
+              //   atual    → círculo maior, com brilho e "Começar/Continuar"
+              //   livre    → círculo com o número
+              //   bloq     → cinza com cadeado (abre o aviso)
+              // Apresentação, desafios, conclusão e avaliação aparecem como
+              // paradas especiais no mesmo caminho.
               // ==================================================
 
-              return `
+              const proximo = !t.locked && t.lessons.find(l => !l.done && !l.locked);
 
-                <div
-                  class="card"
-                  style="
-                    border-color:${c};
-                    opacity:${t.locked ? 0.65 : 1}
-                  "
+              const estadoDo = l =>
+                l.locked
+                  ? 'bloq'
+                  : l.done
+                    ? 'feito'
+                    : l === proximo
+                      ? 'atual'
+                      : 'livre';
+
+              const notaTrilha =
+                trackAverageRating !== null
+                  ? `${icon('star')} <b>${trackAverageRating}</b> / 5 · ${trackRatingCount} ${trackRatingCount === 1 ? 'avaliação' : 'avaliações'}`
+                  : `${icon('star')} Sem avaliações ainda`;
+
+              const parada = ({ tipo, rotulo, acao, simbolo, titulo, detalhe, extra = '' }) => `
+                <li class="trl__passo trl__passo--${tipo}">
+                  <button
+                    type="button"
+                    class="trl__no"
+                    aria-label="${rotulo}"
+                    onclick="${acao}"
+                    ${extra}
+                  >
+                    <span class="trl__circulo" aria-hidden="true">${simbolo}</span>
+                    <span class="trl__info">
+                      <b>${titulo}</b>
+                      ${detalhe ? `<small>${detalhe}</small>` : ''}
+                    </span>
+                  </button>
+                </li>
+              `;
+
+              return `
+                <article
+                  class="card trl${t.locked ? ' is-bloq' : ''}${allLessonsDone ? ' is-completa' : ''}"
+                  style="--trl-cor:${c}"
+                  aria-label="Trilha ${esc(t.title || '')}"
                 >
 
                   <!-- ==========================================
-                       TÍTULO DA TRILHA
+                       TOPO: ícone, nome, nota e anel de progresso
                   =========================================== -->
+                  <header class="trl__topo">
+                    <span class="trl__ico" aria-hidden="true">${iconeTrilha(t.icon)}</span>
 
-                  <h2>
+                    <div class="trl__titulo">
+                      <h2>${esc(t.title)}</h2>
+                      <p class="trl__nota">${notaTrilha}</p>
+                    </div>
 
-                    ${esc(
-                      t.icon ||
-                      '📚'
-                    )}
+                    <div
+                      class="trl__anel"
+                      role="img"
+                      aria-label="${pct}% da trilha concluída"
+                      style="--p:${pct}"
+                    >
+                      <span>${pct}%</span>
+                    </div>
+                  </header>
 
-                    ${esc(
-                      t.title
-                    )}
-
-                  </h2>
-
-
-                  <!-- ==========================================
-                       AVALIAÇÃO GERAL DA TRILHA
-                       FICA NO TOPO, ABAIXO DO NOME
-                  =========================================== -->
-
-                  ${
-                    trackAverageRating !== null
-
-                      ? `
-
-                        <div
-                          class="mut"
-                          style="
-                            margin-top:-8px;
-                            margin-bottom:12px;
-                            font-size:14px;
-                          "
-                        >
-
-                          ${icon('star')}
-
-                          <b>
-                            ${trackAverageRating}
-                          </b>
-
-                          / 5
-
-                          ·
-
-                          ${trackRatingCount}
-
-                          ${
-                            trackRatingCount === 1
-                              ? 'avaliação'
-                              : 'avaliações'
-                          }
-
-                        </div>
-
-                      `
-
-                      : `
-
-                        <div
-                          class="mut"
-                          style="
-                            margin-top:-8px;
-                            margin-bottom:12px;
-                            font-size:14px;
-                          "
-                        >
-
-                          ${icon('star')}
-                          Sem avaliações ainda
-
-                        </div>
-
-                      `
-                  }
-
-
-                  <!-- ==========================================
-                       DESCRIÇÃO
-                  =========================================== -->
-
-                  <p class="mut">
-
-                    ${esc(
-                      t.description ||
-                      ''
-                    )}
-
-                  </p>
-
-
-                  <!-- ==========================================
-                       TRILHA BLOQUEADA
-                  =========================================== -->
+                  ${t.description ? `<p class="trl__desc">${esc(t.description)}</p>` : ''}
 
                   ${
                     t.locked
-
                       ? `
-
-                        <p class="err">
-
-                          ${icon('lock')} Para liberar esta trilha,
-                          conclua antes:
-
-                          ${t.missing
-                            .map(esc)
-                            .join(', ')}
-
+                        <p class="trl__aviso">
+                          ${icon('lock')} Para liberar esta trilha, conclua antes:
+                          <b>${t.missing.map(esc).join(', ')}</b>
                         </p>
-
                       `
-
                       : ''
                   }
 
-
                   <!-- ==========================================
-                       PROGRESSO DA TRILHA
+                       PROGRESSO GERAL
                   =========================================== -->
-
-                  <div class="row">
-
-                    <small class="mut">
-
-                      ${n}/${t.lessons.length}
-
-                      módulos concluídos
-
-                    </small>
-
-
-                    <b
-                      style="
-                        color:${c}
-                      "
-                    >
-
-                      ${pct}%
-                      da trilha
-
-                    </b>
-
+                  <div class="trl__prog">
+                    <small>${n}/${t.lessons.length} módulos concluídos</small>
+                    ${
+                      proximo
+                        ? `<button type="button" class="trl__seguir" onclick="openLesson(${Number(proximo.id)})">
+                             ${n ? 'Continuar' : 'Começar'}: módulo ${t.lessons.indexOf(proximo) + 1} ${icon('arrow-right')}
+                           </button>`
+                        : allLessonsDone
+                          ? `<span class="trl__selo">${icon('badge-check')} Trilha concluída</span>`
+                          : ''
+                    }
                   </div>
 
-
-                  <!-- ==========================================
-                       BARRA DE PROGRESSO
-                  =========================================== -->
-
-                  <div class="bar">
-
-                    <div
-                      style="
-                        width:${pct}%;
-                        background:${c}
-                      "
-                    ></div>
-
+                  <div class="trl__barra" aria-hidden="true">
+                    <div style="width:${pct}%"></div>
                   </div>
 
-
                   <!-- ==========================================
-                       CAMINHO DA TRILHA
+                       MAPA DOS MÓDULOS
                   =========================================== -->
-
-                  <div class="path">
-
-
-                    <!-- ========================================
-                         APRESENTAÇÃO DA TRILHA
-                    ========================================= -->
+                  <ol class="trl__mapa" aria-label="Módulos da trilha ${esc(t.title || '')}">
 
                     ${
                       t.presentation.length
-
-                        ? `
-
-                          <div
-                            style="
-                              text-align:center
-                            "
-                          >
-
-                            <button
-                              class="node"
-                              style="
-                                background:${c}
-                              "
-                              onclick="${
-                                t.locked
-
-                                  ? `aviso(${t.id})`
-
-                                  : `showTrack(${t.id})`
-                              }"
-                            >
-
-                              ${icon('pin')}
-
-                            </button>
-
-
-                            <div class="mut">
-
-                              Apresentação
-
-                              <br>
-
-                              <small>
-                                da trilha
-                              </small>
-
-                            </div>
-
-                          </div>
-
-                        `
-
+                        ? parada({
+                            tipo: 'extra',
+                            rotulo: `Apresentação da trilha ${esc(t.title || '')}${t.locked ? ' (bloqueada)' : ''}`,
+                            acao: t.locked ? `aviso(${t.id})` : `showTrack(${t.id})`,
+                            simbolo: icon('pin'),
+                            titulo: 'Apresentação',
+                            detalhe: 'da trilha'
+                          })
                         : ''
                     }
 
-
-                    <!-- ========================================
-                         MÓDULOS
-                    ========================================= -->
-
                     ${
                       t.lessons
-                        .map(
-                          (
-                            l,
-                            i
-                          ) => `
+                        .map((l, i) => {
+                          const estado = estadoDo(l);
+                          const p = Math.max(0, Math.min(100, Number(l.pct) || 0));
+                          const nota =
+                            l.average_rating !== null && Number(l.rating_count) > 0
+                              ? ` · ${icon('star')} ${Number(l.average_rating).toFixed(1)}`
+                              : '';
 
-                            <div
-                              style="
-                                text-align:center;
-                                opacity:${
-                                  l.locked
-                                    ? 0.5
-                                    : 1
-                                }
-                              "
-                            >
-
-
-                              <!-- ==================================
-                                   BOTÃO DO MÓDULO
-                              =================================== -->
-
+                          return `
+                            <li class="trl__passo trl__passo--modulo is-${estado}">
                               <button
-                                class="node ${
-                                  l.done
-                                    ? 'done'
-                                    : ''
-                                }"
-                                style="${
-                                  l.done
-                                    ? ''
-                                    : 'background:' +
-                                      c
-                                }"
-                                onclick="${
-                                  l.locked
-
-                                    ? `aviso(${t.id})`
-
-                                    : `openLesson(${l.id})`
-                                }"
+                                type="button"
+                                class="trl__no"
+                                aria-label="Módulo ${i + 1}: ${esc(l.title || '')}${l.locked ? ' (bloqueado)' : l.done ? ' (concluído)' : estado === 'atual' ? ' (próximo a fazer)' : ''}"
+                                onclick="${l.locked ? `aviso(${t.id})` : `openLesson(${l.id})`}"
                               >
-
-                                ${
-                                  l.locked
-
-                                    ? icon('lock')
-
-                                    : l.done
-
-                                      ? icon('check')
-
-                                      : i + 1
-                                }
-
-                              </button>
-
-
-                              <!-- ==================================
-                                   INFORMAÇÕES DO MÓDULO
-                              =================================== -->
-
-                              <div class="mut">
-
-                                <b>
-                                  Módulo ${i + 1}
-                                </b>
-
-                                <br>
-
-
-                                ${esc(
-                                  l.title ||
-                                  ''
-                                )}
-
-
-                                <!-- ==================================
-                                     PROGRESSO DO MÓDULO
-                                =================================== -->
-
-                                <div class="mini">
-
-                                  <div
-                                    style="
-                                      width:${
-                                        Number(
-                                          l.pct
-                                        ) || 0
-                                      }%;
-                                      background:${c}
-                                    "
-                                  ></div>
-
-                                </div>
-
-
-                                <small>
-
-                                  <b>
-                                    ${
-                                      Number(
-                                        l.pct
-                                      ) || 0
-                                    }%
-                                  </b>
-
-                                  ·
-
-                                  +${
-                                    Number(
-                                      l.xp
-                                    ) || 0
+                                <span class="trl__circulo" aria-hidden="true">
+                                  ${
+                                    l.locked
+                                      ? icon('lock')
+                                      : l.done
+                                        ? icon('check')
+                                        : `<span class="trl__num">${i + 1}</span>`
                                   }
+                                </span>
 
-                                  XP
-
-                                </small>
-
-                              </div>
-
-                            </div>
-
-                          `
-                        )
+                                <span class="trl__info">
+                                  <span class="trl__rotulo">
+                                    Módulo ${i + 1}
+                                    ${estado === 'atual' ? `<em class="trl__agora">${p > 0 ? 'Continuar' : 'Começar'}</em>` : ''}
+                                  </span>
+                                  <b>${esc(l.title || '')}</b>
+                                  <span class="trl__mini" aria-hidden="true"><span style="width:${p}%"></span></span>
+                                  <small>${p}% · +${Number(l.xp) || 0} XP${nota}</small>
+                                </span>
+                              </button>
+                            </li>
+                          `;
+                        })
                         .join('')
                     }
-
 
                     <!-- ========================================
                          DESAFIOS
                     ========================================= -->
+                    ${
+                      Array.isArray(t.challengeData) && t.challengeData.length
+                        ? t.challengeData.map(challenge => {
+                            const challengeId = Number(challenge.id);
+                            const completed = Boolean(challenge.completed);
+                            const remaining = Number(challenge.remaining ?? 0);
+                            const active = Boolean(challenge.active);
 
-                                      
-                  ${
-                    Array.isArray(t.challengeData) &&
-                    t.challengeData.length
-                      ? t.challengeData.map(challenge => {
-                          const challengeId = Number(challenge.id);
-                          const completed = Boolean(challenge.completed);
-                          const remaining = Number(challenge.remaining ?? 0);
-                          const active = Boolean(challenge.active);
+                            const types = {
+                              tempo: { name: 'Contra o tempo', icon: 'zap' },
+                              precisao: { name: 'Precisão', icon: 'target' },
+                              quebra_cabeca: { name: 'Quebra-cabeça', icon: 'puzzle' },
+                              resistencia: { name: 'Resistência', icon: 'flame' }
+                            };
 
-                          const types = {
-                            tempo: {
-                              name: 'Contra o tempo',
-                              icon: 'zap'
-                            },
-                            precisao: {
-                              name: 'Precisão',
-                              icon: 'target'
-                            },
-                            quebra_cabeca: {
-                              name: 'Quebra-cabeça',
-                              icon: 'puzzle'
-                            },
-                            resistencia: {
-                              name: 'Resistência',
-                              icon: 'flame'
-                            }
-                          };
+                            const type = types[challenge.type] || { name: 'Desafio especial', icon: 'trophy' };
 
-                          const type = types[challenge.type] || {
-                            name: 'Desafio especial',
-                            icon: 'trophy'
-                          };
+                            const situacao = completed
+                              ? '🏆 Conquistado'
+                              : active
+                                ? '▶ Em andamento'
+                                : remaining > 0
+                                  ? `+${Number(challenge.xp_reward || 0).toLocaleString('pt-BR')} XP`
+                                  : '🔒 Tentativas esgotadas';
 
-                          return `
-                            <div class="student-challenge-node-wrap">
-                              <button
-                                type="button"
-                                class="node student-challenge-node
-                                  ${completed ? 'completed' : ''}"
-                                onclick="challengeOpen(
-                                  ${Number(t.id)},
-                                  ${challengeId}
-                                )"
-                                title="${esc(challenge.title)}"
-                                ${t.locked ? 'disabled' : ''}
-                              >
-                                ${icon(completed ? 'trophy' : type.icon)}
-                              </button>
-
-                              <div class="mut">
-                                <strong>
-                                    ${esc(challenge.title)}
-                                  </strong>
-
-                                  <br>
-
-                                  <small>
-                                    ${esc(type.name)}
-                                  </small>
-
-                                  <br>
-
-                                  <small>
-                                    ${
-                                      completed
-                                        ? '🏆 Conquistado'
-                                        : active
-                                          ? '▶ Em andamento'
-                                          : remaining > 0
-                                            ? `+${Number(challenge.xp_reward || 0)
-                                                .toLocaleString('pt-BR')} XP`
-                                            : '🔒 Tentativas esgotadas'
-                                    }
-                                  </small>
-                                </div>
-                              </div>
+                            return `
+                              <li class="trl__passo trl__passo--desafio${completed ? ' is-feito' : ''}">
+                                <button
+                                  type="button"
+                                  class="trl__no"
+                                  aria-label="Desafio ${esc(challenge.title)}: ${esc(type.name)}. ${esc(situacao)}"
+                                  onclick="challengeOpen(${Number(t.id)}, ${challengeId})"
+                                  title="${esc(challenge.title)}"
+                                  ${t.locked ? 'disabled' : ''}
+                                >
+                                  <span class="trl__circulo" aria-hidden="true">${icon(completed ? 'trophy' : type.icon)}</span>
+                                  <span class="trl__info">
+                                    <span class="trl__rotulo">Desafio · ${esc(type.name)}</span>
+                                    <b>${esc(challenge.title)}</b>
+                                    <small>${situacao}</small>
+                                  </span>
+                                </button>
+                              </li>
                             `;
                           }).join('')
                         : ''
                     }
 
-
-
                     <!-- ========================================
-                         CONCLUSÃO DA TRILHA
-                         APARECE SOMENTE EM 100%
+                         CONCLUSÃO E AVALIAÇÃO (SOMENTE EM 100%)
                     ========================================= -->
-
                     ${
-                      allLessonsDone &&
-                      t.conclusion.length
-
-                        ? `
-
-                          <div
-                            style="
-                              text-align:center
-                            "
-                          >
-
-                            <button
-                              class="node"
-                              style="
-                                background:${c}
-                              "
-                              onclick="
-                                showTrackConclusion(
-                                  ${t.id}
-                                )
-                              "
-                            >
-
-                              ${icon('flag')}
-
-                            </button>
-
-
-                            <div class="mut">
-
-                              Conclusão
-
-                              <br>
-
-                              <small>
-                                da trilha
-                              </small>
-
-                            </div>
-
-                          </div>
-
-                        `
-
+                      allLessonsDone && t.conclusion.length
+                        ? parada({
+                            tipo: 'extra',
+                            rotulo: `Conclusão da trilha ${esc(t.title || '')}`,
+                            acao: `showTrackConclusion(${t.id})`,
+                            simbolo: icon('flag'),
+                            titulo: 'Conclusão',
+                            detalhe: 'da trilha'
+                          })
                         : ''
                     }
 
-
-                    <!-- ========================================
-                         AVALIAÇÃO DA TRILHA
-                         APARECE SOMENTE EM 100%
-                    ========================================= -->
-
                     ${
-                      allLessonsDone &&
-                      t.evaluation_question
-
-                        ? `
-
-                          <div
-                            style="
-                              text-align:center
-                            "
-                          >
-
-                            <button
-                              class="node"
-                              style="
-                                background:${c}
-                              "
-                              onclick="
-                                showTrackEvaluation(
-                                  ${t.id}
-                                )
-                              "
-                            >
-
-                              ${icon('square-pen')}
-
-                            </button>
-
-
-                            <div class="mut">
-
-                              Avaliação
-
-                              <br>
-
-                              <small>
-                                da trilha
-                              </small>
-
-                            </div>
-
-                          </div>
-
-                        `
-
+                      allLessonsDone && t.evaluation_question
+                        ? parada({
+                            tipo: 'extra',
+                            rotulo: `Avaliar a trilha ${esc(t.title || '')}`,
+                            acao: `showTrackEvaluation(${t.id})`,
+                            simbolo: icon('square-pen'),
+                            titulo: 'Avaliação',
+                            detalhe: 'da trilha'
+                          })
                         : ''
                     }
 
-
-                  </div>
-
-                </div>
-
+                  </ol>
+                </article>
               `;
 
             }
@@ -2057,7 +1758,7 @@ function showTrackConclusion(id) {
       </button>
 
       <h2 style="margin-top:20px">
-        ${esc(track.icon || '📚')}
+        ${iconeTrilha(track.icon)}
         ${esc(track.title)}
       </h2>
 
@@ -2151,7 +1852,7 @@ function showTrackEvaluation(id) {
       </button>
 
       <h2 style="margin-top:20px">
-        ${esc(track.icon || '📚')}
+        ${iconeTrilha(track.icon)}
         ${esc(track.title)}
       </h2>
 
@@ -2311,6 +2012,23 @@ function showTrackEvaluation(id) {
     }
   );
 
+
+  // Já avaliou antes: a nota aparece marcada e pode ser trocada
+  const notaAnterior =
+    Number(window.MINHAS_NOTAS?.tracks?.[id]) || 0;
+
+  if (notaAnterior) {
+    ratingButtons.forEach(b => {
+      if (Number(b.dataset.rating) === notaAnterior) b.click();
+    });
+
+    selected.innerHTML =
+      `Sua nota atual: ${notaAnterior} ${icon('star')} · escolha outra para mudar`;
+
+    button.innerHTML =
+      icon('send') + ' Atualizar avaliação';
+  }
+
   // ----------------------------------------------------------
   // ENVIO
   // ----------------------------------------------------------
@@ -2348,6 +2066,11 @@ function showTrackEvaluation(id) {
               selectedRating
           }
         );
+
+        // guarda a nota para mostrar da próxima vez
+        if (window.MINHAS_NOTAS) {
+          window.MINHAS_NOTAS.tracks[id] = selectedRating;
+        }
 
         msg.innerHTML =
           icon('circle-check') + ' Avaliação enviada com sucesso!';
@@ -2424,6 +2147,23 @@ function showTrack(id) {
     t.lessons.length > 0 &&
     t.lessons.every(l => l.done);
 
+  // Atalho: abre direto o próximo módulo a fazer
+  const proximoModulo = !t.locked && t.lessons.find(l => !l.done && !l.locked);
+  const numeroProximo = proximoModulo ? t.lessons.indexOf(proximoModulo) + 1 : 0;
+
+  const continuarHtml = proximoModulo
+    ? `
+      <button
+        class="btn"
+        onclick="openLesson(${Number(proximoModulo.id)})"
+        style="margin-right:8px"
+      >
+        ${t.lessons.some(l => l.done) ? 'Continuar' : 'Começar'}:
+        módulo ${numeroProximo} ${icon('arrow-right')}
+      </button>
+    `
+    : '';
+
   main.innerHTML = `
     <button
       class="link"
@@ -2433,7 +2173,7 @@ function showTrack(id) {
     </button>
 
     <h2>
-      ${esc(t.icon || '📚')}
+      ${iconeTrilha(t.icon)}
       ${esc(t.title)}
     </h2>
 
@@ -2497,25 +2237,21 @@ function showTrack(id) {
                       )}
                     </p>
 
-                    <textarea
-                        id="trackEvaluation"
-                        rows="5"
-                        placeholder="Digite sua avaliação..."
-                      ></textarea>
+                    ${
+                      window.MINHAS_NOTAS?.tracks?.[t.id]
+                        ? `<p class="mut">${icon('star')} Sua nota: <b>${Number(window.MINHAS_NOTAS.tracks[t.id])} de 5</b></p>`
+                        : ''
+                    }
 
-                      <button
-                        class="btn"
-                        id="sendTrackEvaluation"
-                        style="margin-top:10px"
-                      >
-                        ${icon('send')} Enviar avaliação
-                      </button>
-
-                      <div
-                        id="trackEvaluationMsg"
-                        class="mut"
-                        style="margin-top:8px"
-                      ></div>
+                    <button
+                      class="btn"
+                      type="button"
+                      onclick="showTrackEvaluation(${Number(t.id)})"
+                      style="margin-top:10px"
+                    >
+                      ${icon('star')}
+                      ${window.MINHAS_NOTAS?.tracks?.[t.id] ? 'Mudar minha nota' : 'Avaliar com estrelas'}
+                    </button>
                   </div>
                 `
                 : ''
@@ -2525,8 +2261,12 @@ function showTrack(id) {
         : ''
     }
 
+    ${
+      continuarHtml
+    }
+
     <button
-      class="btn"
+      class="btn${continuarHtml ? ' sec' : ''}"
       onclick="home()"
     >
       ${
@@ -2537,76 +2277,6 @@ function showTrack(id) {
     </button>
   `;
 
-const sendTrackEvaluation =
-  document.getElementById(
-    'sendTrackEvaluation'
-  );
-
-if (sendTrackEvaluation) {
-
-  sendTrackEvaluation.onclick =
-    async () => {
-
-      const field =
-        document.getElementById(
-          'trackEvaluation'
-        );
-
-      const msg =
-        document.getElementById(
-          'trackEvaluationMsg'
-        );
-
-      const answer =
-        field.value.trim();
-
-      if (!answer) {
-        msg.innerHTML =
-          icon('triangle-alert') + ' Escreva sua avaliação antes de enviar.';
-        return;
-      }
-
-      sendTrackEvaluation.disabled =
-        true;
-
-      sendTrackEvaluation.textContent =
-        'Enviando...';
-
-      try {
-
-        await api(
-          `/tracks/${id}/evaluation`,
-          'POST',
-          {
-            answer
-          }
-        );
-
-        msg.innerHTML =
-          icon('circle-check') + ' Avaliação da trilha enviada com sucesso!';
-
-        field.disabled = true;
-
-        sendTrackEvaluation.innerHTML =
-          icon('circle-check') + ' Avaliação enviada';
-
-      } catch (e) {
-
-        msg.innerHTML =
-          icon('circle-x') + ' ' +
-          esc(
-            e.message ||
-            'Não foi possível enviar a avaliação.'
-          );
-
-        sendTrackEvaluation.disabled =
-          false;
-
-        sendTrackEvaluation.innerHTML =
-          icon('send') + ' Enviar avaliação';
-      }
-    };
-}
 }
 
 // ============================================================
@@ -2614,48 +2284,22 @@ if (sendTrackEvaluation) {
 // ============================================================
 
 async function rank() {
+  // Ranking da semana com o banner do ganhador (js/ranking-semana.js)
+  if (window.dgxRankingSemana) {
+    return window.dgxRankingSemana.montar(main);
+  }
+
+  // reserva: lista simples (se o js/ranking-semana.js não carregar)
   const r = await api('/ranking');
 
   main.innerHTML =
     '<h2>' + icon('trophy') + ' Ranking</h2>' +
-
-    (
-      r.map(
-        (u, n) => `
-          <div
-            class="card row"
-            ${
-              u.me
-                ? 'style="border-color:var(--g)"'
-                : ''
-            }
-          >
-
-            <span>
-              ${n + 1}º
-              ${avatarHtml(u, 'sm')}
-              ${esc(u.name)}
-
-              <small class="mut">
-                Nv ${u.level}
-              </small>
-            </span>
-
-            <span>
-              ${icon('star')} ${u.xp}
-              · ${icon('flame')} ${u.streak}
-            </span>
-
-          </div>
-        `
-      ).join('') ||
-
-      `
-        <p class="mut">
-          Ainda não há alunos no ranking.
-        </p>
-      `
-    );
+    (r.map((u, n) => `
+      <div class="card row"${u.me ? ' style="border-color:var(--g)"' : ''}>
+        <span>${n + 1}º ${avatarHtml(u, 'sm')} ${esc(u.name)} <small class="mut">Nv ${u.level}</small></span>
+        <span>${icon('star')} ${u.xp} · ${icon('flame')} ${u.streak}</span>
+      </div>
+    `).join('') || '<p class="mut">Ainda não há alunos no ranking.</p>');
 }
 
 // ============================================================
@@ -2686,6 +2330,10 @@ function updateProfileUser(user) {
     ...current,
     ...user
   }));
+
+  // Atualiza na hora o nome e a foto do cabeçalho (js/profile.js)
+  // e o card do perfil (js/shell-extra.js).
+  document.dispatchEvent(new CustomEvent('dgx:perfil-mudou'));
 }
 
 // ALTERAR NOME
@@ -2833,7 +2481,7 @@ async function toggleAvatarGallery() {
   }
 
   gallery.style.display = 'block';
-  gallery.textContent = 'Carregando avatares...';
+  gallery.innerHTML = (window.dgxCarregando ? window.dgxCarregando.html('Carregando avatares…', { compacto: true }) : '<p>Carregando avatares…</p>');
 
   try {
     const result = await api('/avatars');
@@ -2917,7 +2565,7 @@ function profileBadgeIcon(b) {
 
   return lucide.includes(b.icon)
     ? icon(b.icon)
-    : esc(b.icon || '🏆');
+    : (conquistaImagem(b.icon, b.name) || esc(b.icon || '🏆'));
 }
 
 function profileLocalToday() {
@@ -2969,7 +2617,8 @@ async function profile() {
     { icon: 'flag',        value: p.tracks,  label: 'Trilhas',       cls: 'tracks' }
   ];
 
-  const canBuyHearts = Number(p.coins) >= 30;
+  const custoVidas = Number(p.refillCost ?? 30);
+  const canBuyHearts = Number(p.coins) >= custoVidas;
 
   // ---------- Tela ----------
 
@@ -2990,7 +2639,7 @@ async function profile() {
 
           <span
             class="pf-level-chip"
-            title="Nível ${p.level}"
+            title="Nível ${p.level}${p.level_name ? ' — ' + esc(p.level_name) : ''}"
           >
             ${icon('medal')} Nv ${p.level}
           </span>
@@ -3112,7 +2761,7 @@ async function profile() {
         <div class="pf-level">
 
           <div class="pf-level-top">
-            <strong>Nível ${p.level}</strong>
+            <strong>Nível ${p.level}${p.level_name ? ' · ' + esc(p.level_name) : ''}</strong>
             <span class="mut">
               ${p.xp} / ${p.nextXp} XP
             </span>
@@ -3165,7 +2814,7 @@ async function profile() {
       <div class="pf-shop-text">
         <strong>Recarregar vidas</strong>
         <small class="mut">
-          Troque 30 moedas por vidas e continue estudando.
+          Troque ${custoVidas} moedas por vidas e continue estudando.
         </small>
       </div>
 
@@ -3177,10 +2826,10 @@ async function profile() {
         title="${
           canBuyHearts
             ? 'Recarregar vidas'
-            : 'Você precisa de 30 moedas'
+            : `Você precisa de ${custoVidas} moedas`
         }"
       >
-        30 ${icon('coins')}
+        ${custoVidas} ${icon('coins')}
       </button>
 
     </div>
@@ -3407,7 +3056,7 @@ async function badges() {
                   'medal', 'star', 'gem', 'award'
                 ].includes(b.icon)
                   ? icon(b.icon)
-                  : esc(b.icon || '🏆')
+                  : (conquistaImagem(b.icon, b.name) || esc(b.icon || '🏆'))
               }
               </span>
 
@@ -3735,7 +3384,7 @@ function preencher(q, onCheck) {
 
   box.innerHTML = `
     <input
-      id="fa"
+      id="fa" aria-label="Sua resposta"
       placeholder="Digite sua resposta"
       autocomplete="off"
     >
@@ -3920,6 +3569,76 @@ function block(b) {
 }
 
 // ==========================================================
+// NAVEGAÇÃO ENTRE MÓDULOS E PARTES DA EXPLICAÇÃO
+// ==========================================================
+
+// Onde o módulo está dentro da trilha (anterior / próximo)
+function moduloVizinhos(lesson) {
+  // A resposta de /lessons/:id não traz o track_id: procura a trilha
+  // que contém este módulo.
+  const t = arr(window.TRACKS).find(
+    x => Number(x.id) === Number(lesson.track_id) ||
+      arr(x.lessons).some(l => Number(l.id) === Number(lesson.id))
+  );
+
+  if (!t) return null;
+
+  const lessons = arr(t.lessons);
+  const idx = lessons.findIndex(l => Number(l.id) === Number(lesson.id));
+
+  if (idx < 0) return null;
+
+  return {
+    track: t,
+    idx,
+    total: lessons.length,
+    prev: lessons[idx - 1] || null,
+    next: lessons[idx + 1] || null
+  };
+}
+
+// Divide a explicação em partes: cada texto abre uma parte nova
+// e as imagens/vídeos ficam junto do texto que vem antes deles.
+function explicacaoPaginas(content) {
+  const paginas = [];
+
+  arr(content).forEach(b => {
+    const atual = paginas[paginas.length - 1];
+    const ehTexto = b && b.type === 'texto';
+
+    if (!atual || (ehTexto && atual.some(x => x && x.type === 'texto'))) {
+      paginas.push([b]);
+    } else {
+      atual.push(b);
+    }
+  });
+
+  return paginas;
+}
+
+// Setas ← → do teclado passam as partes da explicação
+document.addEventListener('keydown', e => {
+  if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+  if (!main) return;
+
+  const t = e.target;
+
+  if (t && t.closest && t.closest('input, textarea, select, [contenteditable="true"], .student-challenge-overlay')) {
+    return;
+  }
+
+  const alvo =
+    e.key === 'ArrowRight' ? main.querySelector('[data-lexp="prox"]') :
+    e.key === 'ArrowLeft' ? main.querySelector('[data-lexp="ant"]') :
+    null;
+
+  if (alvo && !alvo.disabled) {
+    e.preventDefault();
+    alvo.click();
+  }
+});
+
+// ==========================================================
 // ABRIR LIÇÃO
 // ==========================================================
 
@@ -3948,39 +3667,165 @@ async function openLesson(id) {
 
 
   // ========================================================
+  // NAVEGAÇÃO DO MÓDULO (etapas, partes e módulos vizinhos)
+  // ========================================================
+
+  const ctx = moduloVizinhos(lesson);
+  const paginas = explicacaoPaginas(lesson.content);
+
+  let tela = '';                 // etapa aberta agora
+  let paginaExp = 0;             // parte da explicação aberta
+  let pendente = false;          // resposta corrigida esperando "Continuar"
+  let respondidas = 0;           // perguntas respondidas nesta tentativa
+  let liberouQuestoes = !lesson.content.length;
+
+  const etapas = [
+    { id: 'apresentacao', nome: 'Apresentação' },
+    ...(lesson.content.length ? [{ id: 'explicacao', nome: 'Explicação' }] : []),
+    ...(lesson.questions.length ? [{ id: 'questoes', nome: 'Questões' }] : [])
+  ];
+
+  const navTopo = () => {
+    const atual = etapas.findIndex(e => e.id === tela);
+
+    return `
+      <nav class="lnav" aria-label="Navegação do módulo">
+
+        <div class="lnav__linha">
+
+          <button type="button" class="lnav__sair" data-lnav="sair">
+            ${icon('arrow-left')} Trilhas
+          </button>
+
+          <span class="lnav__onde">
+            ${
+              ctx
+                ? `${iconeTrilha(ctx.track.icon)} ${esc(ctx.track.title || '')}
+                   <b>· Módulo ${ctx.idx + 1} de ${ctx.total}</b>`
+                : esc(lesson.title || 'Módulo')
+            }
+          </span>
+
+        </div>
+
+        <ol class="lnav__etapas">
+          ${etapas.map((e, n) => {
+            const travada = e.id === 'questoes' && !liberouQuestoes;
+
+            return `
+              <li>
+                <button
+                  type="button"
+                  data-lnav="${e.id}"
+                  class="lnav__etapa${n === atual ? ' is-on' : ''}${n < atual ? ' is-feito' : ''}"
+                  ${n === atual ? 'aria-current="step"' : ''}
+                  ${travada ? 'disabled title="Leia a explicação até o fim para liberar"' : ''}
+                >
+                  <span class="lnav__num">
+                    ${travada ? icon('lock') : n < atual ? icon('check') : n + 1}
+                  </span>
+                  <span class="lnav__nome">${e.nome}</span>
+                </button>
+              </li>
+            `;
+          }).join('')}
+        </ol>
+
+      </nav>
+    `;
+  };
+
+  // Botões "módulo anterior / próximo módulo"
+  const navModulos = () => {
+    if (!ctx || (!ctx.prev && !ctx.next)) return '';
+
+    const lado = (l, dir) => {
+      if (!l) return '<span></span>';
+
+      const n = ctx.track.lessons.indexOf(l) + 1;
+      const travado = !!l.locked;
+
+      return `
+        <button
+          type="button"
+          class="lnav-mod lnav-mod--${dir}"
+          data-lmod="${l.id}"
+          ${travado ? 'disabled title="Conclua este módulo para liberar o próximo"' : ''}
+        >
+          ${dir === 'ant' ? icon('chevron-left') : ''}
+          <span>
+            <small>${dir === 'ant' ? 'Módulo anterior' : 'Próximo módulo'}</small>
+            <b>${travado ? icon('lock') + ' ' : ''}${n}. ${esc(l.title || '')}</b>
+          </span>
+          ${dir === 'prox' ? icon('chevron-right') : ''}
+        </button>
+      `;
+    };
+
+    return `
+      <div class="lnav-mods">
+        ${lado(ctx.prev, 'ant')}
+        ${lado(ctx.next, 'prox')}
+      </div>
+    `;
+  };
+
+  // Liga os botões da navegação depois de cada tela
+  const ligarNav = () => {
+    window.scrollTo(0, 0);
+
+    main.querySelectorAll('[data-lnav]').forEach(b => {
+      b.onclick = () => {
+        const alvo = b.dataset.lnav;
+
+        if (alvo === 'sair') {
+          if (
+            respondidas > 0 &&
+            i < lesson.questions.length &&
+            !confirm('Sair do módulo agora? As respostas desta tentativa não serão salvas.')
+          ) {
+            return;
+          }
+
+          return home();
+        }
+
+        // Com uma resposta corrigida na tela, primeiro "Continuar"
+        if (pendente || alvo === tela) return;
+
+        if (alvo === 'apresentacao') presentation();
+        else if (alvo === 'explicacao') explain(paginaExp);
+        else if (alvo === 'questoes' && liberouQuestoes) step();
+      };
+    });
+
+    main.querySelectorAll('[data-lmod]').forEach(b => {
+      b.onclick = () => openLesson(Number(b.dataset.lmod));
+    });
+  };
+
+  const travarNav = () => {
+    main.querySelectorAll('.lnav__etapa').forEach(b => {
+      b.disabled = true;
+    });
+  };
+
+
+  // ========================================================
   // APRESENTAÇÃO DO MÓDULO
   // ========================================================
 
   const presentation = () => {
 
+    tela = 'apresentacao';
+
     main.innerHTML = `
 
-      <button
-        class="link"
-        onclick="home()"
-      >
-        ${icon('x')} Sair
-      </button>
+      ${navTopo()}
 
       <div class="card">
 
-        <div class="steps">
-
-          <span class="pill on">
-            ${icon('book-open')} Apresentação
-          </span>
-
-          <span class="pill">
-            ${icon('lightbulb')} Explicação
-          </span>
-
-          <span class="pill">
-            ${icon('square-pen')} Questões
-          </span>
-
-        </div>
-
-        <h1>
+        <h1 role="heading" aria-level="2">
           ${esc(lesson.title || 'Módulo')}
         </h1>
 
@@ -4001,9 +3846,7 @@ async function openLesson(id) {
               Você já concluiu este conteúdo anteriormente.
               Nesta tentativa, receberá apenas
               <strong>${
-                (lesson.completionCount || 1) === 1 ? 50 :
-                (lesson.completionCount || 1) === 2 ? 30 :
-                20
+                percentualRevisao(lesson.completionCount || 1)
               }% do XP calculado.</strong>
             </p>
 
@@ -4056,20 +3899,24 @@ async function openLesson(id) {
         >
           ${
             lesson.content.length
-              ? 'Começar explicação ' + icon('arrow-right')
+              ? (paginaExp > 0 || liberouQuestoes ? 'Continuar explicação ' : 'Começar explicação ') + icon('arrow-right')
               : 'Começar módulo ' + icon('arrow-right')
           }
         </button>
 
       </div>
 
+      ${navModulos()}
+
     `;
+
+    ligarNav();
 
     $('go0').onclick = () => {
 
       if (lesson.content.length) {
 
-        explain();
+        explain(paginaExp);
 
       } else if (lesson.questions.length) {
 
@@ -4090,7 +3937,7 @@ async function openLesson(id) {
   // EXPLICAÇÃO / CONTEÚDO
   // ========================================================
 
-  const explain = () => {
+  const explain = (p = 0) => {
 
     if (!lesson.content.length) {
 
@@ -4104,61 +3951,116 @@ async function openLesson(id) {
 
     }
 
+    const total = paginas.length;
+
+    paginaExp = Math.max(0, Math.min(Number(p) || 0, total - 1));
+
+    const ultima = paginaExp === total - 1;
+
+    if (ultima) liberouQuestoes = true;
+
+    tela = 'explicacao';
+
+    const textoFim = lesson.questions.length
+      ? (i > 0 ? 'Voltar às questões ' : 'Ir para as questões ')
+      : 'Concluir módulo ';
+
     main.innerHTML = `
 
-      <button
-        class="link"
-        onclick="home()"
-      >
-        ${icon('x')} Sair
-      </button>
+      ${navTopo()}
 
-      <div class="steps">
+      <div class="card lexp">
 
-        <span class="pill">
-          ${icon('book-open')} Apresentação
-        </span>
+        <div class="lexp__topo">
 
-        <span class="pill on">
-          ${icon('lightbulb')} Explicação
-        </span>
+          <h2>
+            ${icon('lightbulb')} Explicação
+          </h2>
 
-        <span class="pill">
-          ${icon('square-pen')} Questões
-        </span>
+          ${total > 1 ? `<span class="lexp__parte">Parte ${paginaExp + 1} de ${total}</span>` : ''}
 
-      </div>
-
-      <div class="card">
-
-        <h2>
-          ${icon('lightbulb')} Explicação
-        </h2>
+        </div>
 
         ${
-          lesson.content
-            .map(block)
-            .join('')
+          total > 1
+            ? `<div class="lexp__barra" aria-hidden="true"><div style="width:${((paginaExp + 1) / total) * 100}%"></div></div>`
+            : ''
+        }
+
+        <div class="lesson-content lexp__conteudo">
+          ${paginas[paginaExp].map(block).join('')}
+        </div>
+
+        ${
+          total > 1
+            ? `
+              <div class="lexp__pontos" role="group" aria-label="Partes da explicação">
+                ${paginas.map((_, n) => `
+                  <button
+                    type="button"
+                    data-lexp-pag="${n}"
+                    class="${n === paginaExp ? 'is-on' : ''}${n < paginaExp ? ' is-feito' : ''}"
+                    aria-label="Parte ${n + 1} de ${total}"
+                    ${n === paginaExp ? 'aria-current="step"' : ''}
+                  ></button>
+                `).join('')}
+              </div>
+            `
+            : ''
         }
 
       </div>
 
-      <button
-        id="go"
-        class="btn"
-      >
-        ${
-          lesson.questions.length
-            ? 'Ir para as questões ' + icon('arrow-right')
-            : 'Concluir módulo ' + icon('arrow-right')
-        }
-      </button>
+      <div class="lexp__acoes">
+
+        <button type="button" class="btn sec" data-lexp="ant">
+          ${icon('arrow-left')} ${paginaExp === 0 ? 'Apresentação' : 'Parte anterior'}
+        </button>
+
+        <button
+          id="go"
+          type="button"
+          class="btn"
+          data-lexp="${ultima ? 'fim' : 'prox'}"
+        >
+          ${ultima ? textoFim : 'Próxima parte '}${icon('arrow-right')}
+        </button>
+
+      </div>
+
+      ${total > 1 ? '<p class="lexp__dica mut">Dica: use as setas ← e → do teclado para passar as partes.</p>' : ''}
 
     `;
 
+    ligarNav();
+
+    main.querySelector('[data-lexp="ant"]').onclick = () => {
+
+      if (paginaExp === 0) {
+
+        presentation();
+
+      } else {
+
+        explain(paginaExp - 1);
+
+      }
+
+    };
+
+    main.querySelectorAll('[data-lexp-pag]').forEach(b => {
+
+      b.onclick = () => explain(Number(b.dataset.lexpPag));
+
+    });
+
     $('go').onclick = () => {
 
-      if (lesson.questions.length) {
+      if (!ultima) {
+
+        explain(paginaExp + 1);
+
+      } else if (lesson.questions.length) {
 
         step();
 
@@ -4195,14 +4097,13 @@ async function openLesson(id) {
       lesson.questions[i];
 
 
+    tela = 'questoes';
+    pendente = false;
+    liberouQuestoes = true;
+
     main.innerHTML = `
 
-      <button
-        class="link"
-        onclick="home()"
-      >
-        ${icon('x')} Sair
-      </button>
+      ${navTopo()}
 
       <div class="row">
 
@@ -4249,19 +4150,6 @@ async function openLesson(id) {
 
       </div>
 
-      <div class="steps">
-
-        <span class="pill">
-          ${icon('book-open')} Explicação
-        </span>
-
-        <span class="pill on">
-          ${icon('square-pen')} Pergunta
-          ${i + 1}/${lesson.questions.length}
-        </span>
-
-      </div>
-
       ${
         lesson.content.length
           ? `
@@ -4290,9 +4178,11 @@ async function openLesson(id) {
 
       <div id="body"></div>
 
-      <div id="fb"></div>
+      <div id="fb" role="status" aria-live="polite"></div>
 
     `;
+
+    ligarNav();
 
 
     // ======================================================
@@ -4356,6 +4246,11 @@ async function openLesson(id) {
       // ====================================================
       // FEEDBACK
       // ====================================================
+
+      // Resposta corrigida: as etapas travam até clicar em "Continuar"
+      pendente = true;
+      respondidas++;
+      travarNav();
 
       $('fb').innerHTML = `
 
@@ -4679,8 +4574,38 @@ const finish = async (lessonId, lesson) => {
     return home();
   }
 
-  // Atualiza estatísticas
-  refresh();
+  // Atualiza estatísticas (e a lista de módulos, para liberar o próximo)
+  await refresh().catch(() => {});
+
+  const vizinhos = moduloVizinhos(lesson);
+  let proximoHtml = '';
+
+  if (vizinhos && vizinhos.next && !vizinhos.next.locked) {
+    proximoHtml = `
+      <button
+        class="btn"
+        onclick="openLesson(${Number(vizinhos.next.id)})"
+        style="width:100%;margin-top:16px;"
+      >
+        Próximo módulo: ${esc(vizinhos.next.title || 'Módulo ' + (vizinhos.idx + 2))} ${icon('arrow-right')}
+      </button>
+    `;
+  } else if (
+    vizinhos &&
+    !vizinhos.next &&
+    vizinhos.track.lessons.every(l => l.done) &&
+    vizinhos.track.conclusion.length
+  ) {
+    proximoHtml = `
+      <button
+        class="btn"
+        onclick="showTrack(${Number(vizinhos.track.id)})"
+        style="width:100%;margin-top:16px;"
+      >
+        ${icon('flag')} Ver a conclusão da trilha
+      </button>
+    `;
+  }
 
   // ========================================================
   // TELA DE CONCLUSÃO
@@ -4794,7 +4719,7 @@ ${
                   'medal', 'star', 'gem', 'award'
                 ].includes(b.icon)
                   ? icon(b.icon)
-                  : esc(b.icon || '🏆')
+                  : (conquistaImagem(b.icon, b.name) || esc(b.icon || '🏆'))
               }
 
                 <b>
@@ -4964,12 +4889,14 @@ ${
     <!-- VOLTAR -->
     <!-- ================================================== -->
 
+    ${proximoHtml}
+
     <button
-      class="btn"
+      class="btn${proximoHtml ? ' sec' : ''}"
       onclick="home()"
       style="
         width:100%;
-        margin-top:16px;
+        margin-top:${proximoHtml ? '10px' : '16px'};
       "
     >
       Voltar às trilhas
@@ -5063,6 +4990,23 @@ ${
   );
 
 
+
+  // Já avaliou antes: a nota aparece marcada e pode ser trocada
+  const notaAnterior =
+    Number(window.MINHAS_NOTAS?.lessons?.[lessonId]) || 0;
+
+  if (notaAnterior) {
+    ratingButtons.forEach(b => {
+      if (Number(b.dataset.rating) === notaAnterior) b.click();
+    });
+
+    selected.innerHTML =
+      `Sua nota atual: ${notaAnterior} ${icon('star')} · escolha outra para mudar`;
+
+    sendButton.innerHTML =
+      icon('send') + ' Atualizar avaliação';
+  }
+
   // ========================================================
   // ENVIAR AVALIAÇÃO
   // ========================================================
@@ -5102,6 +5046,11 @@ ${
               selectedRating
           }
         );
+
+        // guarda a nota para mostrar da próxima vez
+        if (window.MINHAS_NOTAS) {
+          window.MINHAS_NOTAS.lessons[lessonId] = selectedRating;
+        }
 
         msg.innerHTML =
           icon('circle-check') + ' Avaliação enviada com sucesso!';
@@ -5397,12 +5346,15 @@ async function gastos(m) {
           GM,
           -1
         )}')"
+        aria-label="Mês anterior"
+        title="Mês anterior"
       >
         ${icon('arrow-left')}
       </button>
 
       <input
         type="month"
+        aria-label="Mês dos lançamentos"
         value="${GM}"
         style="width:auto"
         onchange="gastos(this.value)"
@@ -5414,6 +5366,8 @@ async function gastos(m) {
           GM,
           1
         )}')"
+        aria-label="Próximo mês"
+        title="Próximo mês"
       >
         ${icon('arrow-right')}
       </button>
@@ -5484,6 +5438,7 @@ async function gastos(m) {
 
       <select
         id="lk"
+        aria-label="Tipo de lançamento"
         onchange="catsLanc()"
       >
         <option value="gasto">
@@ -5495,21 +5450,24 @@ async function gastos(m) {
         </option>
       </select>
 
-      <select id="lc"></select>
+      <select id="lc" aria-label="Categoria"></select>
 
       <input
         id="ld"
+        aria-label="Descrição (opcional)"
         placeholder="Descrição (opcional)"
       >
 
       <input
         id="lv"
+        aria-label="Valor em reais"
         inputmode="decimal"
         placeholder="Valor (R$)"
       >
 
       <input
         id="ldia"
+        aria-label="Data do lançamento"
         type="date"
         value="${dia}"
       >
@@ -5634,6 +5592,8 @@ async function gastos(m) {
                 <button
                   class="btn sm red"
                   onclick="delLanc(${e.id})"
+                  aria-label="Excluir lançamento"
+                  title="Excluir lançamento"
                 >
                   ${icon('x')}
                 </button>
@@ -5742,6 +5702,7 @@ function addRow(
 
         <input
           placeholder="Descrição"
+          aria-label="Descrição"
           value="${esc(nome)}"
         >
 
@@ -5750,12 +5711,15 @@ function addRow(
           min="0"
           step="0.01"
           placeholder="R$ por mês"
+          aria-label="Valor por mês em reais"
           value="${esc(valor)}"
         >
 
         <button
           class="btn sm red"
           onclick="this.parentNode.remove()"
+          aria-label="Remover linha"
+          title="Remover linha"
         >
           ${icon('x')}
         </button>
@@ -6697,6 +6661,8 @@ function doubtBubble(m, reply) {
                  class="btn sm red"
                  style="margin-left:auto"
                  onclick="delDoubt(${m.id})"
+                 aria-label="Excluir mensagem"
+                 title="Excluir mensagem"
                >${icon('trash-2')}</button>`
             : ''
         }
@@ -6711,8 +6677,7 @@ function doubtBubble(m, reply) {
 }
 
 async function doubts() {
-  main.innerHTML =
-    '<div class="card"><p class="mut">Carregando dúvidas…</p></div>';
+  main.innerHTML = (window.dgxCarregando ? window.dgxCarregando.html('Carregando dúvidas…') : '<p>Carregando dúvidas…</p>');
 
   let data;
 
@@ -6741,9 +6706,36 @@ async function doubts() {
     )
     .join('');
 
+  // Abas: "Assistente com IA" (js/assistente.js) e "Perguntar a um professor".
+  // Aluno começa na IA; professor/adm começa nas dúvidas dos alunos.
+  const temAssistente = !!window.dgxAssistente;
+  const pendentes = list.filter(d => !d.answered).length;
+  const aba = temAssistente ? (doubtsAba || (staffUser ? 'prof' : 'ia')) : 'prof';
+
   main.innerHTML = `
+    ${temAssistente ? `
+    <div class="dv-abas" role="tablist" aria-label="Formas de tirar dúvidas">
+      <button type="button" class="dv-aba" role="tab" id="dvAbaIa" aria-controls="dvPainelIa"
+        aria-selected="${aba === 'ia'}" tabindex="${aba === 'ia' ? 0 : -1}" onclick="dvTrocarAba('ia')">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+        Nix · Assistente IA
+      </button>
+      <button type="button" class="dv-aba" role="tab" id="dvAbaProf" aria-controls="dvPainelProf"
+        aria-selected="${aba === 'prof'}" tabindex="${aba === 'prof' ? 0 : -1}" onclick="dvTrocarAba('prof')">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z"/><path d="M22 10v6"/><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5"/></svg>
+        ${staffUser ? 'Dúvidas dos alunos' : 'Fórum de dúvidas'}
+        ${staffUser && pendentes ? `<span class="dv-aba__qtd" aria-label="${pendentes} sem resposta">${pendentes}</span>` : ''}
+      </button>
+    </div>
+
+    <section id="dvPainelIa" role="tabpanel" aria-labelledby="dvAbaIa" ${aba === 'ia' ? '' : 'hidden'}>
+      <div id="dgxAssistente"></div>
+    </section>
+    ` : ''}
+
+    <section id="dvPainelProf" ${temAssistente ? 'role="tabpanel" aria-labelledby="dvAbaProf"' : ''} ${aba === 'prof' ? '' : 'hidden'}>
     <div class="card">
-      <h2>${icon('message-square')} Painel de dúvidas</h2>
+      <h2>${icon('message-square')} ${staffUser ? 'Dúvidas dos alunos' : 'Fórum de dúvidas'}</h2>
       <p class="mut">
         ${
           staffUser
@@ -6754,6 +6746,7 @@ async function doubts() {
 
       <textarea
         id="doubtText"
+        aria-label="Sua dúvida"
         maxlength="1000"
         rows="3"
         placeholder="Escreva sua dúvida…"
@@ -6761,7 +6754,7 @@ async function doubts() {
       ></textarea>
 
       <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-        <select id="doubtTrack" style="width:auto">
+        <select id="doubtTrack" style="width:auto" aria-label="Trilha da dúvida">
           <option value="">Sem trilha específica</option>
           ${trackOptions}
         </select>
@@ -6771,7 +6764,7 @@ async function doubts() {
     </div>
 
     <div class="card" style="margin-top:12px">
-      <label class="mut">Filtrar por trilha:</label>
+      <label class="mut" for="doubtFilter">Filtrar por trilha:</label>
       <select id="doubtFilter" style="width:auto" onchange="filterDoubts(this.value)">
         <option value="">Todas</option>
         ${trackOptions}
@@ -6797,6 +6790,7 @@ async function doubts() {
               ? `<div style="display:flex;gap:8px;margin-top:10px">
                    <input
                      id="reply-${d.id}"
+                     aria-label="${staffUser ? 'Responder à dúvida' : 'Adicionar mensagem à dúvida'}"
                      maxlength="1000"
                      placeholder="${staffUser ? 'Responder…' : 'Adicionar mensagem…'}"
                      style="flex:1"
@@ -6810,6 +6804,7 @@ async function doubts() {
             .join('')
         : '<div class="card" style="margin-top:12px"><p class="mut">Nenhuma dúvida por aqui ainda.</p></div>'
     }
+    </section>
 
     <button class="btn" onclick="home()" style="width:100%;margin-top:16px">
       Voltar às trilhas
@@ -6821,6 +6816,59 @@ async function doubts() {
   if (filter) {
     filter.value = doubtsTrackFilter;
   }
+
+  // Assistente com IA: "Perguntar a um professor" leva a dúvida para a outra aba
+  if (temAssistente) {
+    window.dgxAssistente.montar(document.getElementById('dgxAssistente'), {
+      aoPerguntarProfessor: texto => {
+        dvTrocarAba('prof');
+        const campo = document.getElementById('doubtText');
+        if (campo) {
+          campo.value = texto;
+          campo.scrollIntoView({ block: 'center' });
+          campo.focus();
+        }
+      }
+    });
+
+    // setas do teclado trocam de aba (padrão de abas acessíveis)
+    document.querySelector('.dv-abas')?.addEventListener('keydown', e => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      const proxima = doubtsAba === 'ia' ? 'prof' : 'ia';
+      dvTrocarAba(proxima);
+      document.getElementById(proxima === 'ia' ? 'dvAbaIa' : 'dvAbaProf')?.focus();
+    });
+  }
+
+  doubtsAba = aba;
+}
+
+// Troca de aba sem recarregar (a conversa com a IA continua na tela)
+let doubtsAba = null;
+
+// Atalho para o Nix (app.html#nix, menu "Minha área" e comando de voz "Nix"):
+// abre a tela de Dúvidas já na aba do assistente, com o cursor no campo
+async function nix() {
+  doubtsAba = 'ia';
+  await doubts();
+  dvTrocarAba('ia');
+  document.querySelector('.dv-abas')?.scrollIntoView({ block: 'start' });
+  document.getElementById('asCampo')?.focus({ preventScroll: true });
+}
+
+function dvTrocarAba(aba) {
+  doubtsAba = aba;
+  const ia = aba === 'ia';
+
+  document.getElementById('dvPainelIa')?.toggleAttribute('hidden', !ia);
+  document.getElementById('dvPainelProf')?.toggleAttribute('hidden', ia);
+
+  [['dvAbaIa', ia], ['dvAbaProf', !ia]].forEach(([id, ligado]) => {
+    const botao = document.getElementById(id);
+    if (!botao) return;
+    botao.setAttribute('aria-selected', String(ligado));
+    botao.tabIndex = ligado ? 0 : -1;
+  });
 }
 
 function filterDoubts(value) {
@@ -6935,7 +6983,7 @@ async function delDoubt(id) {
     const target = NAV_FOR[viewName];
 
     document
-      .querySelectorAll('.app-navigation-main .app-nav-button')
+      .querySelectorAll('[data-app-nav]')
       .forEach(button => {
         const isCurrent =
           button.getAttribute('onclick') === target + '()';
@@ -6948,7 +6996,61 @@ async function delDoubt(id) {
           button.removeAttribute('aria-current');
         }
       });
+
+    // Título do topo da página acompanha a tela aberta.
+    const info = VIEW_INFO[target];
+
+    if (info) {
+      const titulo = document.getElementById('appTitulo');
+      const subtitulo = document.getElementById('appSubtitulo');
+
+      if (titulo) titulo.textContent = info.titulo;
+      if (subtitulo) subtitulo.textContent = info.sub;
+
+      document.title = info.titulo + ' | Dragnix';
+    }
   }
+
+  // Título, subtítulo e texto da tela de carregamento de cada área.
+  const VIEW_INFO = {
+    home: {
+      titulo: 'Minhas trilhas',
+      sub: 'Continue seus estudos e aprenda novos conteúdos.',
+      carregando: 'Carregando suas trilhas…'
+    },
+    badges: {
+      titulo: 'Conquistas',
+      sub: 'Veja suas conquistas e tudo que já desbloqueou.',
+      carregando: 'Carregando conquistas…'
+    },
+    profile: {
+      titulo: 'Meu perfil',
+      sub: 'Edite seu nome e sua foto e acompanhe seu progresso.',
+      carregando: 'Carregando seu perfil…'
+    },
+    rank: {
+      titulo: 'Ranking',
+      sub: 'Compare seu desempenho com outros alunos.',
+      carregando: 'Carregando ranking…'
+    },
+    doubts: {
+      titulo: 'Dúvidas',
+      sub: 'Pergunte ao Nix, nosso assistente com IA, ou no Fórum de dúvidas.',
+      carregando: 'Carregando dúvidas…'
+    },
+    gestao: {
+      titulo: 'Gestão financeira',
+      sub: 'Ferramentas para organizar e planejar o seu dinheiro.',
+      carregando: 'Carregando…'
+    }
+  };
+
+  // Textos da tela de carregamento das telas que não estão no menu.
+  const LOADING_TEXT = {
+    showTrack: 'Carregando a trilha…',
+    openLesson: 'Carregando o módulo…',
+    gastos: 'Carregando seus gastos…'
+  };
 
   const sameEntry = (a, b) => {
     if (!a || !b || a.name !== b.name) return false;
@@ -6976,6 +7078,64 @@ async function delDoubt(id) {
     }
   }
 
+  // O endereço acompanha a tela aberta (app.html#ranking, #perfil...).
+  // Antes ele ficava com a tela anterior: depois de abrir o perfil por
+  // app.html#perfil e ir para o Ranking, recarregar a página (F5, voltar do
+  // navegador) reabria o perfil. replaceState não cria entrada no histórico.
+  const HASH_DA_TELA = {
+    badges: 'conquistas',
+    profile: 'perfil',
+    rank: 'ranking',
+    doubts: 'duvidas',
+    gestao: 'gestao'
+  };
+
+  function marcarEndereco(name, args) {
+    let hash = HASH_DA_TELA[name] || '';
+
+    if (name === 'showTrack' && Number(args[0]) > 0) {
+      hash = 'trilha-' + Number(args[0]);
+    }
+
+    const atual = window.location.hash.replace(/^#/, '');
+
+    if (atual === hash) return;
+
+    try {
+      history.replaceState(
+        history.state,
+        '',
+        window.location.pathname + window.location.search + (hash ? '#' + hash : '')
+      );
+    } catch {
+      // sem permissão para mudar o endereço: segue sem marcar
+    }
+  }
+
+  // Região invisível que o leitor de tela lê quando a tela muda
+  const anuncio = document.createElement('div');
+  anuncio.className = 'a11y-anuncio';
+  anuncio.setAttribute('role', 'status');
+  anuncio.setAttribute('aria-live', 'polite');
+  anuncio.style.cssText =
+    'position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;' +
+    'overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap';
+  document.body.appendChild(anuncio);
+
+  function anunciarTela() {
+    const titulo =
+      main.querySelector('h1, h2')?.textContent.trim().replace(/\s+/g, ' ') ||
+      document.getElementById('appTitulo')?.textContent.trim() ||
+      document.title;
+
+    anuncio.textContent = '';
+
+    // pequena pausa: alguns leitores ignoram a mesma frase repetida
+    setTimeout(() => {
+      anuncio.textContent = 'Tela aberta: ' + titulo;
+    }, 120);
+  }
+
   function wrap(name, transient) {
     const original = window[name];
 
@@ -6989,15 +7149,59 @@ async function delDoubt(id) {
       }
 
       setActiveNav(name);
+      marcarEndereco(name, args);
 
-      return original.apply(this, args);
+      const texto =
+        LOADING_TEXT[name] ||
+        VIEW_INFO[NAV_FOR[name]]?.carregando ||
+        'Carregando…';
+
+      // Enquanto a tela busca dados no banco, a tela anterior some na hora
+      // e a mini-tela de carregamento fica no lugar (js/carregando.js).
+      const result = window.dgxCarregando?.trocar
+        ? window.dgxCarregando.trocar(main, texto, () => original.apply(this, args))
+        : original.apply(this, args);
+
+      Promise.resolve(result).then(anunciarTela, () => {});
+
+      return result;
     };
   }
 
   VIEWS.forEach(name => wrap(name, false));
   LESSON_VIEWS.forEach(name => wrap(name, true));
 
+  // Entrou no app vindo de outra página do site (ex.: Ranking pelo menu
+  // da página inicial): o Voltar também aparece e leva de volta para ela.
+  const VEIO_DE_FORA = (() => {
+    try {
+      const ref = new URL(document.referrer);
+      return ref.origin === location.origin && ref.pathname !== location.pathname;
+    } catch {
+      return false;
+    }
+  })();
+
   window.goBack = function () {
+    // Primeira tela aberta no app: volta para a página anterior do site
+    // ou, se abriu direto, para Minhas trilhas.
+    if (stack.length <= 1) {
+      const atual = stack[stack.length - 1];
+
+      if (VEIO_DE_FORA && history.length > 1) {
+        history.back();
+        return;
+      }
+
+      if (atual && atual.name !== 'home') {
+        stack.length = 0;
+        return window.home ? window.home() : undefined;
+      }
+
+      window.location.href = 'pag-inicial.html';
+      return;
+    }
+
     // Descarta a tela atual e as lições que ficaram para trás.
     stack.pop();
 
@@ -7013,6 +7217,7 @@ async function delDoubt(id) {
 
     replaying = true;
     setActiveNav(target.name);
+    marcarEndereco(target.name, target.args);
 
     try {
       return originals[target.name](...target.args);
@@ -7049,18 +7254,31 @@ backButton.addEventListener('click', () => {
   window.goBack();
 });
 
+// Botões "← Voltar" antigos no topo de algumas telas (trilha, gestão
+// financeira): com o Voltar geral visível eles ficariam repetidos lado a lado.
+function botoesAntigosDoTopo() {
+  const titulo = main.querySelector('h1, h2');
+  return [...main.querySelectorAll('button.link')].filter(b =>
+    b.querySelector('[data-lucide="arrow-left"], .lucide-arrow-left') &&
+    (!titulo || (b.compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING))
+  );
+}
+
 function syncBackButton() {
   const current = stack[stack.length - 1];
 
+  // aparece com histórico dentro do app, ao entrar vindo de outra página,
+  // ou ao abrir direto uma tela que não é a de Minhas trilhas
   const show =
-    stack.length > 1 &&
     !!current &&
-    !current.transient;
+    !current.transient &&
+    (stack.length > 1 || VEIO_DE_FORA || current.name !== 'home');
 
   if (show) {
     if (main.firstElementChild !== backButton) {
       main.prepend(backButton);
     }
+    botoesAntigosDoTopo().forEach(b => { b.hidden = true; });
   } else if (backButton.parentNode === main) {
     backButton.remove();
   }
@@ -7076,4 +7294,81 @@ function syncBackButton() {
 // INICIALIZAÇÃO
 // ============================================================
 
-home();
+// Inicialização da área do aluno
+// Atalhos por endereço: app.html#conquistas, #perfil, #ranking, #duvidas, #nix, #gestao
+const APP_HASH_VIEWS = {
+  nix: 'nix',
+  conquistas: 'badges',
+  perfil: 'profile',
+  ranking: 'rank',
+  duvidas: 'doubts',
+  gestao: 'gestao'
+};
+
+// Já dentro do app.html: o link "Editar perfil" do cabeçalho só troca o #hash.
+// app.html#trilha-ID abre a apresentação da trilha (atalho do painel de gestão)
+const abrirTrilhaPorHash = () => {
+  const m = window.location.hash.match(/^#trilha-(\d+)$/);
+
+  if (!m) return false;
+
+  const id = Number(m[1]);
+
+  if ((window.TRACKS || []).some(t => Number(t.id) === id)) {
+    showTrack(id);
+  }
+
+  return true;
+};
+
+window.addEventListener('hashchange', () => {
+  if (abrirTrilhaPorHash()) return;
+
+  const view = APP_HASH_VIEWS[window.location.hash.slice(1)];
+
+  if (view && typeof window[view] === 'function') {
+    window[view]();
+  }
+});
+
+// Endereço de entrada (ex.: app.html#ranking), guardado antes de abrir Trilhas,
+// que marca o próprio endereço
+const HASH_INICIAL = window.location.hash;
+
+// Endereço pedindo uma tela (ex.: app.html#perfil, vindo do "Editar perfil"):
+// abre DIRETO essa tela, com a mini-tela dela, em vez de mostrar
+// "Carregando suas trilhas…" antes. Os números do topo (nível, moedas...)
+// e a lista de trilhas carregam em segundo plano.
+const VIEW_INICIAL = APP_HASH_VIEWS[HASH_INICIAL.slice(1)];
+const ABRE_LICAO = new URLSearchParams(window.location.search).has('lesson');
+
+if (VIEW_INICIAL && !ABRE_LICAO && typeof window[VIEW_INICIAL] === 'function') {
+  window[VIEW_INICIAL]();
+  refresh().catch(() => {});
+} else Promise.resolve(home()).then(async () => {
+  if (HASH_INICIAL && window.location.hash !== HASH_INICIAL) {
+    history.replaceState(history.state, '', window.location.pathname + window.location.search + HASH_INICIAL);
+  }
+
+  abrirTrilhaPorHash();
+
+  const view = APP_HASH_VIEWS[window.location.hash.slice(1)];
+
+  if (view && typeof window[view] === 'function') {
+    window[view]();
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const lessonId = params.get('lesson');
+
+  if (!lessonId || !/^[1-9]\d*$/.test(lessonId)) return;
+
+  try {
+    await openLesson(Number(lessonId));
+
+    // Remove o parâmetro da URL após a tentativa de abertura
+    window.history.replaceState(null, '', window.location.pathname);
+  } catch (error) {
+    console.error('Erro ao abrir a lição:', error);
+  }
+});

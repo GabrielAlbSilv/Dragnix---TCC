@@ -1,0 +1,1907 @@
+/* ============================================================
+   DRAGNIX — css/controle.css  (PÁGINA CONTROLE FINANCEIRO)
+   ============================================================
+
+   Esta página usa a MESMA base da página inicial:
+     css/style.css          → cores dos temas claro/escuro (global)
+     css/login-modern.css   → cabeçalho, menu lateral, rodapé
+     css/PagInicial.css     → menu horizontal, perfil, layout ao lado do menu
+     css/shell-extra.css    → submenus, card do perfil, chat de dúvidas
+     css/controle.css       → só o que é EXCLUSIVO desta página (este arquivo)
+
+   COMO PROCURAR: use Ctrl+F e digite o código entre colchetes.
+   Para ver só um aparelho, procure [DESKTOP], [TABLET] ou [CELULAR].
+
+   ORDEM DO ARQUIVO
+   ----------------
+   [DESKTOP]           padrão: vale para TODAS as telas
+     [CF-BASE]           variáveis e container da página
+     [CF-TOPO]           título, pesquisa por data e abas
+     [CF-CALENDARIO]     calendário que abre e fecha
+     [CF-CARD]           aparência comum dos cards (escuros, com brilho)
+     [CF-RESUMO]         saldo, receitas e gastos
+     [CF-GRAFICOS]       gráfico de linhas e gráfico de pizza
+     [CF-HISTORICO]      lista dos lançamentos
+     [CF-FERRAMENTAS]    simulador, reserva de emergência e regra 50/30/20
+   [TABLET]            até 900px
+   [CELULAR]           até 600px
+   [CELULAR-PEQUENO]   até 420px
+   ============================================================ */
+
+
+/* ############################################################
+   [DESKTOP] — PADRÃO (vale para todas as telas)
+   ############################################################ */
+
+/* ============================================================
+   [CF-BASE] — VARIÁVEIS E CONTAINER
+   ============================================================ */
+
+.dragnix-page .layout > .container.cf-main {
+    max-width: 1240px;                    /* largura máxima do conteúdo desta página */
+    padding-bottom: 8px;
+}
+
+.cf-ico {
+    flex: none;
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.cf-view[hidden] {
+    display: none;
+}
+
+/* cores do tema para os botões roxos (as mesmas do menu do topo) */
+.dragnix-page {
+    --cf-roxo: #7A36B3;
+    --cf-roxo-hover: #8d46c9;
+}
+
+html[data-theme="dark"] .dragnix-page {
+    --cf-roxo: #3b1d6e;
+    --cf-roxo-hover: #4c2788;
+}
+
+
+/* ============================================================
+   [CF-TOPO] — TÍTULO, PESQUISA POR DATA E ABAS
+   ============================================================ */
+
+.cf-topo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 20px;
+    margin-bottom: clamp(20px, 2.6vw, 34px);   /* [CF-ESPACO-TITULO] espaço entre o título e o conteúdo: aumente/diminua aqui */
+}
+
+.cf-topo__titulo h1 {
+    margin: 0;
+    font-size: clamp(1.6rem, 2.4vw, 2.3rem);
+    font-weight: 800;
+    line-height: 1.15;
+    color: var(--theme-text-title);       /* cor em cada tema: style.css */
+}
+
+.cf-topo__titulo p {
+    margin: 4px 0 0;
+    font-size: 1rem;
+    color: var(--ttts);
+}
+
+.cf-topo__acoes {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+}
+
+.cf-topo__acoes[hidden] {
+    display: none;
+}
+
+/* botão "Pesquisa por data" (caixa arredondada com a bolinha do ícone) */
+.cf-data {
+    position: relative;
+}
+
+.cf-pill {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 250px;
+    padding: 4px 16px 4px 4px;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-weight: 600;
+    color: #fff;
+    background: var(--cf-roxo);
+    cursor: pointer;
+    transition: background .2s, transform .2s;
+}
+
+.cf-pill:hover,
+.cf-pill:focus-visible,
+.cf-pill[aria-expanded="true"] {
+    background: var(--cf-roxo-hover);
+    transform: translateY(-2px);
+}
+
+.cf-pill__icone {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 40px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    color: #1b1b1b;
+    background: #e3e3e3;
+}
+
+.cf-pill__txt {
+    flex: 1;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.cf-pill__seta {
+    transition: transform .2s;
+}
+
+.cf-pill[aria-expanded="true"] .cf-pill__seta {
+    transform: rotate(180deg);
+}
+
+/* abas das ferramentas */
+.cf-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: clamp(1rem, 2vw, 1.5rem) 0;
+}
+
+.cf-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 18px;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    font-size: .92rem;
+    font-weight: 700;
+    text-decoration: none;
+    color: #fff;
+    background: var(--cf-roxo);
+    transition: background .2s, transform .2s;
+}
+
+.cf-tab:hover,
+.cf-tab:focus-visible {
+    background: var(--cf-roxo-hover);
+    transform: translateY(-2px);
+}
+
+.cf-tab[aria-current="page"] {
+    color: #2a1250;
+    background: #fff;
+    border-color: #b57cf5;
+}
+
+
+/* ============================================================
+   [CF-CALENDARIO] — CALENDÁRIO DA PESQUISA POR DATA
+   ============================================================ */
+
+.cf-cal {
+    --card-glow: #8b3fd9;
+
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    z-index: 60;
+    width: min(330px, calc(100vw - 32px));
+    padding: 14px;
+    border-radius: 20px;
+    color: #fff;
+    border: 1.5px solid color-mix(in srgb, var(--card-glow) 75%, transparent);
+    background: linear-gradient(165deg, color-mix(in srgb, var(--card-glow) 18%, #0b0e0d), #07090a);
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .45), 0 0 26px color-mix(in srgb, var(--card-glow) 34%, transparent);
+}
+
+.cf-cal[hidden] {
+    display: none;
+}
+
+.cf-cal__cab {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.cf-cal__mes {
+    font-weight: 800;
+}
+
+.cf-cal__grade {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 3px;
+}
+
+.cf-cal__sem {
+    padding: 4px 0;
+    font-size: .72rem;
+    font-weight: 700;
+    text-align: center;
+    color: rgba(255, 255, 255, .6);
+}
+
+.cf-dia {
+    position: relative;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
+    padding: 0;
+    border: 1.5px solid transparent;
+    border-radius: 10px;
+    font: inherit;
+    font-size: .88rem;
+    font-weight: 600;
+    color: #fff;
+    background: transparent;
+    cursor: pointer;
+}
+
+.cf-dia:hover,
+.cf-dia:focus-visible {
+    background: rgba(255, 255, 255, .16);
+    outline: none;
+}
+
+.cf-dia--vazio {
+    visibility: hidden;
+}
+
+.cf-dia--hoje {
+    border-color: rgba(255, 255, 255, .75);
+}
+
+.cf-dia--tem::after {                     /* bolinha: dia com lançamentos */
+    content: "";
+    position: absolute;
+    bottom: 4px;
+    left: 50%;
+    width: 5px;
+    height: 5px;
+    margin-left: -2.5px;
+    border-radius: 50%;
+    background: #4ade80;
+}
+
+.cf-dia[aria-pressed="true"] {
+    color: #2a1250;
+    background: #fff;
+}
+
+.cf-dia[aria-pressed="true"]::after {
+    background: #2a1250;
+}
+
+.cf-cal__rodape {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+
+/* ============================================================
+   [CF-CARD] — APARÊNCIA COMUM (escuros nos dois temas, como a PagInicial)
+   --card-glow = cor do brilho/borda | --serie-a / --serie-b = cores dos gráficos
+   ============================================================ */
+
+.cf-demo {
+    margin: 0 0 12px;
+    padding: 8px 14px;
+    border-radius: 12px;
+    font-size: .85rem;
+    color: var(--ttts);
+    border: 1px dashed var(--theme-border);
+}
+
+.cf-demo[hidden] {
+    display: none;
+}
+
+.cf-painel {
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);   /* largura: esquerda | direita */
+    gap: clamp(12px, 1.6vw, 20px);
+    padding: clamp(12px, 1.6vw, 20px);
+    border-radius: var(--r-lg);
+    background: var(--theme-surface);
+    border: 1px solid var(--theme-border);
+}
+
+.cf-painel--ferr {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.cf-col {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(12px, 1.6vw, 20px);
+    min-width: 0;
+}
+
+.cf-card {
+    --card-glow: #03a721;                 /* verde */
+    --serie-a: #4ade80;                   /* receita / valor acumulado */
+    --serie-b: #ff8a8a;                   /* gastos */
+
+    position: relative;
+    min-width: 0;
+    padding: clamp(14px, 1.6vw, 20px);
+    border-radius: var(--r-lg);
+    color: #fff;
+    border: 1.5px solid color-mix(in srgb, var(--card-glow) 75%, transparent);
+    background:
+        radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--card-glow) 30%, transparent), transparent 60%),
+        linear-gradient(165deg, color-mix(in srgb, var(--card-glow) 16%, #0b0e0d), color-mix(in srgb, var(--card-glow) 6%, #07090a));
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--card-glow) 18%, transparent) inset,
+        0 0 22px color-mix(in srgb, var(--card-glow) 32%, transparent);
+}
+
+.cf-card--roxo {
+    --card-glow: #8b3fd9;
+}
+
+.cf-card h2 {
+    margin: 0;
+    font-size: clamp(1.05rem, 1.4vw, 1.25rem);
+    font-weight: 800;
+    color: #fff;
+}
+
+.cf-card__cab {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.cf-dica {
+    margin: 10px 0 0;
+    font-size: .8rem;
+    color: rgba(255, 255, 255, .65);
+}
+
+/* campos de formulário dentro dos cards escuros */
+.cf-card input,
+.cf-card select {
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1.5px solid rgba(255, 255, 255, .22);
+    border-radius: 12px;
+    font: inherit;
+    color: #fff;
+    background: rgba(255, 255, 255, .08);
+    color-scheme: dark;
+}
+
+.cf-card input::placeholder {
+    color: rgba(255, 255, 255, .45);
+}
+
+.cf-card input:focus,
+.cf-card select:focus {
+    outline: none;
+    border-color: #b57cf5;
+}
+
+.cf-card select option {
+    color: #fff;
+    background: #16121f;
+}
+
+.cf-seta,
+.cf-mini-btn,
+.cf-link,
+.cf-chip,
+.cf-mais {
+    font: inherit;
+    cursor: pointer;
+}
+
+.cf-seta {
+    display: grid;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: #fff;
+    background: rgba(255, 255, 255, .13);
+}
+
+.cf-seta:hover:not(:disabled),
+.cf-seta:focus-visible {
+    background: rgba(255, 255, 255, .26);
+}
+
+.cf-seta:disabled {
+    opacity: .35;
+    cursor: default;
+}
+
+.cf-mini-btn {
+    padding: 6px 12px;
+    border: 1px solid rgba(255, 255, 255, .28);
+    border-radius: 999px;
+    font-size: .8rem;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(255, 255, 255, .08);
+}
+
+.cf-mini-btn:hover,
+.cf-mini-btn[aria-pressed="true"] {
+    background: rgba(255, 255, 255, .22);
+}
+
+.cf-link {
+    align-self: flex-start;
+    padding: 4px 0;
+    border: 0;
+    font-size: .85rem;
+    font-weight: 700;
+    color: #d6b8ff;
+    background: none;
+}
+
+.cf-link:hover {
+    text-decoration: underline;
+}
+
+
+/* ============================================================
+   [CF-RESUMO] — SALDO, RECEITAS E GASTOS
+   ============================================================ */
+
+.cf-resumo__topo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px clamp(12px, 1.6vw, 18px);
+}
+
+.cf-icone {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: clamp(50px, 5vw, 64px);
+    aspect-ratio: 1;
+    border-radius: 50%;
+    color: #1b1b1b;
+    background: #e3e3e3;
+}
+
+.cf-icone .cf-ico {
+    width: 55%;
+    height: 55%;
+}
+
+.cf-resumo__saldo {
+    flex: 1 1 170px;
+    min-width: 0;
+}
+
+.cf-rotulo {
+    margin: 0;
+    font-size: 1rem;
+    color: rgba(255, 255, 255, .8);
+}
+
+.cf-saldo {
+    display: block;
+    font-size: clamp(1.4rem, 2.2vw, 2rem);
+    font-weight: 800;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.cf-indicador {
+    display: inline-flex;
+    margin-left: auto;
+    align-items: center;
+    gap: 6px;
+    flex: none;
+    padding: 6px 12px;
+    border-radius: 10px;
+    font-size: .85rem;
+    font-weight: 800;
+    color: #fff;
+    background: #1b1b1b;
+}
+
+.cf-indicador:empty {
+    display: none;
+}
+
+.cf-indicador.is-pos { color: #4ade80; }
+.cf-indicador.is-neg { color: #ff8a8a; }
+
+.cf-indicador .cf-ico {
+    width: 16px;
+    height: 16px;
+}
+
+.cf-periodo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 14px 0 12px;
+    padding: 6px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .08);
+}
+
+.cf-periodo__txt {
+    font-weight: 800;
+    text-align: center;
+}
+
+.cf-mini {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.cf-mini__item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .08);
+}
+
+.cf-mini__item small {
+    display: block;
+    font-size: .75rem;
+    color: rgba(255, 255, 255, .7);
+}
+
+.cf-mini__item strong {
+    display: block;
+    font-size: clamp(.95rem, 1.4vw, 1.15rem);
+    white-space: nowrap;
+}
+
+.cf-mini__item--receita .cf-ico { color: var(--serie-a); }
+.cf-mini__item--gasto .cf-ico   { color: var(--serie-b); }
+
+
+/* ============================================================
+   [CF-GRAFICOS] — GRÁFICO DE LINHAS E GRÁFICO DE PIZZA
+   ============================================================ */
+
+.cf-migalhas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.cf-migalhas button {
+    padding: 4px 10px;
+    border: 0;
+    border-radius: 999px;
+    font: inherit;
+    font-size: .8rem;
+    font-weight: 700;
+    color: #fff;
+    background: rgba(255, 255, 255, .12);
+    cursor: pointer;
+}
+
+.cf-migalhas button:hover:not([aria-current]) {
+    background: rgba(255, 255, 255, .26);
+}
+
+.cf-migalhas button[aria-current] {
+    color: #2a1250;
+    background: #fff;
+    cursor: default;
+}
+
+.cf-migalhas span {
+    color: rgba(255, 255, 255, .55);
+}
+
+.cf-legenda {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 0 0 6px;
+    padding: 0;
+    list-style: none;
+    font-size: .85rem;
+    color: rgba(255, 255, 255, .85);
+}
+
+.cf-legenda li {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.cf-marca {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    background: var(--serie-a);
+    border-radius: 50%;                   /* série A = círculo */
+}
+
+.cf-marca--gasto {
+    background: var(--serie-b);
+    border-radius: 2px;                   /* série B = quadrado (não depende só da cor) */
+}
+
+.cf-grafico {
+    position: relative;
+    min-width: 0;
+}
+
+.cf-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+}
+
+.cf-svg .cf-grade { stroke: rgba(255, 255, 255, .13); stroke-width: 1; }
+.cf-svg .cf-base  { stroke: rgba(255, 255, 255, .35); stroke-width: 1; }
+
+.cf-svg .cf-eixo {
+    font-family: inherit;
+    font-size: 13px;
+    fill: rgba(255, 255, 255, .78);
+}
+
+.cf-svg .cf-serie {
+    fill: none;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.cf-svg .cf-serie--a { stroke: var(--serie-a); }
+.cf-svg .cf-serie--b { stroke: var(--serie-b); }
+
+.cf-svg .cf-pt--a { fill: var(--serie-a); stroke: #0b0e0d; stroke-width: 2; }
+.cf-svg .cf-pt--b { fill: var(--serie-b); stroke: #0b0e0d; stroke-width: 2; }
+
+.cf-svg .cf-guia {
+    stroke: rgba(255, 255, 255, .5);
+    stroke-dasharray: 3 3;
+    opacity: 0;
+}
+
+.cf-svg .cf-coluna:hover .cf-guia,
+.cf-svg .cf-coluna:focus-within .cf-guia,
+.cf-svg .cf-coluna.is-sel .cf-guia {
+    opacity: 1;
+}
+
+.cf-svg .cf-coluna.is-sel .cf-eixo-x {
+    font-weight: 800;
+    fill: #fff;
+}
+
+.cf-svg .cf-hit {
+    fill: transparent;
+    outline: none;
+}
+
+.cf-svg .cf-hit.is-clicavel {
+    cursor: pointer;
+}
+
+.cf-svg .cf-hit:focus-visible {
+    stroke: #fff;
+    stroke-width: 1.5;
+}
+
+.cf-vazio {
+    display: grid;
+    place-items: center;
+    min-height: 160px;
+    padding: 16px;
+    border-radius: 14px;
+    font-size: .9rem;
+    text-align: center;
+    color: rgba(255, 255, 255, .7);
+    background: rgba(255, 255, 255, .05);
+}
+
+.cf-tip {
+    position: absolute;
+    z-index: 5;
+    min-width: 150px;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, .28);
+    border-radius: 10px;
+    font-size: .8rem;
+    line-height: 1.45;
+    pointer-events: none;
+    color: #fff;
+    background: #0b0b10;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .45);
+    transform: translate(-50%, -100%);
+}
+
+.cf-tip[hidden] {
+    display: none;
+}
+
+.cf-tip b {
+    display: block;
+    margin-bottom: 2px;
+}
+
+.cf-tip span {
+    display: flex;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.cf-tip em {
+    display: block;
+    margin-top: 3px;
+    font-size: .72rem;
+    font-style: normal;
+    color: rgba(255, 255, 255, .6);
+}
+
+/* tabela alternativa do gráfico de linhas */
+.cf-tabela-wrap {
+    max-height: 300px;
+    overflow: auto;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .05);
+}
+
+.cf-tabela-wrap[hidden] {
+    display: none;
+}
+
+.cf-tabela {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .85rem;
+}
+
+.cf-tabela th,
+.cf-tabela td {
+    padding: 8px 12px;
+    text-align: right;
+    border-bottom: 1px solid rgba(255, 255, 255, .1);
+}
+
+.cf-tabela th:first-child,
+.cf-tabela td:first-child {
+    text-align: left;
+}
+
+.cf-tabela thead th {
+    position: sticky;
+    top: 0;
+    background: #17121f;
+}
+
+/* pizza */
+.cf-filtros {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.cf-filtro {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, .75);
+}
+
+.cf-grafico--pizza {
+    max-width: 340px;
+    margin: 6px auto 12px;
+}
+
+.cf-fatia {
+    stroke: #0b0e0d;
+    stroke-width: 2;
+    cursor: pointer;
+    transition: opacity .15s;
+}
+
+.cf-fatia.is-dim {
+    opacity: .3;
+}
+
+.cf-pizza-centro {
+    font-family: inherit;
+    text-anchor: middle;
+    fill: #fff;
+}
+
+.cf-pizza-centro--rot {
+    font-size: 10px;
+    fill: rgba(255, 255, 255, .7);
+}
+
+.cf-pizza-centro--val {
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.cf-pizza__lista {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 260px;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+}
+
+.cf-pizza__item {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: .88rem;
+    background: rgba(255, 255, 255, .06);
+}
+
+.cf-pizza__item.is-ativo {
+    background: rgba(255, 255, 255, .17);
+}
+
+.cf-pizza__cor {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+.cf-pizza__nome {
+    overflow: hidden;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cf-pizza__nome small {
+    margin-left: 4px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, .65);
+}
+
+.cf-pizza__pct {
+    min-width: 3.2em;
+    text-align: right;
+    color: rgba(255, 255, 255, .7);
+}
+
+
+/* ============================================================
+   [CF-HISTORICO] — LISTA DOS LANÇAMENTOS
+   ============================================================ */
+
+.cf-historico {
+    margin-top: clamp(1rem, 2vw, 1.5rem);
+    padding: clamp(12px, 1.6vw, 20px);
+    border-radius: var(--r-lg);
+    background: var(--theme-surface);
+    border: 1px solid var(--theme-border);
+}
+
+.cf-historico__cab {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.cf-historico__cab h2 {
+    margin: 0;
+    font-size: clamp(1.15rem, 1.8vw, 1.4rem);
+    color: var(--theme-text-title);
+}
+
+.cf-historico__cab p {
+    margin: 2px 0 0;
+    font-size: .92rem;
+    color: var(--ttts);
+}
+
+.cf-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px 7px 14px;
+    border: 0;
+    border-radius: 999px;
+    font-size: .85rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--cf-roxo);
+}
+
+.cf-chip[hidden] {
+    display: none;
+}
+
+.cf-chip:hover,
+.cf-chip:focus-visible {
+    background: var(--cf-roxo-hover);
+}
+
+.cf-chip .cf-ico {
+    width: 16px;
+    height: 16px;
+}
+
+.cf-lista {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.cf-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, .6fr) auto auto;
+    align-items: center;
+    gap: clamp(10px, 1.6vw, 20px);
+    padding: 10px 12px;
+    border-radius: var(--r-md);
+    color: #fff;
+    background: #1c1c21;
+    border: 1px solid rgba(255, 255, 255, .08);
+}
+
+.cf-item__icone {
+    display: grid;
+    place-items: center;
+    width: 46px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    font-size: 1.35rem;
+    color: #1b1b1b;
+    background: #e3e3e3;
+}
+
+.cf-item__titulo {
+    min-width: 0;
+    overflow: hidden;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cf-item__titulo small {
+    display: block;
+    font-weight: 500;
+    color: rgba(255, 255, 255, .6);
+}
+
+.cf-item__quando {
+    display: contents;                    /* data e hora viram colunas separadas */
+}
+
+.cf-item__data,
+.cf-item__hora {
+    font-size: .92rem;
+    color: rgba(255, 255, 255, .85);
+}
+
+.cf-item__valor {
+    min-width: 128px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-weight: 800;
+    text-align: center;
+    white-space: nowrap;
+    background: #0e0e11;
+}
+
+.cf-item__valor.is-receita { color: #4ade80; }
+.cf-item__valor.is-despesa { color: #ff8a8a; }
+
+.cf-lista__vazio {
+    padding: 22px 12px;
+    border-radius: var(--r-md);
+    text-align: center;
+    color: var(--ttts);
+    border: 1px dashed var(--theme-border);
+}
+
+.cf-mais {
+    display: block;
+    margin: 14px auto 0;
+    padding: 9px 22px;
+    border: 0;
+    border-radius: 999px;
+    font-weight: 700;
+    color: #fff;
+    background: var(--cf-roxo);
+}
+
+.cf-mais[hidden] {
+    display: none;
+}
+
+.cf-mais:hover,
+.cf-mais:focus-visible {
+    background: var(--cf-roxo-hover);
+}
+
+
+/* ============================================================
+   [CF-FERRAMENTAS] — SIMULADOR, RESERVA DE EMERGÊNCIA E REGRA 50/30/20
+   ============================================================ */
+
+.cf-form,
+.cf-result {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cf-form form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cf-desc {
+    margin: -4px 0 4px;
+    font-size: .92rem;
+    line-height: 1.45;
+    color: rgba(255, 255, 255, .78);
+}
+
+.cf-campo {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 0;
+    font-size: .85rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, .88);
+}
+
+.cf-campo-duplo {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 10px;
+}
+
+.cf-fieldset {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 4px 0 0;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, .2);
+    border-radius: 14px;
+}
+
+.cf-fieldset legend {
+    padding: 0 6px;
+    font-size: .8rem;
+    font-weight: 800;
+    color: #d6b8ff;
+}
+
+.cf-campo.is-invalido input {
+    border-color: #ff6b6b;
+}
+
+.cf-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr));
+    gap: 10px;
+}
+
+.cf-stat {
+    min-width: 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .08);
+}
+
+.cf-stat small {
+    display: block;
+    font-size: .75rem;
+    color: rgba(255, 255, 255, .7);
+}
+
+.cf-stat strong {
+    display: block;
+    font-size: clamp(1rem, 1.5vw, 1.2rem);
+    white-space: nowrap;
+}
+
+.cf-stat strong.cf-stat__texto {
+    white-space: normal;                  /* textos longos (ex.: prazo estimado) podem quebrar */
+}
+
+.cf-stat--destaque strong {
+    color: var(--serie-a);
+}
+
+.cf-result--sim {
+    --serie-b: #38bdf8;                   /* total investido: azul (a cor "gastos" não faz sentido aqui) */
+}
+
+.cf-progresso {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.cf-progresso__barra {
+    height: 16px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .15);
+}
+
+.cf-progresso__barra > div {
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--card-glow) 75%, #000), color-mix(in srgb, var(--card-glow) 70%, #fff));
+    box-shadow: 0 0 10px var(--card-glow);
+    transition: width .5s ease;
+}
+
+.cf-progresso__txt {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: .85rem;
+    font-weight: 700;
+}
+
+.cf-barra-regra {
+    display: flex;
+    gap: 4px;
+    height: 34px;
+}
+
+.cf-barra-regra > div {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    border-radius: 8px;
+    font-size: .8rem;
+    font-weight: 800;
+    color: #0b0b10;
+}
+
+.cf-regra-itens {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.cf-regra-item {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .08);
+}
+
+.cf-regra-item__cor {
+    width: 12px;
+    height: 12px;
+    border-radius: 3px;
+}
+
+.cf-regra-item__nome {
+    font-weight: 800;
+}
+
+.cf-regra-item__nome small {
+    display: block;
+    font-weight: 500;
+    color: rgba(255, 255, 255, .68);
+}
+
+.cf-regra-item__valor {
+    font-size: 1.1rem;
+    font-weight: 800;
+    text-align: right;
+}
+
+.cf-regra-item__status {
+    grid-column: 2 / -1;
+    margin: 0;
+    font-size: .82rem;
+    color: rgba(255, 255, 255, .8);
+}
+
+.cf-regra-item__status.is-ok   { color: #4ade80; }
+.cf-regra-item__status.is-alto { color: #ffb27a; }
+
+
+/* ############################################################
+   [TABLET] — até 900px
+   Os dois lados do painel ficam um embaixo do outro
+   ############################################################ */
+
+@media (max-width: 900px) {
+
+    .cf-painel,
+    .cf-painel--ferr {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .cf-topo__acoes {
+        width: 100%;
+    }
+
+    .cf-data {
+        width: 100%;
+    }
+
+    .cf-pill,
+    .cf-pill--add {
+        width: 100%;
+        min-width: 0;
+    }
+
+    .cf-cal {
+        right: auto;
+        left: 0;
+    }
+
+    .cf-item {
+        grid-template-columns: auto minmax(0, 1fr) auto auto auto auto;
+    }
+}
+
+
+/* ############################################################
+   [CELULAR] — até 600px
+   ############################################################ */
+
+@media (max-width: 600px) {
+
+    /* abas: uma linha que rola para o lado */
+    .cf-tabs {
+        flex-wrap: nowrap;
+        margin-inline: -1.25rem;
+        padding: 4px 1.25rem;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .cf-tabs::-webkit-scrollbar {
+        display: none;
+    }
+
+    .cf-tab {
+        flex: none;
+    }
+
+    .cf-resumo__topo {
+        flex-wrap: wrap;
+    }
+
+    .cf-indicador {
+        order: 3;
+    }
+
+    .cf-mini {
+        grid-template-columns: 1fr;
+    }
+
+    /* histórico: ícone + título/data na esquerda, valor embaixo */
+    .cf-item {
+        grid-template-columns: auto minmax(0, 1fr);
+        row-gap: 8px;
+    }
+
+    .cf-item__quando {
+        display: block;                   /* data e hora juntas, embaixo do título */
+        grid-column: 2;
+    }
+
+    .cf-item__hora::before {
+        content: " · ";
+    }
+
+    .cf-item__valor {
+        grid-column: 1 / -1;
+        min-width: 0;
+        padding: 8px 12px;
+    }
+
+    .cf-historico__cab {
+        flex-direction: column;
+    }
+
+    .cf-campo-duplo {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .cf-pizza__item {
+        grid-template-columns: 12px minmax(0, 1fr) auto;
+    }
+
+    .cf-pizza__pct {
+        display: none;
+    }
+}
+
+
+/* ############################################################
+   [CELULAR-PEQUENO] — até 420px
+   ############################################################ */
+
+@media (max-width: 420px) {
+
+    .cf-filtros {
+        flex-direction: column;
+    }
+
+    .cf-svg .cf-eixo {
+        font-size: 15px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .cf-pill,
+    .cf-tab,
+    .cf-progresso__barra > div,
+    .cf-fatia {
+        transition: none;
+    }
+}
+
+
+/* ============================================================
+   [CF-NOVO-LANCAMENTO] — FORMULÁRIO "NOVO LANÇAMENTO" + EXCLUIR
+   ============================================================ */
+
+.cf-novo {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: clamp(16px, 2vw, 24px);
+}
+
+
+
+.cf-novo h2 { margin: 0; }
+
+.cf-novo form {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cf-erro {
+    margin: 0;
+    font-size: .9rem;
+    font-weight: 700;
+    color: #ff9a9a;
+}
+
+.cf-enviar {
+    align-self: flex-start;
+    padding: 12px 26px;
+    border: 0;
+    border-radius: 14px;
+    font: inherit;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #fff;
+    cursor: pointer;
+    background: #58cc02;
+    box-shadow: 0 4px 0 #46a302;
+    transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.cf-enviar:hover { transform: translateY(-1px); }
+.cf-enviar:active { transform: translateY(3px); box-shadow: 0 1px 0 #46a302; }
+.cf-enviar:disabled { opacity: .6; cursor: wait; }
+
+.cf-item__excluir {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    aspect-ratio: 1;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: rgba(255, 255, 255, .75);
+    cursor: pointer;
+    background: rgba(255, 255, 255, .08);
+}
+
+.cf-item__excluir:hover,
+.cf-item__excluir:focus-visible {
+    color: #fff;
+    background: #d94a4a;
+}
+
+.cf-item__excluir .cf-ico {
+    width: 18px;
+    height: 18px;
+}
+
+/* [CELULAR] */
+@media (max-width: 600px) {
+    .cf-item { position: relative; }
+    .cf-item__titulo { padding-right: 44px; }
+    .cf-item__excluir { position: absolute; top: 10px; right: 10px; }
+    .cf-enviar { align-self: stretch; }
+    .cf-novo .cf-campo-duplo { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   [CF-CAL-MODOS] — ABAS DO CALENDÁRIO (Dia | Mês inteiro | Intervalo), GRADE DE MESES E FAIXA
+   ============================================================ */
+
+.cf-cal__abas {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 12px;
+    padding: 4px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .1);
+}
+
+.cf-cal__aba {
+    flex: 1;
+    min-height: 36px;
+    padding: 6px 4px;
+    border: 0;
+    border-radius: 9px;
+    font: inherit;
+    font-size: .8rem;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    background: transparent;
+}
+
+.cf-cal__aba[aria-selected="true"] {
+    color: #2a1250;
+    background: #fff;
+}
+
+.cf-cal__dica {
+    margin: 0 0 8px;
+    font-size: .82rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, .8);
+}
+
+.cf-cal__meses {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.cf-mesbtn {
+    min-height: 48px;
+    border: 1.5px solid rgba(255, 255, 255, .2);
+    border-radius: 12px;
+    font: inherit;
+    font-weight: 700;
+    color: #fff;
+    cursor: pointer;
+    background: transparent;
+}
+
+.cf-mesbtn:hover,
+.cf-mesbtn:focus-visible { background: rgba(255, 255, 255, .16); }
+
+.cf-mesbtn.is-ativo {
+    color: #2a1250;
+    background: #fff;
+}
+
+.cf-dia--faixa { background: rgba(139, 63, 217, .45); border-radius: 0; }
+.cf-dia--ponta { outline: 2px solid #ffd43b; outline-offset: -2px; }
+
+
+/* ############################################################
+   [CF-CLARO] — CARDS CLAROS NO MODO CLARO
+   (gerado a partir das regras escuras acima; vale só quando o tema NÃO é "dark")
+   ############################################################ */
+
+html:not([data-theme="dark"]) .cf-card {
+    --serie-a: #15803d;                   /* receita (verde escuro, lê bem no fundo claro) */
+    --serie-b: #dc2626;                   /* gastos */
+    box-shadow: 0 1px 0 rgba(255, 255, 255, .7) inset, 0 8px 22px color-mix(in srgb, var(--card-glow) 22%, transparent);
+}
+
+html:not([data-theme="dark"]) .cf-card--verde { background: linear-gradient(165deg, #e9f9ee, #d3f1dc); }
+html:not([data-theme="dark"]) .cf-card--roxo  { background: linear-gradient(165deg, #f3ecfc, #e3d6f6); }
+html:not([data-theme="dark"]) .cf-result--sim { --serie-b: #0369a1; }
+html:not([data-theme="dark"]) .cf-modal__x { color: #1d1033; }
+
+html:not([data-theme="dark"]) .cf-cal {
+    color: #1d1033;
+    background: linear-gradient(165deg, color-mix(in srgb, var(--card-glow) 18%, #f6f2fc), #f6f2fc);
+}
+
+html:not([data-theme="dark"]) .cf-cal__sem {
+    color: rgba(29,16,51, 0.72);
+}
+
+html:not([data-theme="dark"]) .cf-dia {
+    color: #1d1033;
+}
+
+html:not([data-theme="dark"]) .cf-dia:hover,
+html:not([data-theme="dark"]) .cf-dia:focus-visible {
+    background: rgba(29,16,51, 0.09);
+}
+
+html:not([data-theme="dark"]) .cf-dia--hoje {
+    border-color: rgba(29,16,51, 0.41);
+}
+
+html:not([data-theme="dark"]) .cf-dia--tem::after {
+    background: #15803d;
+}
+
+html:not([data-theme="dark"]) .cf-dia[aria-pressed="true"] {
+    color: #ffffff;
+    background: #5b2a96;
+}
+
+html:not([data-theme="dark"]) .cf-card {
+    --serie-a: #15803d;
+    --serie-b: #dc2626;
+    color: #1d1033;
+    background: radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--card-glow) 30%, transparent), transparent 60%),
+        linear-gradient(165deg, color-mix(in srgb, var(--card-glow) 16%, #f6f2fc), color-mix(in srgb, var(--card-glow) 6%, #f6f2fc));
+}
+
+html:not([data-theme="dark"]) .cf-card h2 {
+    color: #1d1033;
+}
+
+html:not([data-theme="dark"]) .cf-dica {
+    color: rgba(29,16,51, 0.77);
+}
+
+html:not([data-theme="dark"]) .cf-card input,
+html:not([data-theme="dark"]) .cf-card select {
+    border: 1.5px solid rgba(29,16,51, 0.12);
+    color: #1d1033;
+    background: rgba(29,16,51, 0.04);
+}
+
+html:not([data-theme="dark"]) .cf-card input::placeholder {
+    color: rgba(29,16,51, 0.57);
+}
+
+html:not([data-theme="dark"]) .cf-card select option {
+    color: #1d1033;
+}
+
+html:not([data-theme="dark"]) .cf-seta {
+    color: #1d1033;
+    background: rgba(29,16,51, 0.07);
+}
+
+html:not([data-theme="dark"]) .cf-seta:hover:not(:disabled),
+html:not([data-theme="dark"]) .cf-seta:focus-visible {
+    background: rgba(29,16,51, 0.14);
+}
+
+html:not([data-theme="dark"]) .cf-mini-btn {
+    border: 1px solid rgba(29,16,51, 0.15);
+    color: #1d1033;
+    background: rgba(29,16,51, 0.04);
+}
+
+html:not([data-theme="dark"]) .cf-mini-btn:hover,
+html:not([data-theme="dark"]) .cf-mini-btn[aria-pressed="true"] {
+    background: rgba(29,16,51, 0.12);
+}
+
+html:not([data-theme="dark"]) .cf-link {
+    color: #6b2fb0;
+}
+
+html:not([data-theme="dark"]) .cf-rotulo {
+    color: rgba(29,16,51, 0.92);
+}
+
+html:not([data-theme="dark"]) .cf-indicador {
+    color: #1d1033;
+}
+
+html:not([data-theme="dark"]) .cf-indicador.is-pos {
+    color: #15803d;
+}
+
+html:not([data-theme="dark"]) .cf-indicador.is-neg {
+    color: #dc2626;
+}
+
+html:not([data-theme="dark"]) .cf-periodo {
+    background: rgba(29,16,51, 0.04);
+}
+
+html:not([data-theme="dark"]) .cf-mini__item {
+    background: rgba(29,16,51, 0.04);
+}
+
+html:not([data-theme="dark"]) .cf-mini__item small {
+    color: rgba(29,16,51, 0.82);
+}
+
+html:not([data-theme="dark"]) .cf-migalhas button {
+    color: #1d1033;
+    background: rgba(29,16,51, 0.07);
+}
+
+html:not([data-theme="dark"]) .cf-migalhas button:hover:not([aria-current]) {
+    background: rgba(29,16,51, 0.14);
+}
+
+html:not([data-theme="dark"]) .cf-migalhas button[aria-current] {
+    color: #ffffff;
+    background: #5b2a96;
+}
+
+html:not([data-theme="dark"]) .cf-migalhas span {
+    color: rgba(29,16,51, 0.67);
+}
+
+html:not([data-theme="dark"]) .cf-legenda {
+    color: rgba(29,16,51, 0.95);
+}
+
+html:not([data-theme="dark"]) .cf-svg .cf-grade {
+    stroke: rgba(29,16,51, 0.07);
+}
+
+html:not([data-theme="dark"]) .cf-svg .cf-base {
+    stroke: rgba(29,16,51, 0.19);
+}
+
+html:not([data-theme="dark"]) .cf-svg .cf-eixo {
+    fill: rgba(29,16,51, 0.90);
+}
+
+html:not([data-theme="dark"]) .cf-svg .cf-pt--a {
+    stroke: #f6f2fc;
+}
+
+html:not([data-theme="dark"]) .cf-svg .cf-pt--b {
+    stroke: #f6f2fc;
+}
+
+html:not([data-theme="dark"]) .cf-svg .cf-guia {
+    stroke: rgba(29,16,51, 0.28);
+}
+
+html:not([data-theme="dark"]) .cf-svg .cf-coluna.is-sel .cf-eixo-x {
+    fill: #1d1033;
+}
+
+html:not([data-theme="dark"]) .cf-svg .cf-hit:focus-visible {
+    stroke: #5b2a96;
+}
+
+html:not([data-theme="dark"]) .cf-vazio {
+    color: rgba(29,16,51, 0.82);
+    background: rgba(29,16,51, 0.03);
+}
+
+html:not([data-theme="dark"]) .cf-tip {
+    border: 1px solid rgba(29,16,51, 0.15);
+    color: #1d1033;
+}
+
+html:not([data-theme="dark"]) .cf-tip em {
+    color: rgba(29,16,51, 0.72);
+}
+
+html:not([data-theme="dark"]) .cf-filtro {
+    color: rgba(29,16,51, 0.87);
+}
+
+html:not([data-theme="dark"]) .cf-fatia {
+    stroke: #f6f2fc;
+}
+
+html:not([data-theme="dark"]) .cf-pizza-centro {
+    fill: #1d1033;
+}
+
+html:not([data-theme="dark"]) .cf-pizza-centro--rot {
+    fill: rgba(29,16,51, 0.82);
+}
+
+html:not([data-theme="dark"]) .cf-pizza__item {
+    background: rgba(29,16,51, 0.03);
+}
+
+html:not([data-theme="dark"]) .cf-pizza__item.is-ativo {
+    background: rgba(29,16,51, 0.09);
+}
+
+html:not([data-theme="dark"]) .cf-pizza__nome small {
+    color: rgba(29,16,51, 0.77);
+}
+
+html:not([data-theme="dark"]) .cf-pizza__pct {
+    color: rgba(29,16,51, 0.82);
+}
+
+html:not([data-theme="dark"]) .cf-item {
+    color: #1d1033;
+    background: #ffffff;
+    border: 1px solid rgba(29,16,51, 0.04);
+}
+
+html:not([data-theme="dark"]) .cf-item__titulo small {
+    color: rgba(29,16,51, 0.72);
+}
+
+html:not([data-theme="dark"]) .cf-item__data,
+html:not([data-theme="dark"]) .cf-item__hora {
+    color: rgba(29,16,51, 0.95);
+}
+
+html:not([data-theme="dark"]) .cf-item__valor {
+    background: #efe9f8;
+}
+
+html:not([data-theme="dark"]) .cf-item__valor.is-receita {
+    color: #15803d;
+}
+
+html:not([data-theme="dark"]) .cf-item__valor.is-despesa {
+    color: #dc2626;
+}
+
+html:not([data-theme="dark"]) .cf-desc {
+    color: rgba(29,16,51, 0.90);
+}
+
+html:not([data-theme="dark"]) .cf-campo {
+    color: rgba(29,16,51, 0.95);
+}
+
+html:not([data-theme="dark"]) .cf-fieldset {
+    border: 1px solid rgba(29,16,51, 0.11);
+}
+
+html:not([data-theme="dark"]) .cf-fieldset legend {
+    color: #6b2fb0;
+}
+
+html:not([data-theme="dark"]) .cf-stat {
+    background: rgba(29,16,51, 0.04);
+}
+
+html:not([data-theme="dark"]) .cf-stat small {
+    color: rgba(29,16,51, 0.82);
+}
+
+html:not([data-theme="dark"]) .cf-progresso__barra {
+    background: rgba(29,16,51, 0.08);
+}
+
+html:not([data-theme="dark"]) .cf-progresso__barra > div {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--card-glow) 75%, #000), color-mix(in srgb, var(--card-glow) 70%, #5b2a96));
+}
+
+html:not([data-theme="dark"]) .cf-regra-item {
+    background: rgba(29,16,51, 0.04);
+}
+
+html:not([data-theme="dark"]) .cf-regra-item__nome small {
+    color: rgba(29,16,51, 0.80);
+}
+
+html:not([data-theme="dark"]) .cf-regra-item__status {
+    color: rgba(29,16,51, 0.92);
+}
+
+html:not([data-theme="dark"]) .cf-regra-item__status.is-ok {
+    color: #15803d;
+}
+
+html:not([data-theme="dark"]) .cf-erro {
+    color: #b91c1c;
+}
+
+html:not([data-theme="dark"]) .cf-item__excluir {
+    color: rgba(29,16,51, 0.87);
+    background: rgba(29,16,51, 0.04);
+}
+
+/* abas, meses e faixa do calendário no modo claro */
+html:not([data-theme="dark"]) .cf-cal__abas { background: rgba(29, 16, 51, .08); }
+html:not([data-theme="dark"]) .cf-cal__aba { color: #1d1033; }
+html:not([data-theme="dark"]) .cf-cal__aba[aria-selected="true"],
+html:not([data-theme="dark"]) .cf-mesbtn.is-ativo { color: #fff; background: #5b2a96; }
+html:not([data-theme="dark"]) .cf-cal__dica { color: rgba(29, 16, 51, .8); }
+html:not([data-theme="dark"]) .cf-mesbtn { color: #1d1033; border-color: rgba(29, 16, 51, .25); }
+html:not([data-theme="dark"]) .cf-mesbtn:hover,
+html:not([data-theme="dark"]) .cf-mesbtn:focus-visible { background: rgba(29, 16, 51, .1); }
+html:not([data-theme="dark"]) .cf-dia--faixa { background: rgba(139, 63, 217, .22); }
+html:not([data-theme="dark"]) .cf-dia--ponta { outline-color: #5b2a96; }
+
+html:not([data-theme="dark"]) .cf-indicador { background: rgba(29, 16, 51, .08); }
+
+
+/* ============================================================
+   [CF-RANKING] lista do ranking (igual ao app: posição, nome, nível, XP e sequência)
+   ============================================================ */
+.rk-lista { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.rk-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 16px;
+  border: 1.5px solid var(--rk-borda, rgba(255,255,255,.14)); background: var(--rk-fundo, rgba(20,14,34,.75)); color: var(--rk-texto, #fff); }
+.rk-item.is-eu { border-color: #58cc02; box-shadow: 0 0 0 1px #58cc0255, 0 0 16px #58cc0233; }
+.rk-pos { flex: none; min-width: 2.2em; font-weight: 800; }
+.rk-nome { flex: 1; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rk-nome small { margin-left: 6px; font-weight: 600; opacity: .7; }
+.rk-pts { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; white-space: nowrap; }
+.rk-pts i { opacity: .5; font-style: normal; }
+.rk-ico { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.rk-pts .rk-ico:first-child { color: #fbbf24; }
+.rk-pts .rk-ico:last-child { color: #fb923c; }
+.rk-vazio { padding: 16px; opacity: .8; }
+html:not([data-theme="dark"]) .rk-item { --rk-fundo: rgba(255,255,255,.75); --rk-borda: rgba(122,54,179,.25); --rk-texto: #1d1033; }

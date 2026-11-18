@@ -1,0 +1,360 @@
+/* ============================================================
+   DRAGNIX — css/admin-avaliacoes.css  (ÁREA "AVALIAÇÕES" DO ADMIN)
+   Usado pelo js/admin-avaliacoes.js. Temas claro e escuro.
+   ============================================================ */
+
+.av {
+    --av-roxo: #8b3fd9;
+    --av-verde: #58cc02;
+    --av-amarelo: #f5b301;
+    --av-verm: #ff4b4b;
+    display: grid;
+    gap: 16px;
+}
+
+.av .card {
+    margin: 0;
+}
+
+.av h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 800;
+}
+
+/* ---------- estrelas proporcionais ---------- */
+.av-estrelas {
+    position: relative;
+    display: inline-block;
+    font-size: 15px;
+    line-height: 1;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.av-estrelas--g {
+    font-size: 20px;
+}
+
+.av-estrelas__fundo {
+    color: color-mix(in srgb, var(--theme-text) 18%, transparent);
+}
+
+.av-estrelas__cheio {
+    position: absolute;
+    inset: 0 auto 0 0;
+    overflow: hidden;
+    color: var(--av-amarelo);
+}
+
+/* ---------- resumo ---------- */
+.av-resumo {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+}
+
+.av-num {
+    display: grid;
+    gap: 4px;
+    padding: 14px 16px;
+    border: 1px solid var(--theme-border);
+    border-radius: 18px;
+    background:
+        radial-gradient(120% 120% at 100% 0%, color-mix(in srgb, var(--av-roxo) 14%, transparent), transparent 60%),
+        var(--theme-surface);
+}
+
+.av-num small {
+    color: var(--theme-text-secondary);
+    font-weight: 700;
+    font-size: 12px;
+}
+
+.av-num strong {
+    font-size: 1.7rem;
+    font-weight: 800;
+    line-height: 1.1;
+}
+
+.av-num--media {
+    border-color: color-mix(in srgb, var(--av-amarelo) 50%, var(--theme-border));
+}
+
+/* ---------- filtros ---------- */
+.av-filtros {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.av-filtros label {
+    display: grid;
+    gap: 4px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.av-filtros select {
+    min-height: 40px;
+    padding: 6px 12px;
+    border: 1px solid var(--theme-border);
+    border-radius: 12px;
+    background: var(--theme-input, var(--theme-surface));
+    color: var(--theme-text);
+    font: inherit;
+    font-size: 13px;
+}
+
+.av-legenda {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin: 0 0 0 auto;
+}
+
+/* ---------- etiquetas e cores por nota ---------- */
+.av-tag {
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+    white-space: nowrap;
+    background: color-mix(in srgb, var(--theme-text) 8%, transparent);
+}
+
+.av-tag.av-nivel--otima { background: color-mix(in srgb, var(--av-verde) 18%, transparent); color: #15803d; }
+.av-tag.av-nivel--ok { background: color-mix(in srgb, var(--av-amarelo) 20%, transparent); color: #a16207; }
+.av-tag.av-nivel--baixa { background: color-mix(in srgb, var(--av-verm) 16%, transparent); color: #dc2626; }
+.av-tag--trilha { background: color-mix(in srgb, var(--av-roxo) 16%, transparent); color: var(--av-roxo); }
+.av-tag--modulo { background: color-mix(in srgb, #1cb0f6 16%, transparent); color: #0284c7; }
+
+html[data-theme="dark"] .av-tag.av-nivel--otima { color: #7ee03a; }
+html[data-theme="dark"] .av-tag.av-nivel--ok { color: #fbbf24; }
+html[data-theme="dark"] .av-tag.av-nivel--baixa { color: #fca5a5; }
+html[data-theme="dark"] .av-tag--trilha { color: #c4a1f5; }
+html[data-theme="dark"] .av-tag--modulo { color: #7dd3fc; }
+
+/* ---------- trilha ---------- */
+.av-trilha {
+    --av-cor: #8b3fd9;
+    display: grid;
+    gap: 14px;
+    border-top: 4px solid var(--av-cor);
+}
+
+.av-trilha__topo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.av-trilha__ico {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--av-cor) 18%, transparent);
+    font-size: 22px;
+}
+
+.av-trilha__nome small {
+    color: var(--theme-text-secondary);
+}
+
+.av-trilha__nota {
+    display: grid;
+    grid-template-columns: minmax(150px, auto) minmax(0, 1fr);
+    gap: 18px;
+    align-items: center;
+    padding: 14px;
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--theme-text) 4%, transparent);
+}
+
+.av-trilha__media {
+    display: grid;
+    justify-items: start;
+    gap: 4px;
+}
+
+.av-trilha__media small {
+    color: var(--theme-text-secondary);
+    font-size: 12px;
+}
+
+.av-trilha__media strong {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.av-dist {
+    display: grid;
+    gap: 4px;
+}
+
+.av-dist__linha {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) 28px;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+
+.av-dist__linha b {
+    text-align: right;
+}
+
+.av-dist__barra {
+    height: 8px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--theme-text) 10%, transparent);
+}
+
+.av-dist__barra > div {
+    height: 100%;
+    border-radius: 99px;
+    background: var(--av-amarelo);
+}
+
+/* ---------- tabela de módulos ---------- */
+.av-tabela {
+    display: grid;
+    gap: 4px;
+}
+
+.av-linha {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(120px, 1fr) 60px minmax(110px, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding: 9px 12px;
+    border-radius: 12px;
+    border-left: 4px solid transparent;
+    font-size: 14px;
+}
+
+.av-linha--cab {
+    padding-block: 4px;
+    color: var(--theme-text-secondary);
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+
+.av-linha:not(.av-linha--cab) {
+    background: color-mix(in srgb, var(--theme-text) 3%, transparent);
+}
+
+.av-linha.av-nivel--otima { border-left-color: var(--av-verde); }
+.av-linha.av-nivel--ok { border-left-color: var(--av-amarelo); }
+.av-linha.av-nivel--baixa {
+    border-left-color: var(--av-verm);
+    background: color-mix(in srgb, var(--av-verm) 7%, transparent);
+}
+
+.av-linha__mod {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.av-linha__media {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.av-linha__media em {
+    color: var(--theme-text-secondary);
+    font-size: 12px;
+}
+
+/* barra empilhada com as notas 5→1 */
+.av-mini {
+    display: flex;
+    height: 10px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: color-mix(in srgb, var(--theme-text) 10%, transparent);
+}
+
+.av-mini i { display: block; height: 100%; }
+.av-mini--5 { background: #22c55e; }
+.av-mini--4 { background: #84cc16; }
+.av-mini--3 { background: #f5b301; }
+.av-mini--2 { background: #f97316; }
+.av-mini--1 { background: #ef4444; }
+
+/* ---------- recentes ---------- */
+.av-recentes ul {
+    display: grid;
+    gap: 6px;
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.av-recentes li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--theme-text) 4%, transparent);
+}
+
+.av-recentes__txt {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+}
+
+.av-recentes__txt small {
+    color: var(--theme-text-secondary);
+}
+
+.av-recentes__nota {
+    flex: none;
+    color: var(--av-amarelo);
+    font-weight: 800;
+}
+
+/* ---------- telas menores ---------- */
+@media (max-width: 700px) {
+    .av-trilha__nota {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .av-linha {
+        grid-template-columns: minmax(0, 1fr) auto 40px;
+    }
+
+    .av-col-dist {
+        display: none;
+    }
+
+    .av-legenda {
+        margin-left: 0;
+    }
+}
+
+/* o painel centraliza títulos de card: aqui ficam alinhados à esquerda */
+.av-trilha__nome {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+}
+
+.av-trilha__nome h3,
+.av-recentes h3 {
+    text-align: left;
+}

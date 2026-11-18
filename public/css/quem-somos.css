@@ -1,0 +1,443 @@
+/* ============================================================
+   DRAGNIX — css/quem-somos.css  (CARD "QUEM SOMOS")
+   Usado pelo js/quem-somos.js. Modo claro/escuro e celular.
+
+   [QS-CORES]   cores do card (claro e escuro)
+   [QS-JANELA]  fundo escuro e caixa
+   [QS-FOTO]    foto com o anel animado nas cores do site
+   [QS-CELULAR] ajustes para telas pequenas
+   ============================================================ */
+
+/* [QS-CORES] */
+.qs {
+    --qs-fundo: #ffffff;
+    --qs-texto: #1f1633;
+    --qs-suave: #5b5370;
+    --qs-borda: rgba(139, 63, 217, .18);
+    --qs-cartao: #f7f3fd;
+    --qs-chip: rgba(139, 63, 217, .1);
+    --qs-chip-texto: #5b21b6;
+    --qs-roxo: #8b3fd9;
+    --qs-verde: #58cc02;
+    --qs-azul: #1cb0f6;
+}
+
+html[data-theme="dark"] .qs {
+    --qs-fundo: #17112a;
+    --qs-texto: #f4f0ff;
+    --qs-suave: #c9bfe0;
+    --qs-borda: rgba(196, 161, 245, .22);
+    --qs-cartao: #211838;
+    --qs-chip: rgba(196, 161, 245, .14);
+    --qs-chip-texto: #ddc8fb;
+}
+
+/* sem rolar a página por trás enquanto o card está aberto */
+html.qs-aberto,
+html.qs-aberto body {
+    overflow: hidden;
+}
+
+/* [QS-JANELA] */
+.qs {
+    width: min(960px, calc(100vw - 32px));
+    max-width: none;
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--qs-borda);
+    border-radius: 28px;
+    color: var(--qs-texto);
+    background: var(--qs-fundo);
+    box-shadow: 0 30px 80px rgba(17, 8, 40, .45);
+    font-family: inherit;
+}
+
+.qs[open] {
+    animation: qs-entrar .28s ease-out;
+}
+
+.qs::backdrop {
+    background: rgba(12, 6, 28, .62);
+    backdrop-filter: blur(3px);
+}
+
+.qs__caixa {
+    position: relative;
+    max-height: calc(100dvh - 34px);
+    padding: 34px 32px 32px;
+    overflow-y: auto;
+    background:
+        radial-gradient(circle at 0 0, rgba(139, 63, 217, .14), transparent 45%),
+        radial-gradient(circle at 100% 0, rgba(88, 204, 2, .12), transparent 40%);
+}
+
+.qs__fechar {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--qs-borda);
+    border-radius: 50%;
+    color: var(--qs-texto);
+    background: var(--qs-cartao);
+    cursor: pointer;
+}
+
+.qs__fechar svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+}
+
+.qs__fechar:hover {
+    color: #fff;
+    background: var(--qs-roxo);
+}
+
+.qs__topo {
+    display: block;
+    max-width: 640px;
+    margin: 0 auto 28px;
+    text-align: center;
+}
+
+.qs__selo {
+    display: inline-block;
+    padding: 5px 14px;
+    border-radius: 999px;
+    color: #fff;
+    background: linear-gradient(90deg, var(--qs-roxo), var(--qs-verde));
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.qs__topo h2 {
+    margin: 12px 0 8px;
+    color: var(--qs-texto);
+    font-size: clamp(1.6rem, 4vw, 2.2rem);
+    font-weight: 800;
+}
+
+.qs__topo p {
+    margin: 0;
+    color: var(--qs-suave);
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+.qs__topo strong {
+    color: var(--qs-texto);
+}
+
+.qs__grade {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.qs__pessoa {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 22px 14px 18px;
+    border: 1px solid var(--qs-borda);
+    border-radius: 22px;
+    text-align: center;
+    background: var(--qs-cartao);
+    transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.qs__pessoa:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 14px 30px rgba(139, 63, 217, .18);
+}
+
+/* [QS-FOTO] — anel girando com roxo, verde e azul do Dragnix */
+.qs__foto {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 118px;
+    aspect-ratio: 1;
+    padding: 5px;
+    border-radius: 50%;
+    isolation: isolate;
+}
+
+.qs__foto::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: 50%;
+    background: conic-gradient(from 0deg, var(--qs-roxo), var(--qs-verde), var(--qs-azul), var(--qs-roxo));
+    animation: qs-girar 4s linear infinite;
+}
+
+/* brilho suave atrás do anel */
+.qs__foto::after {
+    content: "";
+    position: absolute;
+    inset: -6px;
+    z-index: -2;
+    border-radius: 50%;
+    background: conic-gradient(from 180deg, var(--qs-roxo), var(--qs-verde), var(--qs-azul), var(--qs-roxo));
+    filter: blur(12px);
+    opacity: .45;
+    animation: qs-girar 4s linear infinite reverse;
+}
+
+.qs__foto img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: 4px solid var(--qs-cartao);
+    border-radius: 50%;
+    background: var(--qs-cartao);
+}
+
+.qs__pessoa:hover .qs__foto::before {
+    animation-duration: 1.6s;
+}
+
+.qs__nome {
+    margin: 4px 0 0;
+    color: var(--qs-texto);
+    font-size: 1rem;
+    font-weight: 800;
+    line-height: 1.3;
+}
+
+.qs__funcoes {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.qs__funcoes li {
+    padding: 4px 10px;
+    border-radius: 999px;
+    color: var(--qs-chip-texto);
+    background: var(--qs-chip);
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.3;
+}
+
+@keyframes qs-girar {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes qs-entrar {
+    from { opacity: 0; transform: translateY(16px) scale(.98); }
+}
+
+/* sem animações para quem pede menos movimento */
+@media (prefers-reduced-motion: reduce) {
+    .qs[open],
+    .qs__foto::before,
+    .qs__foto::after { animation: none; }
+}
+
+/* [QS-CELULAR] */
+@media (max-width: 600px) {
+    .qs {
+        width: calc(100vw - 20px);
+        max-height: calc(100dvh - 20px);
+        border-radius: 22px;
+    }
+
+    .qs__caixa {
+        max-height: calc(100dvh - 22px);
+        padding: 26px 16px 20px;
+    }
+
+    .qs__topo {
+        margin-bottom: 20px;
+        padding: 0 34px;
+    }
+
+    .qs__topo p { font-size: .92rem; }
+
+    .qs__grade {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+    }
+
+    .qs__pessoa {
+        padding: 16px 8px 14px;
+        border-radius: 18px;
+    }
+
+    .qs__foto { width: 92px; }
+
+    .qs__nome { font-size: .9rem; }
+
+    .qs__funcoes li { font-size: 11px; padding: 3px 8px; }
+}
+
+@media (max-width: 340px) {
+    .qs__grade { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
+   [QS-DOC] POLÍTICA DE PRIVACIDADE E TERMOS DE USO (js/documentos.js)
+   Mesmo card do "Quem somos", com texto em seções.
+   ============================================================ */
+
+.qs--doc {
+    width: min(760px, calc(100vw - 32px));
+}
+
+.qs-doc__data {
+    display: block;
+    margin-top: 8px;
+    color: var(--qs-suave);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.qs-doc {
+    display: grid;
+    gap: 12px;
+    text-align: left;
+}
+
+.qs-doc__secao {
+    padding: 16px 18px;
+    border: 1px solid var(--qs-borda);
+    border-radius: 18px;
+    background: var(--qs-cartao);
+}
+
+.qs-doc__secao h3 {
+    margin: 0 0 8px;
+    color: var(--qs-texto);
+    font-size: 1rem;
+    font-weight: 800;
+}
+
+.qs-doc__secao p,
+.qs-doc__secao li {
+    color: var(--qs-suave);
+    font-size: .95rem;
+    line-height: 1.6;
+}
+
+.qs-doc__secao p {
+    margin: 0 0 8px;
+}
+
+.qs-doc__secao p:last-child {
+    margin-bottom: 0;
+}
+
+.qs-doc__secao ul {
+    margin: 0 0 8px;
+    padding-left: 20px;
+}
+
+.qs-doc__secao li + li {
+    margin-top: 4px;
+}
+
+.qs-doc__secao b {
+    color: var(--qs-texto);
+}
+
+.qs-doc__secao a,
+.qs-doc__link {
+    padding: 0;
+    border: 0;
+    color: var(--qs-roxo);
+    background: none;
+    font: inherit;
+    font-weight: 800;
+    text-decoration: underline;
+    cursor: pointer;
+    min-height: 0;
+}
+
+html[data-theme="dark"] .qs-doc__secao a,
+html[data-theme="dark"] .qs-doc__link {
+    color: #c4a1f5;
+}
+
+.qs-doc__rodape {
+    display: flex;
+    justify-content: center;
+    margin-top: 18px;
+}
+
+.qs-doc__ok {
+    min-width: 160px;
+    min-height: 46px;
+    padding: 10px 24px;
+    border: 0;
+    border-radius: 999px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--qs-roxo), #5b2a96);
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.qs-doc__ok:hover {
+    filter: brightness(1.08);
+}
+
+/* aviso "ao criar a conta você concorda..." na tela de login */
+.login-termos {
+    margin: 10px 0 0;
+    color: var(--theme-text-secondary, #6b6280);
+    font-size: 12.5px;
+    line-height: 1.5;
+    text-align: center;
+}
+
+.login-termos button {
+    padding: 0;
+    border: 0;
+    color: #8b3fd9;
+    background: none;
+    font: inherit;
+    font-weight: 800;
+    text-decoration: underline;
+    cursor: pointer;
+    min-height: 0;
+}
+
+html[data-theme="dark"] .login-termos button {
+    color: #c4a1f5;
+}
+
+@media (max-width: 600px) {
+    .qs--doc {
+        width: calc(100vw - 20px);
+    }
+
+    .qs-doc__secao {
+        padding: 14px;
+    }
+}

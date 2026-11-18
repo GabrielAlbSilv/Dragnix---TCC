@@ -1,0 +1,202 @@
+/* ============================================================
+   DRAGNIX — css/trilhas.css  (PÁGINA EDUCAÇÃO FINANCEIRA)
+   Use junto com css/controle.css (layout da página).
+   ============================================================ */
+
+/* ============================================================
+   [CF-TRILHAS] — TRILHAS DE CONHECIMENTO (visão "Educação financeira")
+   claro por padrão; escuro em html[data-theme="dark"]
+   ============================================================ */
+
+.tr-lista {
+    margin-top: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: clamp(14px, 2vw, 22px);
+}
+
+.tr-aviso {
+    margin: 0;
+    padding: 18px;
+    border-radius: var(--r-md);
+    text-align: center;
+    color: var(--ttts);
+    border: 1px dashed var(--theme-border);
+}
+
+.tr-aviso--erro { color: #b91c1c; }
+
+.tr-card {
+    --tr-cor: #58cc02;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: clamp(14px, 1.8vw, 22px);
+    border-radius: var(--r-lg);
+    color: #1d1033;
+    background: color-mix(in srgb, var(--tr-cor) 9%, #ffffff);
+    border: 2px solid var(--tr-cor);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--tr-cor) 20%, transparent);
+}
+
+.tr-card.is-bloqueada { opacity: .72; }
+
+
+.tr-card__cab {
+    display: flex;
+    text-align: left;
+    padding: 0;
+    border: 0;
+    align-items: center;
+    gap: 14px;
+}
+
+.tr-card__icone {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    aspect-ratio: 1;
+    border-radius: 16px;
+    font-size: 1.7rem;
+    background: color-mix(in srgb, var(--tr-cor) 28%, #ffffff);
+}
+
+.tr-card h2 {
+    margin: 0;
+    font-size: clamp(1.15rem, 1.8vw, 1.5rem);
+    font-weight: 800;
+}
+
+.tr-card__nota,
+.tr-card__desc {
+    margin: 2px 0 0;
+    font-size: .95rem;
+    color: rgba(29, 16, 51, .78);
+}
+
+.tr-card__trava {
+    margin: 0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-weight: 700;
+    color: #7a1a1a;
+    background: #ffe3e3;
+}
+
+.tr-prog {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tr-prog__txt {
+    flex: none;
+    font-size: .9rem;
+    font-weight: 800;
+}
+
+.tr-barra {
+    display: block;
+    flex: 1;
+    height: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(29, 16, 51, .14);
+}
+
+.tr-barra--grande { height: 14px; }
+
+.tr-barra i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--tr-cor);
+}
+
+.tr-mods {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tr-mod {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 64px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    text-decoration: none;
+    color: inherit;
+    background: #ffffff;
+    border: 1.5px solid color-mix(in srgb, var(--tr-cor) 55%, transparent);
+}
+
+a.tr-mod:hover,
+a.tr-mod:focus-visible {
+    background: color-mix(in srgb, var(--tr-cor) 14%, #ffffff);
+}
+
+.tr-mod.is-feito { border-color: var(--tr-cor); }
+.tr-mod.is-bloqueado { opacity: .6; }
+
+.tr-mod__icone {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 34px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    font-size: .95rem;
+    font-weight: 800;
+    color: #fff;
+    background: var(--tr-cor);
+}
+
+.tr-mod__corpo {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.tr-mod__corpo strong { overflow-wrap: anywhere; }
+.tr-mod__corpo small { font-size: .78rem; color: rgba(29, 16, 51, .7); }
+
+.tr-mod__estado {
+    flex: none;
+    font-size: .8rem;
+    font-weight: 800;
+}
+
+/* [MODO ESCURO] */
+html[data-theme="dark"] .tr-card {
+    color: #fff;
+    background: color-mix(in srgb, var(--tr-cor) 14%, #0f1114);
+    box-shadow: 0 0 22px color-mix(in srgb, var(--tr-cor) 30%, transparent);
+}
+
+html[data-theme="dark"] .tr-card__icone { background: color-mix(in srgb, var(--tr-cor) 35%, #0f1114); }
+html[data-theme="dark"] .tr-card__nota,
+html[data-theme="dark"] .tr-card__desc,
+html[data-theme="dark"] .tr-mod__corpo small { color: rgba(255, 255, 255, .78); }
+html[data-theme="dark"] .tr-barra { background: rgba(255, 255, 255, .18); }
+html[data-theme="dark"] .tr-mod { background: #1a1d22; }
+html[data-theme="dark"] a.tr-mod:hover,
+html[data-theme="dark"] a.tr-mod:focus-visible { background: color-mix(in srgb, var(--tr-cor) 22%, #1a1d22); }
+
+/* [TABLET] */
+@media (max-width: 900px) {
+    .tr-prog { flex-wrap: wrap; }
+}
+
+/* [CELULAR] */
+@media (max-width: 600px) {
+    .tr-card__icone { width: 46px; font-size: 1.4rem; }
+    .tr-mods { grid-template-columns: 1fr; }
+    .tr-mod__estado { display: none; }
+}

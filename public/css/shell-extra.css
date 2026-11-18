@@ -1,0 +1,1389 @@
+/* ============================================================
+   DRAGNIX — css/shell-extra.css  (PEÇAS COMPARTILHADAS ENTRE AS PÁGINAS)
+   ============================================================
+
+   Use em TODA página que tenha o cabeçalho + menu lateral da PagInicial:
+     <link rel="stylesheet" href="css/shell-extra.css">   (depois do login-modern.css)
+     <script src="js/shell-extra.js"></script>             (depois do api.js e profile.js)
+
+   O que este arquivo estiliza:
+     [SX-SUBMENU]   submenus do menu lateral (Controle financeiro, Educação financeira)
+     [SX-PERFIL]    card do perfil (abre e fecha por cima da página): conquistas + sair
+     [SX-CHAT]      balão fixo de "Dúvidas" em formato de chat
+
+   COMO PROCURAR: Ctrl+F no código entre colchetes.
+   Para ver só um aparelho, procure [DESKTOP], [TABLET] ou [CELULAR].
+
+   ORDEM DO ARQUIVO
+   ----------------
+   [DESKTOP]   padrão: vale para TODAS as telas
+   [TABLET]    até 900px
+   [CELULAR]   até 600px
+   ============================================================ */
+
+
+/* ############################################################
+   [DESKTOP] — PADRÃO (vale para todas as telas)
+   ############################################################ */
+
+/* ============================================================
+   [SX-SUBMENU] — SUBMENUS DO MENU LATERAL
+   Estrutura (no HTML):
+     .sx-group[data-sx-grupo]
+        .sx-group__head  → link principal (.side-link) + botão de seta
+        .sx-sub > .sx-sub__inner → links dos subitens (.sx-sublink)
+   ============================================================ */
+
+.sx-group {
+    display: block;
+}
+
+.sx-group__head {
+    position: relative;
+}
+
+.sx-group__head .side-link {
+    padding-right: 46px;                  /* espaço para o botão da seta */
+}
+
+.sx-group__toggle {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    transform: translateY(-50%);
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.sx-group__toggle:hover,
+.sx-group__toggle:focus-visible {
+    background: rgba(128, 128, 128, .22);
+}
+
+.sx-group__toggle svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform .2s ease;
+}
+
+.sx-group.is-open .sx-group__toggle svg {
+    transform: rotate(180deg);
+}
+
+/* abre/fecha com animação de altura */
+.sx-sub {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows .25s ease;
+}
+
+.sx-group.is-open .sx-sub {
+    grid-template-rows: 1fr;
+}
+
+.sx-sub__inner {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-height: 0;
+    margin-left: 22px;                    /* recuo do submenu */
+    padding-left: 10px;
+    overflow: hidden;
+    border-left: 2px solid rgba(128, 128, 128, .35);
+    visibility: hidden;                   /* fechado: fora do alcance do teclado */
+    transition: visibility 0s linear .25s;
+}
+
+.sx-group.is-open .sx-sub__inner {
+    margin-top: 4px;
+    visibility: visible;
+    transition-delay: 0s;
+}
+
+.sx-sublink {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    font-size: .9rem;
+    font-weight: 600;
+    text-decoration: none;
+    color: inherit;
+    opacity: .88;
+    transition: background .15s, opacity .15s;
+}
+
+.sx-sublink:hover,
+.sx-sublink:focus-visible {
+    background: rgba(128, 128, 128, .2);
+    opacity: 1;
+}
+
+.sx-sublink[aria-current="page"] {
+    background: rgba(139, 63, 217, .26);  /* subitem da página atual */
+    box-shadow: inset 3px 0 0 #8b3fd9;
+    opacity: 1;
+}
+
+.sx-ico {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* destaque da página atual no link principal (caso o side-menu.js use outra classe) */
+.side-link[aria-current="page"] {
+    font-weight: 800;
+}
+
+
+/* ============================================================
+   [SX-PERFIL] — CARD DO PERFIL (abre e fecha por cima da página)
+   Escuro nos dois temas, como os cards da PagInicial.
+   --card-glow = cor do brilho/borda
+   ============================================================ */
+
+button.user-profile__link {
+    border: 0;
+    font: inherit;
+    cursor: pointer;
+}
+
+.user-profile__link .sx-chev {
+    flex: none;
+    width: 14px;
+    height: 14px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform .2s ease;
+}
+
+.user-profile__link[aria-expanded="true"] .sx-chev {
+    transform: rotate(180deg);
+}
+
+.sx-pop {
+    --card-glow: #8b3fd9;
+
+    position: fixed;                      /* top/right calculados pelo js (colado ao botão do perfil) */
+    z-index: 1200;
+    width: min(380px, calc(100vw - 24px));
+    max-height: calc(100dvh - 96px);
+    padding: 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 20px;
+    color: #fff;
+    border: 1.5px solid color-mix(in srgb, var(--card-glow) 75%, transparent);
+    background:
+        radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--card-glow) 30%, transparent), transparent 60%),
+        linear-gradient(165deg, color-mix(in srgb, var(--card-glow) 16%, #0b0e0d), color-mix(in srgb, var(--card-glow) 6%, #07090a));
+    box-shadow:
+        0 0 0 1px color-mix(in srgb, var(--card-glow) 18%, transparent) inset,
+        0 18px 50px rgba(0, 0, 0, .45),
+        0 0 26px color-mix(in srgb, var(--card-glow) 34%, transparent);
+    animation: sx-pop-in .18s ease both;
+}
+
+.sx-pop[hidden] {
+    display: none;
+}
+
+.sx-pop__topo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.sx-pop__avatar {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 52px;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 50%;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #0b1f00;
+    background: #58cc02;
+    border: 2px solid rgba(255, 255, 255, .85);
+}
+
+.sx-pop__avatar img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    object-fit: cover;
+}
+
+.sx-pop__quem {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.sx-pop__quem strong {
+    overflow: hidden;
+    font-size: 1.05rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sx-pop__quem small {
+    overflow: hidden;
+    color: rgba(255, 255, 255, .65);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sx-pop__x {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    font-size: 22px;
+    line-height: 1;
+    color: #fff;
+    background: rgba(255, 255, 255, .12);
+    cursor: pointer;
+}
+
+.sx-pop__x:hover,
+.sx-pop__x:focus-visible {
+    background: rgba(255, 255, 255, .24);
+}
+
+.sx-pop__perfil {
+    display: inline-flex;
+    margin-top: 10px;
+    font-size: .85rem;
+    font-weight: 700;
+    text-decoration: none;
+    color: color-mix(in srgb, var(--card-glow) 45%, #fff);
+}
+
+.sx-pop__perfil:hover {
+    text-decoration: underline;
+}
+
+.sx-pop__sec {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255, 255, 255, .16);
+}
+
+.sx-pop__tit {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.sx-pop__tit h3 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--card-glow) 45%, #fff);
+}
+
+.sx-pop__tit span {
+    font-size: .8rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, .75);
+}
+
+.sx-conq {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 260px;
+    overflow-y: auto;
+}
+
+.sx-conq__item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .08);
+}
+
+.sx-conq__icone {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 40px;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    font-size: 1.25rem;
+    color: #1b1b1b;
+    background: rgba(255, 255, 255, .88);
+}
+
+.sx-conq__texto {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.sx-conq__texto strong {
+    font-size: .9rem;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.sx-conq__texto small {
+    font-size: .75rem;
+    line-height: 1.3;
+    color: rgba(255, 255, 255, .7);
+}
+
+/* conquista ainda não ganha */
+.sx-conq__item.is-bloqueada {
+    opacity: .5;
+}
+
+.sx-conq__item.is-bloqueada .sx-conq__icone {
+    filter: grayscale(1);
+}
+
+.sx-vazio {
+    margin: 0;
+    padding: 10px 4px;
+    font-size: .85rem;
+    text-align: center;
+    color: rgba(255, 255, 255, .7);
+}
+
+.sx-link {
+    display: block;
+    margin: 4px auto 0;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 8px;
+    font: inherit;
+    font-size: .85rem;
+    font-weight: 700;
+    color: color-mix(in srgb, var(--card-glow) 45%, #fff);
+    background: transparent;
+    cursor: pointer;
+}
+
+.sx-link:hover {
+    text-decoration: underline;
+}
+
+.sx-pop__item,
+.sx-pop__sair {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 10px;
+    padding: 11px 14px;
+    border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 14px;
+    font: inherit;
+    font-size: .95rem;
+    font-weight: 700;
+    text-align: left;
+    text-decoration: none;
+    color: #fff;
+    background: rgba(255, 255, 255, .08);
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+}
+
+.sx-pop__item[hidden] {
+    display: none;
+}
+
+.sx-pop__item:hover,
+.sx-pop__item:focus-visible {
+    background: rgba(255, 255, 255, .16);
+}
+
+.sx-pop__sair:hover,
+.sx-pop__sair:focus-visible {
+    border-color: #ff4b4b;
+    background: rgba(255, 75, 75, .22);
+}
+
+.sx-pop .sx-ico {
+    width: 20px;
+    height: 20px;
+}
+
+@keyframes sx-pop-in {
+    from { opacity: 0; transform: translateY(-8px) scale(.98); }
+    to   { opacity: 1; transform: none; }
+}
+
+
+/* ============================================================
+   [SX-CHAT] — BALÃO FIXO DE DÚVIDAS (em formato de chat)
+   --card-glow = cor do brilho/borda
+   ============================================================ */
+
+.sx-chat-fab {
+    position: fixed;
+    right: 20px;                          /* distância da borda direita */
+    bottom: 20px;                         /* distância da borda de baixo */
+    z-index: 1100;
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: #fff;
+    background: linear-gradient(180deg, #a56bf0, #7a36b3);
+    box-shadow: 0 6px 22px rgba(0, 0, 0, .35), 0 0 22px rgba(139, 63, 217, .55);
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+}
+
+.sx-chat-fab:hover,
+.sx-chat-fab:focus-visible {
+    transform: translateY(-2px) scale(1.04);
+}
+
+.sx-chat-fab svg {
+    width: 28px;
+    height: 28px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.sx-chat {
+    --card-glow: #8b3fd9;
+
+    position: fixed;
+    right: 20px;
+    bottom: 92px;
+    z-index: 1100;
+    display: flex;
+    flex-direction: column;
+    width: min(380px, calc(100vw - 24px));
+    height: min(520px, calc(100dvh - 120px));
+    overflow: hidden;
+    border-radius: 20px;
+    color: #fff;
+    border: 1.5px solid color-mix(in srgb, var(--card-glow) 75%, transparent);
+    background:
+        radial-gradient(90% 60% at 100% 0%, color-mix(in srgb, var(--card-glow) 28%, transparent), transparent 60%),
+        linear-gradient(165deg, color-mix(in srgb, var(--card-glow) 14%, #0b0e0d), color-mix(in srgb, var(--card-glow) 5%, #07090a));
+    box-shadow: 0 18px 50px rgba(0, 0, 0, .45), 0 0 26px color-mix(in srgb, var(--card-glow) 34%, transparent);
+    animation: sx-pop-in .2s ease both;
+}
+
+.sx-chat[hidden] {
+    display: none;
+}
+
+.sx-chat__topo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, .14);
+}
+
+.sx-chat__topo div {
+    flex: 1;
+    min-width: 0;
+}
+
+.sx-chat__topo strong {
+    display: block;
+    font-size: 1rem;
+}
+
+.sx-chat__topo small {
+    color: rgba(255, 255, 255, .7);
+}
+
+/* atalho para o Nix dentro do balão de dúvidas */
+.sx-chat__nix {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 14px 0;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, .22);
+    border-radius: 14px;
+    color: #fff;
+    background: linear-gradient(120deg, rgba(139, 63, 217, .55), rgba(88, 204, 2, .35));
+    text-decoration: none;
+}
+
+.sx-chat__nix:hover {
+    border-color: rgba(255, 255, 255, .5);
+}
+
+.sx-chat__nix svg {
+    width: 26px;
+    height: 26px;
+    flex: none;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.sx-chat__nix span {
+    display: grid;
+    line-height: 1.25;
+}
+
+.sx-chat__nix small {
+    color: rgba(255, 255, 255, .8);
+    font-size: 12px;
+}
+
+.sx-chat__msgs {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.sx-msg {
+    max-width: 82%;
+    padding: 9px 13px;
+    border-radius: 16px;
+    font-size: .92rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.sx-msg__txt {
+    white-space: pre-wrap;                /* mantém as quebras de linha que a pessoa digitou */
+}
+
+.sx-msg small {
+    display: block;
+    margin-top: 3px;
+    font-size: .7rem;
+    opacity: .7;
+}
+
+.sx-msg--eu {
+    align-self: flex-end;
+    border-bottom-right-radius: 4px;
+    background: linear-gradient(180deg, #9a5de6, #7a36b3);
+}
+
+.sx-msg--prof {
+    align-self: flex-start;
+    border-bottom-left-radius: 4px;
+    background: rgba(255, 255, 255, .13);
+}
+
+.sx-msg--aviso {
+    align-self: center;
+    max-width: 94%;
+    font-size: .8rem;
+    text-align: center;
+    color: rgba(255, 255, 255, .72);
+    background: transparent;
+}
+
+.sx-msg.is-erro {
+    outline: 1.5px solid #ff6b6b;
+}
+
+.sx-msg.is-erro button {
+    margin-top: 4px;
+    padding: 0;
+    border: 0;
+    font: inherit;
+    font-size: .75rem;
+    font-weight: 800;
+    text-decoration: underline;
+    color: #fff;
+    background: none;
+    cursor: pointer;
+}
+
+.sx-chat__form {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    padding: 10px 12px 12px;
+    border-top: 1px solid rgba(255, 255, 255, .14);
+}
+
+.sx-chat__form textarea {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    max-height: 110px;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1.5px solid rgba(255, 255, 255, .22);
+    border-radius: 14px;
+    resize: none;
+    font: inherit;
+    font-size: .92rem;
+    color: #fff;
+    background: rgba(255, 255, 255, .08);
+}
+
+.sx-chat__form textarea::placeholder {
+    color: rgba(255, 255, 255, .55);
+}
+
+.sx-chat__form textarea:focus {
+    outline: none;
+    border-color: #b57cf5;
+}
+
+.sx-chat__send {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    color: #fff;
+    background: linear-gradient(180deg, #a56bf0, #7a36b3);
+    cursor: pointer;
+}
+
+.sx-chat__send:disabled {
+    opacity: .45;
+    cursor: default;
+}
+
+.sx-chat__send svg {
+    width: 20px;
+    height: 20px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+
+/* ############################################################
+   [TABLET] — até 900px
+   ############################################################ */
+
+@media (max-width: 900px) {
+
+    .sx-chat {
+        height: min(480px, calc(100dvh - 120px));
+    }
+}
+
+
+/* ############################################################
+   [CELULAR] — até 600px
+   ############################################################ */
+
+@media (max-width: 600px) {
+
+    .sx-chat-fab {
+        right: 14px;
+        bottom: 14px;
+        width: 54px;
+        height: 54px;
+    }
+
+    .sx-chat {
+        right: 12px;
+        left: 12px;
+        bottom: 78px;
+        width: auto;
+        height: min(70dvh, calc(100dvh - 100px));
+    }
+
+    .sx-msg {
+        max-width: 90%;
+    }
+
+    /* só a foto no botão do perfil (a seta fica escondida em telas bem pequenas) */
+    .user-profile__link .sx-chev {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    .sx-pop,
+    .sx-chat {
+        animation: none;
+    }
+
+    .sx-sub,
+    .sx-group__toggle svg,
+    .sx-chat-fab {
+        transition: none;
+    }
+}
+
+
+/* marcador usado pelo js/acessibilidade.js para saber que este arquivo carregou */
+:root { --sx-ok: 1; }
+
+
+/* ============================================================
+   [SX-NIVEL] — NÍVEL E BARRA DE PROGRESSO NO CARD DO PERFIL
+   ============================================================ */
+
+.sx-nivel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, .08);
+}
+
+.sx-nivel__linha {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.sx-nivel__linha strong { font-size: 1.05rem; }
+.sx-nivel__linha span { font-size: .9rem; font-weight: 700; color: #d6b8ff; }
+
+.sx-barra {
+    height: 12px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .18);
+}
+
+.sx-barra__preench {
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #58cc02, #9be15d);
+    transition: width .4s ease;
+}
+
+.sx-nivel small { font-size: .8rem; color: rgba(255, 255, 255, .78); }
+
+
+/* ############################################################
+   [SX-CLARO] — CARD DO PERFIL CLARO NO MODO CLARO
+   ############################################################ */
+
+html:not([data-theme="dark"]) .sx-pop {
+    background: linear-gradient(165deg, #f3ecfc, #e3d6f6);
+    box-shadow: 0 18px 50px rgba(60, 30, 100, .28);
+}
+
+html:not([data-theme="dark"]) .sx-pop {
+    color: #1d1033;
+    background: radial-gradient(90% 80% at 100% 0%, color-mix(in srgb, var(--card-glow) 30%, transparent), transparent 60%),
+        linear-gradient(165deg, color-mix(in srgb, var(--card-glow) 16%, #f6f2fc), color-mix(in srgb, var(--card-glow) 6%, #f6f2fc));
+}
+
+html:not([data-theme="dark"]) .sx-pop__avatar {
+    border: 2px solid rgba(29,16,51, 0.47);
+}
+
+html:not([data-theme="dark"]) .sx-pop__quem small {
+    color: rgba(29,16,51, 0.77);
+}
+
+html:not([data-theme="dark"]) .sx-pop__x {
+    color: #1d1033;
+    background: rgba(29,16,51, 0.07);
+}
+
+html:not([data-theme="dark"]) .sx-pop__x:focus-visible {
+    background: rgba(29,16,51, 0.13);
+}
+
+html:not([data-theme="dark"]) .sx-pop__perfil {
+    color: color-mix(in srgb, var(--card-glow) 45%, #1d1033);
+}
+
+html:not([data-theme="dark"]) .sx-pop__sec {
+    border-top: 1px solid rgba(29,16,51, 0.09);
+}
+
+html:not([data-theme="dark"]) .sx-pop__tit h3 {
+    color: color-mix(in srgb, var(--card-glow) 45%, #1d1033);
+}
+
+html:not([data-theme="dark"]) .sx-pop__tit span {
+    color: rgba(29,16,51, 0.87);
+}
+
+html:not([data-theme="dark"]) .sx-conq__item {
+    background: rgba(29,16,51, 0.04);
+}
+
+html:not([data-theme="dark"]) .sx-conq__icone {
+    background: rgba(29,16,51, 0.48);
+}
+
+html:not([data-theme="dark"]) .sx-conq__texto small {
+    color: rgba(29,16,51, 0.82);
+}
+
+html:not([data-theme="dark"]) .sx-vazio {
+    color: rgba(29,16,51, 0.82);
+}
+
+html:not([data-theme="dark"]) .sx-link {
+    color: color-mix(in srgb, var(--card-glow) 45%, #1d1033);
+}
+
+html:not([data-theme="dark"]) .sx-pop__item,
+html:not([data-theme="dark"]) .sx-pop__sair {
+    border: 1px solid rgba(29,16,51, 0.10);
+    color: #1d1033;
+    background: rgba(29,16,51, 0.04);
+}
+
+html:not([data-theme="dark"]) .sx-pop__item:hover,
+html:not([data-theme="dark"]) .sx-pop__item:focus-visible {
+    background: rgba(29,16,51, 0.09);
+}
+
+html:not([data-theme="dark"]) .sx-nivel {
+    background: rgba(29,16,51, 0.04);
+}
+
+html:not([data-theme="dark"]) .sx-nivel__linha span {
+    color: #6b2fb0;
+}
+
+html:not([data-theme="dark"]) .sx-barra {
+    background: rgba(29,16,51, 0.10);
+}
+
+html:not([data-theme="dark"]) .sx-nivel small {
+    color: rgba(29,16,51, 0.90);
+}
+
+
+/* ============================================================
+   [SX-MENU-MINI] — MENU LATERAL MINIMIZADO (só ícones)
+   A classe .sx-mini é posta pelo js/shell-extra.js quando o menu fica estreito,
+   seja qual for a forma de minimizar (botão, tela pequena...).
+   ============================================================ */
+
+.side-menu.sx-mini .sx-group__toggle {
+    display: none;                         /* sem seta: não cabe */
+}
+
+.side-menu.sx-mini .sx-group__head .side-link {
+    padding-right: 0;
+}
+
+.side-menu.sx-mini .sx-sub {
+    grid-template-rows: 1fr;               /* subitens sempre à mostra, só com o ícone */
+}
+
+.side-menu.sx-mini .sx-sub__inner {
+    align-items: center;
+    margin: 4px 0 0;
+    padding: 0;
+    border-left: 0;
+    visibility: visible;
+}
+
+.side-menu.sx-mini .sx-sublink {
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+}
+
+.side-menu.sx-mini .sx-sublink span {
+    position: absolute;                    /* texto some da tela, mas continua para leitores de tela */
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+}
+
+
+/* ============================================================
+   [SX-MENU-AJUSTES] caixa de cor, altura do menu e DRAGÃO
+   ============================================================ */
+
+/* [SX-CAIXA-COR] a caixa colorida do item selecionado não encosta mais nas bordas do menu.
+   Para deixar mais estreita, AUMENTE o 6px abaixo; para alargar, diminua. */
+.side-nav > .side-link,
+.side-nav .sx-group__head {
+    margin-inline: 6px;
+}
+/* a coluna do menu nunca passa da largura do menu (antes a caixa de cor vazava pela direita) */
+.side-nav {
+    grid-template-columns: minmax(0, 1fr);
+}
+.side-nav .side-link {
+    gap: 10px;
+    padding-right: 8px;
+    font-size: 13.5px;
+    min-width: 0;
+}
+.side-nav .side-link > span:not(.side-link__icon) {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* nomes longos ("Perguntas e respostas", "Regras de negócio", "Nix · Assistente IA")
+       quebram em 2 linhas em vez de ficarem cortados com "…" */
+    white-space: normal;
+    line-height: 1.2;
+}
+.side-nav .sx-group__head .side-link {
+    padding-right: 40px;                  /* espaço da seta */
+}
+.side-nav .sx-group__head .side-link > span:not(.side-link__icon) {
+    white-space: normal;                  /* "Controle financeiro" quebra em 2 linhas em vez de cortar */
+    line-height: 1.2;
+}
+.side-menu.sx-mini .side-nav > .side-link,
+.side-menu.sx-mini .side-nav .sx-group__head {
+    margin-inline: 4px;
+}
+
+
+/* ============================================================
+   [SX-PERFIL-EXTRA] estatísticas, recarregar vidas e missões dentro do card do perfil
+   ============================================================ */
+.sx-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; text-align: center; }
+.sx-stats li { display: flex; flex-direction: column; padding: 8px 2px; border-radius: 12px; background: rgba(255,255,255,.1); }
+.sx-stats strong { font-size: 16px; }
+.sx-stats small { font-size: 10px; opacity: .8; line-height: 1.1; }
+.sx-vidas { width: 100%; margin-top: 10px; padding: 9px 12px; border: 0; border-radius: 12px; background: #58cc02; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+.sx-vidas:hover { filter: brightness(1.08); }
+.sx-mis { display: grid; gap: 8px; }
+.sx-mis__item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.1); }
+.sx-mis__item.is-feita { box-shadow: inset 0 0 0 1.5px #58cc02; }
+.sx-mis__icone { font-size: 22px; }
+.sx-mis__txt { flex: 1; display: flex; flex-direction: column; min-width: 0; font-size: 13px; }
+.sx-mis__txt small { opacity: .8; }
+.sx-mis__btn { padding: 5px 10px; border: 0; border-radius: 999px; background: #58cc02; color: #fff; font: inherit; font-weight: 800; font-size: 12px; cursor: pointer; }
+.sx-mis__ok { color: #58cc02; font-weight: 800; }
+html:not([data-theme="dark"]) .sx-stats li,
+html:not([data-theme="dark"]) .sx-mis__item { background: rgba(29,16,51,.07); }
+
+/* [SX-MENU-TOPO] garante o menu horizontal SEM cápsula mesmo que o PagInicial.css tente colocar fundo */
+.site-header .menu .button {
+    background: transparent;
+    box-shadow: none;
+    border: 0;
+}
+.site-header .menu .button:hover,
+.site-header .menu .button:focus-visible {
+    background: transparent;
+    transform: none;
+}
+
+
+/* [SX-FOGO] card da sequência com cores de fogo + ícones das estatísticas */
+.sx-fogo { display: flex; align-items: center; gap: 12px; margin-top: 12px; padding: 10px 14px; border-radius: 14px; color: #fff;
+  background: linear-gradient(135deg, #ff5a1f 0%, #ff8a00 55%, #ffc02e 100%); box-shadow: 0 6px 18px rgba(255, 110, 20, .45), inset 0 0 0 1px rgba(255,255,255,.25); }
+.sx-fogo .sx-si { width: 34px; height: 34px; flex: none; fill: #fff3b0; stroke: #fff; filter: drop-shadow(0 0 6px rgba(255, 220, 120, .9)); }
+.sx-fogo__txt { display: flex; flex-direction: column; line-height: 1.1; text-shadow: 0 1px 2px rgba(120, 30, 0, .45); }
+.sx-fogo__txt strong { font-size: 24px; }
+.sx-fogo__txt small { font-size: 12px; font-weight: 700; opacity: .95; }
+.sx-si { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.sx-stats .sx-si { margin: 0 auto 2px; }
+.sx-st--moedas .sx-si { color: #fbbf24; }
+.sx-st--livro .sx-si { color: #60a5fa; }
+.sx-st--selo .sx-si { color: #4ade80; }
+.sx-st--bandeira .sx-si { color: #c084fc; }
+html:not([data-theme="dark"]) .sx-st--moedas .sx-si { color: #d99a00; }
+html:not([data-theme="dark"]) .sx-st--livro .sx-si { color: #2563eb; }
+html:not([data-theme="dark"]) .sx-st--selo .sx-si { color: #16a34a; }
+html:not([data-theme="dark"]) .sx-st--bandeira .sx-si { color: #7a36b3; }
+
+
+/* ============================================================
+   [SX-BOTOES] BOTÕES FUNCIONAIS NÃO FICAM MAIS ACHATADOS
+   Causa: o css/style.css tem uma regra geral "button" (altura mínima / padding) que estica os
+   botões pequenos. Estes seletores anulam isso. Para outro botão que ficar achatado em QUALQUER
+   página, é só acrescentar o nome da classe dele nesta lista.
+   ============================================================ */
+.pg-seta,
+.sx-pop__x,
+.sx-group__toggle,
+.a11y-ajuda__x {
+    box-sizing: border-box;
+    min-width: 0;
+    min-height: 0;
+    padding: 0;
+    aspect-ratio: 1 / 1;
+    display: inline-grid;
+    place-items: center;
+    flex: none;
+    line-height: 1;
+}
+.pg-resgatar,
+.sx-mis__btn,
+.sx-vidas,
+.cf-mini-btn,
+.cf-chip {
+    box-sizing: border-box;
+    min-height: 0;
+    line-height: 1.4;
+}
+
+/* ============================================================
+   [SX-SECOES] SEÇÕES DO MENU LATERAL QUE ABREM E FECHAM
+   (Finanças, Minha área, Gerenciamento, Administração, Professor)
+   O js/shell-extra.js troca o título por um botão e guarda as
+   opções num container, como no "Controle financeiro".
+   ============================================================ */
+
+.side-head.sx-secao__cabeca {
+    gap: 4px;
+    padding: 0;
+    margin-inline: 6px;
+}
+
+.side-head--sec.sx-secao__cabeca {
+    margin-top: 6px;
+}
+
+/* botão da seção: mesmo formato dos itens do menu, com seta */
+.side-menu .sx-secao__botao {
+    flex: 1;
+    width: auto;
+    min-width: 0;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    text-align: left;
+    color: var(--mut);
+    cursor: pointer;
+}
+
+.side-menu .sx-secao__botao:hover,
+.side-menu .sx-secao__botao:focus-visible {
+    color: var(--fg);
+    background: rgba(128, 128, 128, .14);
+}
+
+.sx-secao__cabeca.is-open .sx-secao__botao {
+    color: var(--fg);
+}
+
+.sx-secao__nome {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    /* um pouco mais justo: "GERENCIAMENTO" cabe inteiro (antes "GERENCIAME…") */
+    letter-spacing: .02em !important;
+    font-size: 12px !important;
+}
+
+.sx-secao__seta {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    margin-left: auto;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform .2s ease;
+}
+
+.sx-secao__cabeca.is-open .sx-secao__seta {
+    transform: rotate(180deg);
+}
+
+/* container: abre/fecha com animação de altura (igual ao .sx-sub) */
+.sx-secao__corpo {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows .25s ease;
+}
+
+.sx-secao__corpo.is-open {
+    grid-template-rows: 1fr;
+}
+
+.sx-secao__dentro {
+    min-height: 0;
+    overflow: hidden;
+    visibility: hidden;                   /* fechado: fora do alcance do teclado */
+    transition: visibility 0s linear .25s;
+}
+
+.sx-secao__corpo.is-open .sx-secao__dentro {
+    padding: 4px 0 6px;
+    visibility: visible;
+    transition-delay: 0s;
+}
+
+/* linha à esquerda ligando as opções à seção */
+.sx-secao__dentro > .side-nav {
+    margin-left: 14px;
+    padding-left: 4px;
+    border-left: 2px solid rgba(128, 128, 128, .28);
+}
+
+.sx-secao__dentro > .side-nav > .side-link,
+.sx-secao__dentro > .side-nav .sx-group__head {
+    margin-inline: 2px 6px;
+}
+
+/* ---------- menu minimizado (só ícones): tudo à mostra, sem títulos ---------- */
+.side-menu.sx-mini .sx-secao__botao,
+.layout.side-collapsed .sx-secao__botao {
+    display: none;
+}
+
+.side-menu.sx-mini .sx-secao__corpo,
+.layout.side-collapsed .sx-secao__corpo {
+    grid-template-rows: 1fr;
+}
+
+.side-menu.sx-mini .sx-secao__dentro,
+.layout.side-collapsed .sx-secao__dentro {
+    visibility: visible;
+}
+
+.side-menu.sx-mini .sx-secao__dentro > .side-nav,
+.layout.side-collapsed .sx-secao__dentro > .side-nav {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+}
+
+/* linha separando as seções quando o menu está minimizado */
+.side-menu.sx-mini .side-head--sec.sx-secao__cabeca,
+.layout.side-collapsed .side-head--sec.sx-secao__cabeca {
+    display: block;
+    height: 1px;
+    margin: 8px 10px;
+    background: rgba(128, 128, 128, .3);
+}
+
+@media (max-width: 760px) {
+    /* no celular o "recolhido" não se aplica: volta o botão da seção */
+    .layout.side-collapsed .sx-secao__botao {
+        display: flex;
+    }
+
+    .layout.side-collapsed .sx-secao__corpo:not(.is-open) {
+        grid-template-rows: 0fr;
+    }
+
+    .layout.side-collapsed .sx-secao__corpo:not(.is-open) .sx-secao__dentro {
+        visibility: hidden;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sx-secao__corpo,
+    .sx-secao__seta,
+    .sx-secao__dentro {
+        transition: none;
+    }
+}
+
+
+/* ============================================================
+   [SX-PERFIL-SECOES] SEÇÕES DO CARD DO PERFIL QUE ABREM E FECHAM
+   (Progresso, Missões de hoje, Conquistas) — js/shell-extra.js
+   ============================================================ */
+
+.sx-dob__h {
+    margin: 0;
+}
+
+.sx-dob__botao {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 40px;
+    margin: 0;
+    padding: 6px 8px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sx-dob__botao:hover,
+.sx-dob__botao:focus-visible {
+    background: rgba(255, 255, 255, .08);
+}
+
+.sx-dob__botao:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--card-glow) 70%, #fff);
+    outline-offset: 1px;
+}
+
+.sx-dob__nome {
+    flex: 1;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--card-glow) 45%, #fff);
+}
+
+.sx-dob__qtd {
+    font-size: .8rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, .75);
+    white-space: nowrap;
+}
+
+/* ponto verde: há missão concluída esperando o resgate */
+.sx-dob__ponto {
+    display: none;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #58cc02;
+    box-shadow: 0 0 8px #58cc02;
+}
+
+.sx-dob.tem-resgate .sx-dob__ponto {
+    display: block;
+}
+
+.sx-dob__seta {
+    flex: none;
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform .2s ease;
+}
+
+.sx-dob.is-open .sx-dob__seta {
+    transform: rotate(180deg);
+}
+
+/* conteúdo: abre/fecha com animação de altura */
+.sx-dob__corpo {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows .25s ease;
+}
+
+.sx-dob.is-open .sx-dob__corpo {
+    grid-template-rows: 1fr;
+}
+
+.sx-dob__dentro {
+    min-height: 0;
+    overflow: hidden;
+    visibility: hidden;                   /* fechado: fora do alcance do teclado */
+    transition: visibility 0s linear .25s;
+}
+
+.sx-dob.is-open .sx-dob__dentro {
+    padding-top: 8px;
+    visibility: visible;
+    transition-delay: 0s;
+}
+
+/* o bloco de nível já tinha margem própria: dentro da seção ela sobra */
+.sx-dob__dentro > .sx-nivel:first-child {
+    margin-top: 0;
+}
+
+.sx-pop__sec.sx-dob {
+    padding-top: 8px;
+}
+
+/* tema claro */
+html:not([data-theme="dark"]) .sx-dob__nome {
+    color: color-mix(in srgb, var(--card-glow) 45%, #1d1033);
+}
+
+html:not([data-theme="dark"]) .sx-dob__qtd {
+    color: rgba(29, 16, 51, .87);
+}
+
+html:not([data-theme="dark"]) .sx-dob__botao:hover,
+html:not([data-theme="dark"]) .sx-dob__botao:focus-visible {
+    background: rgba(29, 16, 51, .06);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sx-dob__corpo,
+    .sx-dob__seta,
+    .sx-dob__dentro {
+        transition: none;
+    }
+}
+
+/* [SX-PERFIL-CARGA] espaço da mini-tela de carregamento no card do perfil */
+.sx-carga {
+    margin-top: 4px;
+}
+
+.sx-carga[hidden] {
+    display: none;
+}

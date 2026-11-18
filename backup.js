@@ -98,9 +98,16 @@ const OPTIONAL_TABLES = [
 
   // Segurança de autenticação
   'login_attempts',
+  'password_resets',
 
   // Galeria de avatares cadastrada pelos administradores
   'avatar_presets',
+
+  // Conquistas criadas pelos administradores
+  'custom_badges',
+
+  // Regras de negócio (níveis, XP, moedas, vidas, missões)
+  'app_settings',
 
   // Avaliações
   'lesson_evaluations',
@@ -220,6 +227,11 @@ function removeAvatarFiles(names) {
 
 // Quantas fotos de perfil e avatares da galeria o backup contém
 // (informativo, exibido na prévia da restauração).
+// Fotos guardadas no banco (data URL ou "preset:<id>") já vêm
+// dentro das tabelas; as do formato antigo dependem do arquivo.
+const AVATAR_DATA_RE = /^data:image\/(jpeg|png|webp);base64,/;
+const PRESET_REF_RE = /^preset:\d+$/;
+
 function avatarSummary(data) {
   const rowsOf = name =>
     data.tables.find(
@@ -238,50 +250,24 @@ function avatarSummary(data) {
         )
     );
 
+  const inDatabase = value =>
+    AVATAR_DATA_RE.test(value) || PRESET_REF_RE.test(value);
+
   const referenced =
     rowsOf('users')
-      .map(
-        row =>
-          row.avatar
-      )
-      .filter(
-        name =>
-          AVATAR_FILE_RE.test(
-            String(name || '')
-          )
-      );
+      .map(row => String(row.avatar || ''))
+      .filter(value => AVATAR_FILE_RE.test(value) || PRESET_FILE_RE.test(value) || inDatabase(value));
 
   const presets =
     rowsOf('avatar_presets')
-      .map(
-        row =>
-          row.file
-      )
-      .filter(
-        name =>
-          PRESET_FILE_RE.test(
-            String(name || '')
-          )
-      );
+      .map(row => String(row.file || ''))
+      .filter(value => PRESET_FILE_RE.test(value) || AVATAR_DATA_RE.test(value));
 
   return {
-    users:
-      referenced.length,
-
-    included:
-      referenced.filter(
-        name =>
-          included.has(name)
-      ).length,
-
-    presets:
-      presets.length,
-
-    presetsIncluded:
-      presets.filter(
-        name =>
-          included.has(name)
-      ).length
+    users: referenced.length,
+    included: referenced.filter(value => inDatabase(value) || included.has(value)).length,
+    presets: presets.length,
+    presetsIncluded: presets.filter(value => AVATAR_DATA_RE.test(value) || included.has(value)).length
   };
 }
 

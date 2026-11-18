@@ -1,0 +1,565 @@
+/* ============================================================
+   DRAGNIX — css/trilhas-mapa.css  (CARD DA TRILHA E MAPA DOS MÓDULOS)
+   Usado pela tela "Minhas trilhas" do app.html (função home() do js/app.js).
+   A cor de cada trilha vem em --trl-cor (definida no próprio card).
+
+   [TRL-CARD]     card, topo, anel de progresso, aviso e barra
+   [TRL-MAPA]     linha do caminho entre as paradas
+   [TRL-NO]       botão de cada parada (círculo + textos)
+   [TRL-ESTADOS]  feito / atual / livre / bloqueado
+   [TRL-EXTRAS]   apresentação, conclusão, avaliação e desafios
+   [TRL-CELULAR]  telas pequenas
+   ============================================================ */
+
+
+/* ---------------- [TRL-CARD] ---------------- */
+
+.trl {
+    --trl-cor: #58cc02;
+    --trl-cor-escura: color-mix(in srgb, var(--trl-cor) 70%, #000);
+    --trl-suave: color-mix(in srgb, var(--trl-cor) 14%, transparent);
+    --trl-cinza: color-mix(in srgb, var(--theme-text) 16%, transparent);
+
+    position: relative;
+    overflow: hidden;
+    padding: clamp(18px, 2.4vw, 26px);
+    border: 1px solid color-mix(in srgb, var(--trl-cor) 35%, var(--theme-border));
+    border-top: 5px solid var(--trl-cor);
+    border-radius: 24px;
+    background:
+        radial-gradient(90% 60% at 100% 0%, var(--trl-suave), transparent 65%),
+        var(--theme-surface);
+    text-align: left;
+}
+
+.trl + .trl {
+    margin-top: 18px;
+}
+
+.trl.is-bloq {
+    filter: grayscale(.45);
+}
+
+.trl__topo {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+}
+
+.trl__ico {
+    display: grid;
+    place-items: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 18px;
+    background: var(--trl-suave);
+    font-size: 28px;
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--trl-cor) 30%, transparent);
+}
+
+.trl__titulo h2 {
+    margin: 0;
+    font-size: clamp(1.15rem, 2vw, 1.4rem);
+    line-height: 1.2;
+    text-align: left;
+    overflow-wrap: anywhere;
+}
+
+.trl__nota {
+    margin: 4px 0 0;
+    color: var(--theme-text-secondary);
+    font-size: 13px;
+}
+
+.trl__nota b {
+    color: var(--theme-text);
+}
+
+/* anel com a porcentagem da trilha */
+.trl__anel {
+    --p: 0;
+    display: grid;
+    place-items: center;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background:
+        radial-gradient(closest-side, var(--theme-surface) 76%, transparent 78% 100%),
+        conic-gradient(var(--trl-cor) calc(var(--p) * 1%), var(--trl-cinza) 0);
+}
+
+.trl__anel span {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--trl-cor-escura);
+}
+
+html[data-theme="dark"] .trl__anel span {
+    color: color-mix(in srgb, var(--trl-cor) 70%, #fff);
+}
+
+.trl__desc {
+    margin: 12px 0 0;
+    color: var(--theme-text-secondary);
+    line-height: 1.5;
+}
+
+.trl__aviso {
+    margin: 12px 0 0;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: color-mix(in srgb, #ff4b4b 12%, transparent);
+    color: #dc2626;
+    font-size: 14px;
+}
+
+html[data-theme="dark"] .trl__aviso {
+    color: #fca5a5;
+}
+
+.trl__prog {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
+
+.trl__prog small {
+    color: var(--theme-text-secondary);
+    font-weight: 700;
+}
+
+.trl__seguir {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 38px;
+    padding: 6px 16px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--trl-cor);
+    color: #fff;
+    font: inherit;
+    font-weight: 800;
+    font-size: 13px;
+    cursor: pointer;
+    box-shadow: 0 3px 0 var(--trl-cor-escura);
+    transition: transform .15s, box-shadow .15s;
+}
+
+.trl__seguir:hover {
+    transform: translateY(-1px);
+}
+
+.trl__seguir:active {
+    transform: translateY(2px);
+    box-shadow: 0 1px 0 var(--trl-cor-escura);
+}
+
+.trl__selo {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--trl-suave);
+    color: var(--trl-cor-escura);
+    font-weight: 800;
+    font-size: 13px;
+}
+
+html[data-theme="dark"] .trl__selo {
+    color: color-mix(in srgb, var(--trl-cor) 70%, #fff);
+}
+
+.trl__barra {
+    height: 10px;
+    margin-top: 10px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: var(--trl-cinza);
+}
+
+.trl__barra > div {
+    height: 100%;
+    border-radius: 99px;
+    background: linear-gradient(90deg, var(--trl-cor), color-mix(in srgb, var(--trl-cor) 65%, #fff));
+    transition: width .4s ease;
+}
+
+
+/* ---------------- [TRL-MAPA] ---------------- */
+
+.trl__mapa {
+    --trl-x: 32px;                       /* centro dos círculos (linha do caminho) */
+
+    display: grid;
+    gap: 4px;
+    margin: 20px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.trl__passo {
+    position: relative;
+}
+
+/* linha que liga uma parada à próxima */
+.trl__passo::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: calc(var(--trl-x) - 2px);
+    width: 4px;
+    height: calc(100% + 4px);
+    border-radius: 4px;
+    background: var(--trl-cinza);
+}
+
+.trl__passo:last-child::before {
+    display: none;
+}
+
+/* depois de uma parada concluída, o caminho fica colorido */
+.trl__passo.is-feito::before,
+.trl__passo--extra:has(+ .is-feito)::before {
+    background: var(--trl-cor);
+}
+
+
+/* ---------------- [TRL-NO] ---------------- */
+
+.trl__no {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    margin: 0;
+    padding: 8px 10px 8px 0;
+    border: 0;
+    border-radius: 18px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color .15s;
+}
+
+.trl__no:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--trl-cor) 8%, transparent);
+}
+
+.trl__no:focus-visible {
+    outline: 3px solid #ffd43b;
+    outline-offset: 2px;
+}
+
+.trl__no:disabled {
+    cursor: not-allowed;
+}
+
+.trl__circulo {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 52px;
+    height: 52px;
+    margin-left: calc(var(--trl-x) - 26px);
+    border-radius: 50%;
+    background: var(--trl-cor);
+    color: #fff;
+    font-size: 20px;
+    font-weight: 800;
+    box-shadow: 0 4px 0 var(--trl-cor-escura);
+    transition: transform .15s, box-shadow .15s;
+}
+
+.trl__no:hover:not(:disabled) .trl__circulo {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 var(--trl-cor-escura);
+}
+
+.trl__no:active:not(:disabled) .trl__circulo {
+    transform: translateY(3px);
+    box-shadow: 0 1px 0 var(--trl-cor-escura);
+}
+
+.trl__circulo svg,
+.trl__circulo .lucide-icon {
+    width: 24px;
+    height: 24px;
+}
+
+.trl__info {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
+.trl__rotulo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    color: var(--theme-text-secondary);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+
+.trl__info b {
+    font-size: 15px;
+    line-height: 1.3;
+    overflow-wrap: anywhere;
+}
+
+.trl__info small {
+    color: var(--theme-text-secondary);
+    font-size: 12px;
+}
+
+.trl__info small .lucide-icon,
+.trl__info small svg,
+.trl__nota .lucide-icon,
+.trl__nota svg {
+    width: 13px;
+    height: 13px;
+    color: #f5b301;
+    vertical-align: -2px;
+}
+
+.trl__mini {
+    display: block;
+    width: min(220px, 100%);
+    height: 6px;
+    overflow: hidden;
+    border-radius: 99px;
+    background: var(--trl-cinza);
+}
+
+.trl__mini > span {
+    display: block;
+    height: 100%;
+    border-radius: 99px;
+    background: var(--trl-cor);
+}
+
+.trl__agora {
+    padding: 2px 9px;
+    border-radius: 999px;
+    background: var(--trl-cor);
+    color: #fff;
+    font-style: normal;
+    letter-spacing: .04em;
+}
+
+
+/* ---------------- [TRL-ESTADOS] ---------------- */
+
+/* concluído: círculo cheio com ✓ */
+.trl__passo.is-feito .trl__circulo {
+    background: var(--trl-cor);
+}
+
+/* próximo a fazer: maior, com brilho pulsando */
+.trl__passo.is-atual .trl__circulo {
+    width: 62px;
+    height: 62px;
+    margin-left: calc(var(--trl-x) - 31px);
+    font-size: 24px;
+    box-shadow:
+        0 5px 0 var(--trl-cor-escura),
+        0 0 0 6px color-mix(in srgb, var(--trl-cor) 25%, transparent);
+    animation: trlPulsar 1.8s ease-in-out infinite;
+}
+
+.trl__passo.is-atual .trl__no {
+    background: color-mix(in srgb, var(--trl-cor) 7%, transparent);
+}
+
+.trl__passo.is-atual .trl__info b {
+    font-size: 16px;
+}
+
+/* liberado, mas não é o próximo: contorno com o número */
+.trl__passo.is-livre .trl__circulo {
+    background: var(--theme-surface);
+    color: var(--trl-cor-escura);
+    box-shadow: inset 0 0 0 3px var(--trl-cor), 0 4px 0 var(--trl-cinza);
+}
+
+html[data-theme="dark"] .trl__passo.is-livre .trl__circulo {
+    color: color-mix(in srgb, var(--trl-cor) 70%, #fff);
+}
+
+/* bloqueado: cinza com cadeado */
+.trl__passo.is-bloq .trl__circulo {
+    background: color-mix(in srgb, var(--theme-text) 14%, var(--theme-surface));
+    color: var(--theme-text-secondary);
+    box-shadow: 0 4px 0 color-mix(in srgb, var(--theme-text) 22%, transparent);
+}
+
+.trl__passo.is-bloq .trl__info {
+    opacity: .6;
+}
+
+.trl__passo.is-bloq .trl__mini > span {
+    background: var(--theme-text-secondary);
+}
+
+@keyframes trlPulsar {
+    0%, 100% {
+        box-shadow:
+            0 5px 0 var(--trl-cor-escura),
+            0 0 0 6px color-mix(in srgb, var(--trl-cor) 25%, transparent);
+    }
+    50% {
+        box-shadow:
+            0 5px 0 var(--trl-cor-escura),
+            0 0 0 12px color-mix(in srgb, var(--trl-cor) 8%, transparent);
+    }
+}
+
+
+/* ---------------- [TRL-EXTRAS] ---------------- */
+
+/* apresentação, conclusão e avaliação: quadrado arredondado e suave */
+.trl__passo--extra .trl__circulo {
+    width: 44px;
+    height: 44px;
+    margin-left: calc(var(--trl-x) - 22px);
+    border-radius: 14px;
+    background: var(--trl-suave);
+    color: var(--trl-cor-escura);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--trl-cor) 40%, transparent);
+}
+
+html[data-theme="dark"] .trl__passo--extra .trl__circulo {
+    color: color-mix(in srgb, var(--trl-cor) 70%, #fff);
+}
+
+.trl__passo--extra .trl__circulo svg,
+.trl__passo--extra .trl__circulo .lucide-icon {
+    width: 20px;
+    height: 20px;
+}
+
+.trl__passo--extra .trl__info b {
+    font-size: 14px;
+}
+
+/* desafio: losango dourado/roxo */
+.trl__passo--desafio .trl__circulo {
+    width: 46px;
+    height: 46px;
+    margin-left: calc(var(--trl-x) - 23px);
+    border-radius: 12px;
+    transform: rotate(45deg);
+    background: linear-gradient(135deg, #8b3fd9, #6d28d9);
+    box-shadow: 0 4px 0 #4c1d95;
+}
+
+.trl__passo--desafio .trl__circulo > * {
+    transform: rotate(-45deg);
+}
+
+.trl__passo--desafio.is-feito .trl__circulo {
+    background: linear-gradient(135deg, #f5b301, #d97706);
+    box-shadow: 0 4px 0 #92400e;
+}
+
+.trl__no:hover:not(:disabled) .trl__passo--desafio .trl__circulo,
+.trl__passo--desafio .trl__no:hover:not(:disabled) .trl__circulo {
+    transform: rotate(45deg) translateY(-2px);
+}
+
+.trl__passo--desafio .trl__no:active:not(:disabled) .trl__circulo {
+    transform: rotate(45deg) translateY(2px);
+}
+
+.trl__passo--desafio .trl__no:disabled .trl__circulo {
+    filter: grayscale(1);
+    opacity: .6;
+}
+
+
+/* ---------------- [TRL-CELULAR] ---------------- */
+
+@media (max-width: 560px) {
+    .trl__topo {
+        gap: 10px;
+    }
+
+    .trl__anel {
+        width: 48px;
+        height: 48px;
+    }
+
+    .trl__anel span {
+        font-size: 12px;
+    }
+
+    .trl__ico {
+        width: 48px;
+        height: 48px;
+        font-size: 24px;
+    }
+
+    .trl__mapa {
+        --trl-x: 28px;
+    }
+
+    .trl__circulo {
+        width: 46px;
+        height: 46px;
+        margin-left: calc(var(--trl-x) - 23px);
+    }
+
+    .trl__passo.is-atual .trl__circulo {
+        width: 54px;
+        height: 54px;
+        margin-left: calc(var(--trl-x) - 27px);
+    }
+
+    .trl__seguir {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .trl__passo.is-atual .trl__circulo {
+        animation: none;
+    }
+
+    .trl__circulo,
+    .trl__seguir,
+    .trl__barra > div {
+        transition: none;
+    }
+}
+
+/* o style.css dá borda e espaçamento a todo <header>: aqui não */
+.trl .trl__topo {
+    padding: 0;
+    border: 0;
+    background: none;
+}
+
+/* ícone da trilha escolhido entre os ícones do site: na cor da trilha */
+.trl__ico .dgx-ico-trilha {
+    color: var(--trl-cor-escura);
+}
+
+html[data-theme="dark"] .trl__ico .dgx-ico-trilha {
+    color: color-mix(in srgb, var(--trl-cor) 70%, #fff);
+}

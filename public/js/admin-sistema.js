@@ -434,11 +434,7 @@ document.addEventListener(
 
       if (tableViewer) {
 
-        tableViewer.innerHTML = `
-          <div class="table-viewer-loading">
-            ⏳ Carregando tabela...
-          </div>
-        `;
+        tableViewer.innerHTML = (window.dgxCarregando ? window.dgxCarregando.html('Carregando tabela…') : '<p>Carregando tabela…</p>');
 
       }
 
@@ -738,8 +734,7 @@ document.addEventListener(
 
       if (status) {
 
-        status.textContent =
-          'Carregando informações do sistema...';
+        status.innerHTML = (window.dgxCarregando ? window.dgxCarregando.html('Carregando informações do sistema…', { compacto: true }) : '<p>Carregando informações do sistema…</p>');
 
       }
 
@@ -889,7 +884,7 @@ if (logoutButton) {
       // ==============================================
 
       window.location.replace(
-        'splash.html?destino=login.html'
+        'splash.html?logout=1'
       );
 
     }

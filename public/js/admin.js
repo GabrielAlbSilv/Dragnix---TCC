@@ -20,7 +20,7 @@ if (me()?.role === 'professor') {
   const brand = document.querySelector('.admin-brand .trilhas-title');
 
   if (brand) {
-    brand.textContent = 'Dragnix — Painel Professor';
+    brand.textContent = 'Painel do professor';
   }
 
   const usersTab = $('t2');
@@ -113,15 +113,33 @@ function safeNumber(value, fallback = 0) {
    MODAL GENÉRICO
 ========================================================= */
 
+// Ícone e frase do cabeçalho da janela, conforme o que está sendo criado/editado
+const CABECALHO_JANELA = [
+  [/trilha/i, '🗺️', 'Conteúdo, XP, pré-requisitos e avaliação da trilha'],
+  [/m[óo]dulo/i, '📘', 'Apresentação, explicação, conclusão e XP do módulo'],
+  [/quest/i, '❓', 'Enunciado, alternativas e resposta certa'],
+  [/desafio/i, '⚔️', 'Regras, tempo e recompensa do desafio']
+];
+
 function modal(title, html, setup, collect) {
   return new Promise(resolve => {
     $('dt').textContent = title;
+    const cab = CABECALHO_JANELA.find(([re]) => re.test(title));
+    if ($('dico')) $('dico').textContent = cab ? cab[1] : '✏️';
+    if ($('dsub')) $('dsub').textContent = cab ? cab[2] : '';
     $('fields').innerHTML = html;
     $('derr').textContent = '';
+    const corpoJanela = document.querySelector('#dlg .fm__corpo');
+    if (corpoJanela) corpoJanela.scrollTop = 0;
 
     let ok = false;
 
     setup && setup();
+
+    // campos de ícone ganham a caixinha de emojis (js/emoji-seletor.js)
+    if (window.dgxEmojiSeletor) {
+      $('fields').querySelectorAll('input[data-emoji]').forEach(window.dgxEmojiSeletor);
+    }
 
     $('ok').onclick = e => {
       e.preventDefault();
@@ -138,12 +156,19 @@ function modal(title, html, setup, collect) {
         $('derr').textContent =
           err?.message ||
           'Não foi possível salvar.';
+
+        // o aviso fica no topo do conteúdo: rola até ele
+        const corpo = document.querySelector('#dlg .fm__corpo');
+        if (corpo) corpo.scrollTo({ top: 0, behavior: 'smooth' });
       }
     };
 
     $('cx').onclick = () => {
       dlg.close();
     };
+
+    // × do cabeçalho: mesmo efeito do Cancelar
+    if ($('dx')) $('dx').onclick = () => dlg.close();
 
     $('frm').onsubmit = e => {
       e.preventDefault();
@@ -171,7 +196,7 @@ function modal(title, html, setup, collect) {
 const SIMPLE = {
   tracks: [
     ['title', 'Título da trilha'],
-    ['icon', 'Ícone (emoji)'],
+    ['icon', 'Ícone'],
     ['color', 'Cor da trilha', 'color'],
     ['description', 'Descrição', 1]
   ],
@@ -216,6 +241,7 @@ const simple = (res, title, d = {}) => {
             ${l}
             <input
               name="${k}"
+              ${k === 'icon' ? 'data-emoji' : ''}
               type="${t || 'text'}"
               value="${esc(d[k] ?? '')}"
             >
@@ -312,6 +338,8 @@ function questionForm(q = {}) {
         type="button"
         class="btn sm red"
         data-d="${i}"
+        aria-label="Remover item ${i + 1}"
+        title="Remover"
       >
         ✕
       </button>
@@ -329,6 +357,7 @@ function questionForm(q = {}) {
             data-s="0"
             value="${esc(left)}"
             placeholder="Item ${i + 1}"
+            aria-label="Item ${i + 1}"
           >
 
           <span>→</span>
@@ -338,6 +367,7 @@ function questionForm(q = {}) {
             data-s="1"
             value="${esc(right)}"
             placeholder="Par"
+            aria-label="Par do item ${i + 1}"
           >
 
           ${del}
@@ -352,6 +382,7 @@ function questionForm(q = {}) {
           <input
             type="radio"
             name="c"
+            aria-label="Marcar a alternativa ${i + 1} como correta"
             value="${i}"
             ${ans == i ? 'checked' : ''}
           >
@@ -366,7 +397,7 @@ function questionForm(q = {}) {
           <button
             type="button"
             class="btn sm sec"
-            data-m="${i}:-1"
+            data-m="${i}:-1" aria-label="Subir item ${i + 1}"
             ${i === 0 ? 'disabled' : ''}
           >
             ↑
@@ -375,7 +406,7 @@ function questionForm(q = {}) {
           <button
             type="button"
             class="btn sm sec"
-            data-m="${i}:1"
+            data-m="${i}:1" aria-label="Descer item ${i + 1}"
             ${i === items.length - 1 ? 'disabled' : ''}
           >
             ↓
@@ -391,6 +422,7 @@ function questionForm(q = {}) {
         <input
           data-i="${i}"
           value="${esc(t)}"
+          aria-label="${type === 'preencher' ? 'Resposta' : type === 'ordenar' ? 'Item' : 'Alternativa'} ${i + 1}"
           placeholder="${
             type === 'preencher'
               ? 'Resposta'
@@ -741,7 +773,7 @@ function blockEditor(host, initial) {
                     <button
                       type="button"
                       class="btn sm sec"
-                      data-m="${i}:-1"
+                      data-m="${i}:-1" aria-label="Subir item ${i + 1}"
                       ${i === 0 ? 'disabled' : ''}
                     >
                       ↑
@@ -750,7 +782,7 @@ function blockEditor(host, initial) {
                     <button
                       type="button"
                       class="btn sm sec"
-                      data-m="${i}:1"
+                      data-m="${i}:1" aria-label="Descer item ${i + 1}"
                       ${i === blocks.length - 1 ? 'disabled' : ''}
                     >
                       ↓
@@ -1040,6 +1072,40 @@ function isValidMediaUrl(value) {
    FORMULÁRIO DO MÓDULO
 ========================================================= */
 
+/* =========================================================
+   XP DOS MÓDULOS POR TRILHA
+   O criador define, no formulário da trilha, quanto XP vale cada
+   módulo. Módulos novos da trilha nascem com esse valor.
+   (rotas: GET /api/admin/xp-trilhas e PUT /api/admin/tracks/:id/module-xp)
+========================================================= */
+
+let XP_INFO = { padrao: 10, por_acerto: 2, bonus_perfeito: 10, trilhas: {} };
+let xpNovoModulo = 10;
+
+async function carregarXpTrilhas() {
+  try {
+    const d = await api('/admin/xp-trilhas');
+    XP_INFO = { ...XP_INFO, ...d, trilhas: d.trilhas || {} };
+  } catch {
+    // sem a rota: segue com os valores padrão
+  }
+}
+
+// XP de cada módulo da trilha: o definido nela, senão o valor que os
+// módulos dela já usam (se todos forem iguais), senão o padrão das regras
+function xpDaTrilha(t) {
+  if (!t) return XP_INFO.padrao;
+
+  const salvo = XP_INFO.trilhas?.[t.id];
+  if (salvo != null) return Number(salvo);
+
+  const valores = [...new Set((t.lessons || []).map(l => Number(l.xp)))];
+  return valores.length === 1 ? valores[0] : XP_INFO.padrao;
+}
+
+const textoXpRegras = () =>
+  `Além disso, o aluno ganha ${XP_INFO.por_acerto} XP por acerto e ${XP_INFO.bonus_perfeito} XP de bônus se terminar sem errar (regras de negócio).`;
+
 function lessonForm(l = {}) {
   let pe;
   let ce;
@@ -1051,73 +1117,57 @@ function lessonForm(l = {}) {
       : 'Novo módulo',
 
     `
-      <label>
-        Título do módulo
+      <section class="fm-sec">
+        <h4 class="fm-sec__titulo"><span class="fm-sec__ico" aria-hidden="true">📝</span>
+          <span>Informações do módulo</span></h4>
 
-        <input
-          id="lt"
-          value="${esc(l.title || '')}"
-        >
-      </label>
+        <div class="fm-grade fm-grade--titulo">
+          <label>
+            Título do módulo
+            <input id="lt" value="${esc(l.title || '')}" placeholder="Ex.: Juros simples e compostos">
+          </label>
 
-      <label>
-        XP do módulo (recompensa)
+          <label>
+            XP do módulo (recompensa)
+            <input id="lx" type="number" min="0" value="${esc(l.xp ?? xpNovoModulo)}">
+          </label>
+        </div>
 
-        <input
-          id="lx"
-          type="number"
-          min="0"
-          value="${esc(l.xp ?? 10)}"
-        >
-      </label>
+        <p class="fm-ajuda">
+          ${l.id ? '' : `Padrão desta trilha: ${esc(xpNovoModulo)} XP. `}${esc(textoXpRegras())}
+        </p>
+      </section>
 
-      <p>
-        <b>📌 Apresentação</b>
+      <section class="fm-sec">
+        <h4 class="fm-sec__titulo"><span class="fm-sec__ico" aria-hidden="true">📌</span>
+          <span>Apresentação <small>Opcional · aparece no começo do módulo</small></span></h4>
+        <div id="pe"></div>
+      </section>
 
-        <small class="mut">
-          — opcional, aparece no começo do módulo
-        </small>
-      </p>
+      <section class="fm-sec">
+        <h4 class="fm-sec__titulo"><span class="fm-sec__ico" aria-hidden="true">📖</span>
+          <span>Explicação <small>O aluno lê antes das perguntas</small></span></h4>
+        <div id="ce"></div>
+      </section>
 
-      <div id="pe"></div>
+      <section class="fm-sec">
+        <h4 class="fm-sec__titulo"><span class="fm-sec__ico" aria-hidden="true">🏁</span>
+          <span>Conclusão <small>Opcional · aparece no final, depois das perguntas</small></span></h4>
+        <div id="co"></div>
+      </section>
 
-      <p>
-        <b>📖 Explicação</b>
-
-        <small class="mut">
-          — o aluno lê antes das perguntas
-        </small>
-      </p>
-
-      <div id="ce"></div>
-
-      <p>
-        <b>🏁 Conclusão</b>
-
-        <small class="mut">
-          — opcional, aparece no final do módulo,
-          depois das perguntas
-        </small>
-      </p>
-
-      <div id="co"></div>
-
-      <label>
-        Pergunta de avaliação do módulo
-
-        <input
-          id="leq"
-          value="${esc(
-            l.evaluation_question ||
-            'Como você avalia este módulo?'
-          )}"
-          placeholder="Como você avalia este módulo?"
-        >
-      </label>
-
-      <small class="mut">
-        O aluno responderá de 1 a 5 estrelas ao final.
-      </small>
+      <section class="fm-sec">
+        <h4 class="fm-sec__titulo"><span class="fm-sec__ico" aria-hidden="true">⭐</span>
+          <span>Avaliação <small>O aluno responde de 1 a 5 estrelas ao final</small></span></h4>
+        <label>
+          Pergunta de avaliação do módulo
+          <input
+            id="leq"
+            value="${esc(l.evaluation_question || 'Como você avalia este módulo?')}"
+            placeholder="Como você avalia este módulo?"
+          >
+        </label>
+      </section>
     `,
 
     () => {
@@ -1163,7 +1213,9 @@ function lessonForm(l = {}) {
 
         xp: Math.max(
           0,
-          Number($('lx').value) || 10
+          Number.isFinite(Number($('lx').value)) && $('lx').value !== ''
+            ? Number($('lx').value)
+            : xpNovoModulo
         ),
 
         presentation: pe.get(),
@@ -1224,37 +1276,24 @@ function trackForm(t = {}) {
     );
 
   const preHtml = `
-    <p>
-      <b>🔗 Pré-requisitos</b>
-
-      <small class="mut">
-        — o aluno só começa esta trilha
-        depois de concluir as marcadas
-      </small>
-    </p>
-
-    ${
-      options
-        .map(
-          x => `
-            <label class="opt-row">
-
-              <input
-                type="checkbox"
-                name="pre"
-                value="${x.id}"
-                ${pre.has(x.id) ? 'checked' : ''}
-              >
-
-              ${esc(x.icon || '📚')}
-              ${esc(x.title || '')}
-
-            </label>
-          `
-        )
-        .join('') ||
-      '<p class="mut">Crie outras trilhas para usá-las como pré-requisito.</p>'
-    }
+    <section class="fm-sec">
+      <h4 class="fm-sec__titulo"><span class="fm-sec__ico" aria-hidden="true">🔗</span>
+        <span>Pré-requisitos <small>O aluno só começa esta trilha depois de concluir as marcadas</small></span></h4>
+      ${
+        options.length
+          ? `<div class="fm-opcoes">${options
+              .map(
+                x => `
+                  <label class="opt-row">
+                    <input type="checkbox" name="pre" value="${x.id}" ${pre.has(x.id) ? 'checked' : ''}>
+                    <span>${iconeTrilha(x.icon)} ${esc(x.title || '')}</span>
+                  </label>
+                `
+              )
+              .join('')}</div>`
+          : '<p class="fm-ajuda">Crie outras trilhas para usá-las como pré-requisito.</p>'
+      }
+    </section>
   `;
 
   return modal(
@@ -1263,85 +1302,94 @@ function trackForm(t = {}) {
       : 'Nova trilha',
 
     `
-      <label>
-        Título da trilha
+      <section class="fm-sec">
+        <h4 class="fm-sec__titulo"><span class="fm-sec__ico" aria-hidden="true">📝</span>
+          <span>Informações da trilha</span></h4>
 
-        <input
-          id="tt"
-          value="${esc(t.title || '')}"
-        >
-      </label>
+        <label>
+          Título da trilha
+          <input id="tt" value="${esc(t.title || '')}" placeholder="Ex.: Guardião do Orçamento">
+        </label>
 
-      <label>
-        Ícone (emoji)
+        <div class="fm-grade fm-grade--icone">
+          <!-- o seletor de ícones (js/emoji-seletor.js) entra dentro deste bloco -->
+          <div class="fm-icone">
+            <label>
+              Ícone
+              <input id="ti" data-emoji value="${esc(t.icon || '📚')}">
+            </label>
+          </div>
 
-        <input
-          id="ti"
-          value="${esc(t.icon || '📚')}"
-        >
-      </label>
+          <label>
+            Cor da trilha
+            <span class="fm-cor">
+              <input id="tc" type="color" value="${esc(t.color)}" aria-label="Cor da trilha">
+              <span class="fm-cor__hex" id="tcHex">${esc(t.color)}</span>
+            </span>
+          </label>
+        </div>
 
-      <label>
-        Cor da trilha
+        <label>
+          Descrição
+          <textarea id="td" rows="3" placeholder="Em poucas linhas, o que o aluno vai aprender">${esc(t.description || '')}</textarea>
+        </label>
+      </section>
 
-        <input
-          id="tc"
-          type="color"
-          value="${esc(t.color)}"
-        >
-      </label>
+      <section class="fm-sec">
+        <h4 class="fm-sec__titulo"><span class="fm-sec__ico" aria-hidden="true">⚡</span>
+          <span>XP dos módulos</span></h4>
 
-      <label>
-        Descrição
+        <label>
+          XP de cada módulo desta trilha
+          <input id="txp" type="number" min="0" max="100000" step="1" value="${esc(xpDaTrilha(t))}">
+        </label>
 
-        <textarea
-          id="td"
-          rows="3"
-        >${esc(t.description || '')}</textarea>
-      </label>
+        <p class="fm-ajuda" id="txpInfo">
+          ${esc(textoXpRegras())}
+          ${t.lessons?.length ? ` Esta trilha tem ${t.lessons.length} módulo(s): ${t.lessons.length} × XP do módulo.` : ' Os módulos criados nesta trilha começam com esse valor.'}
+        </p>
+
+        ${t.id && t.lessons?.length
+          ? `<label class="fm-marcar">
+               <input type="checkbox" id="txpTodos">
+               <span>Aplicar agora aos ${t.lessons.length} módulo(s) desta trilha (substitui o XP de cada um)</span>
+             </label>`
+          : ''}
+      </section>
 
       ${preHtml}
 
-      <p>
-        <b>📌 Apresentação da trilha</b>
+      <section class="fm-sec">
+        <h4 class="fm-sec__titulo"><span class="fm-sec__ico" aria-hidden="true">📌</span>
+          <span>Apresentação da trilha <small>Opcional · aparece no começo da trilha</small></span></h4>
+        <div id="pe"></div>
+      </section>
 
-        <small class="mut">
-          — opcional, aparece no começo da trilha
-        </small>
-      </p>
+      <section class="fm-sec">
+        <h4 class="fm-sec__titulo"><span class="fm-sec__ico" aria-hidden="true">🏁</span>
+          <span>Conclusão da trilha <small>Opcional · aparece no final, após todos os módulos</small></span></h4>
+        <div id="co"></div>
+      </section>
 
-      <div id="pe"></div>
-
-      <p>
-        <b>🏁 Conclusão da trilha</b>
-
-        <small class="mut">
-          — opcional, aparece no final,
-          após todos os módulos
-        </small>
-      </p>
-
-      <div id="co"></div>
-
-      <label>
-        Pergunta de avaliação da trilha
-
-        <input
-          id="teq"
-          value="${esc(
-            t.evaluation_question ||
-            'Como você avalia esta trilha?'
-          )}"
-          placeholder="Como você avalia esta trilha?"
-        >
-      </label>
-
-      <small class="mut">
-        O aluno responderá de 1 a 5 estrelas ao final.
-      </small>
+      <section class="fm-sec">
+        <h4 class="fm-sec__titulo"><span class="fm-sec__ico" aria-hidden="true">⭐</span>
+          <span>Avaliação <small>O aluno responde de 1 a 5 estrelas ao final</small></span></h4>
+        <label>
+          Pergunta de avaliação da trilha
+          <input
+            id="teq"
+            value="${esc(t.evaluation_question || 'Como você avalia esta trilha?')}"
+            placeholder="Como você avalia esta trilha?"
+          >
+        </label>
+      </section>
     `,
 
     () => {
+      $('tc').addEventListener('input', () => {
+        $('tcHex').textContent = $('tc').value;
+      });
+
       pe = blockEditor(
         $('pe'),
         t.presentation
@@ -1395,7 +1443,11 @@ function trackForm(t = {}) {
           $('teq').value.trim() ||
           'Como você avalia esta trilha?',
 
-        prerequisites
+        prerequisites,
+
+        // XP dos módulos (salvo à parte, depois da trilha)
+        _xpModulo: Math.max(0, Math.min(100000, Math.round(Number($('txp').value) || 0))),
+        _xpAplicar: !!$('txpTodos')?.checked
       };
     }
   );
@@ -1999,25 +2051,30 @@ async function editChallenge(trackId, challengeId = null) {
               ${puzzle
                 ? `<strong>${i + 1}.</strong>`
                 : `<input type="radio" name="ch-correct"
+                    aria-label="Marcar a alternativa ${i + 1} como correta"
                     value="${i}"
                     ${q.correct_answer === i ? 'checked' : ''}>`}
 
               <input class="ch-option-input"
                 data-index="${i}"
+                aria-label="${puzzle ? 'Item' : 'Alternativa'} ${i + 1}"
                 maxlength="500"
                 value="${challengeEscape(option)}"
                 placeholder="${puzzle ? 'Item' : 'Alternativa'} ${i + 1}">
 
               <button type="button" class="btn sm sec"
                 data-ch-move="${i}:-1"
+                aria-label="Subir ${i + 1}"
                 ${i === 0 ? 'disabled' : ''}>↑</button>
 
               <button type="button" class="btn sm sec"
                 data-ch-move="${i}:1"
+                aria-label="Descer ${i + 1}"
                 ${i === q.options.length - 1 ? 'disabled' : ''}>↓</button>
 
               <button type="button" class="btn sm red"
                 data-ch-remove-option="${i}"
+                aria-label="Remover ${i + 1}"
                 ${q.options.length <= 2 ? 'disabled' : ''}>×</button>
             </div>
           `).join('')}
@@ -2385,8 +2442,10 @@ try {
 ========================================================= */
 
 async function load() {
-  const data =
-    await api('/admin/tree');
+  const [data] = await Promise.all([
+    api('/admin/tree'),
+    carregarXpTrilhas()
+  ]);
 
   tree = normalizeTree(data);
 
@@ -2631,18 +2690,23 @@ if (a === 'challenge-delete') {
     o = await trackForm();
 
     if (o) {
+      const { _xpModulo, _xpAplicar, ...dados } = o;
+
       await run(async () => {
         const created =
           await api(
             '/admin/tracks',
             'POST',
             {
-              ...o,
+              ...dados,
               position: tree.length
             }
           );
 
         sel = created.id;
+
+        await api(`/admin/tracks/${created.id}/module-xp`, 'PUT', { xp: _xpModulo, aplicar: false });
+        await carregarXpTrilhas();
       });
     }
 
@@ -2657,13 +2721,18 @@ if (a === 'challenge-delete') {
     o = await trackForm(T);
 
     if (o) {
-      await run(() =>
-        api(
+      const { _xpModulo, _xpAplicar, ...dados } = o;
+
+      await run(async () => {
+        await api(
           `/admin/tracks/${T.id}`,
           'PUT',
-          o
-        )
-      );
+          dados
+        );
+
+        await api(`/admin/tracks/${T.id}/module-xp`, 'PUT', { xp: _xpModulo, aplicar: _xpAplicar });
+        await carregarXpTrilhas();
+      });
     }
 
     return;
@@ -2695,6 +2764,7 @@ if (a === 'challenge-delete') {
       return;
     }
 
+    xpNovoModulo = xpDaTrilha(T);
     o = await lessonForm();
 
     if (o) {
@@ -3200,7 +3270,7 @@ function render() {
               >
 
                 <span class="ic">
-                  ${esc(x.icon || '📚')}
+                  ${iconeTrilha(x.icon)}
                 </span>
 
                 <span>
@@ -3241,7 +3311,7 @@ function render() {
               <div class="thead">
 
                 <div class="ic big">
-                  ${esc(t.icon || '📚')}
+                  ${iconeTrilha(t.icon)}
                 </div>
 
                 <div style="flex:1">
@@ -3512,6 +3582,7 @@ async function usersView() {
               </span>
 
               <select
+                aria-label="Papel de ${esc(u.name || u.email || 'usuário')}"
                 onchange="setRole(${u.id}, this.value)"
                 style="width:auto"
                 ${
@@ -3620,7 +3691,8 @@ async function avatarsView() {
 function renderAvatarsView(data) {
   const full = data.presets.length >= data.max;
 
-  $('main').innerHTML = `
+  // dentro da tela Regras de negócio (aba Avatares), se ela estiver aberta
+  (document.getElementById('rnAlvo') || $('main')).innerHTML = `
     <h2>Avatares</h2>
 
     <p class="mut">
@@ -3772,98 +3844,108 @@ async function deleteAvatarPreset(id) {
 }
 
 
-/* ============================================================
-   MENU LATERAL DO PAINEL ADMINISTRATIVO
-   ============================================================ */
-
-(function () {
-    function iniciarMenuAdmin() {
-        const menu = document.getElementById('adminMenu');
-        const toggle = document.getElementById('adminMenuToggle');
-
-        if (!menu || !toggle) return;
-
-        function setOpen(open) {
-            menu.classList.toggle('open', open);
-
-            toggle.setAttribute('aria-expanded', String(open));
-            toggle.setAttribute(
-                'aria-label',
-                open ? 'Fechar menu' : 'Abrir menu'
-            );
-
-            const icon = toggle.querySelector('svg, i');
-
-            if (icon) {
-                if (icon.tagName.toLowerCase() === 'svg') {
-                    icon.innerHTML = open
-                        ? '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>'
-                        : '<path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h16"/>';
-                } else {
-                    icon.setAttribute(
-                        'data-lucide',
-                        open ? 'x' : 'menu'
-                    );
-
-                    if (window.lucide) {
-                        window.lucide.createIcons();
-                    }
-                }
-            }
-        }
-
-        toggle.addEventListener('click', function (event) {
-            event.stopPropagation();
-            setOpen(!menu.classList.contains('open'));
-        });
-
-        menu.querySelectorAll('.admin-menu-item').forEach(function (item) {
-            item.addEventListener('click', function () {
-                setOpen(false);
-            });
-        });
-
-        document.addEventListener('click', function (event) {
-            if (!menu.contains(event.target)) {
-                setOpen(false);
-            }
-        });
-
-        document.addEventListener('keydown', function (event) {
-            if (
-                event.key === 'Escape' &&
-                menu.classList.contains('open')
-            ) {
-                setOpen(false);
-                toggle.focus();
-            }
-        });
-
-        setOpen(false);
-    }
-
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', iniciarMenuAdmin);
-    } else {
-        iniciarMenuAdmin();
-    }
-})();
-
-
 /* =========================================================
    INICIALIZAÇÃO
 ========================================================= */
 
-$('t1').onclick = async () => {
-  tab = 'mod';
-  await load();
+// Ao trocar de área, a anterior some na hora e a mini-tela de carregamento
+// fica no lugar até a nova área chegar (js/carregando.js).
+const comCarregando = (texto, fn) => () => {
+  const executar = () => {
+    try {
+      return Promise.resolve(fn());
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  };
+
+  return window.dgxCarregando?.trocar
+    ? window.dgxCarregando.trocar($('main'), texto, executar)
+    : executar();
 };
 
-$('t2').onclick = usersView;
+$('t1').onclick = comCarregando('Carregando trilhas e módulos…', async () => {
+  tab = 'mod';
+  await load();
+});
 
-$('t3').onclick = avatarsView;
+$('t2').onclick = comCarregando('Carregando usuários…', usersView);
 
-load();
+$('t3').onclick = comCarregando('Carregando avatares…', avatarsView);
+
+// Sem área pedida no endereço, o painel abre na Visão geral (js/admin-visao.js).
+// Com área pedida (#usuarios, #conquistas...), abre DIRETO essa área, com a
+// mini-tela dela: as trilhas só carregam quando a área de trilhas for aberta.
+// Espera todos os scripts da página (conquistas, avaliações, visão geral...)
+// estarem prontos antes de abrir a área pedida no endereço.
+const cargaInicial = new Promise(pronto => {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', pronto, { once: true });
+  } else {
+    pronto();
+  }
+});
+
+// Atalhos por endereço (vindos da página inicial e do menu lateral):
+//   admin.html#nova-trilha → abre o formulário de nova trilha
+//   admin.html#visao-geral | #trilhas | #usuarios | #avatares | #conquistas | #avaliacoes → abre a área
+async function abrirPorEndereco() {
+  const alvo = window.location.hash.slice(1);
+
+  if (!alvo) return;
+
+  const ehAdm = me()?.role === 'adm';
+
+  if (alvo === 'nova-trilha') {
+    history.replaceState(null, '', window.location.pathname);
+
+    let botao = document.querySelector('#main [data-a="nt"]');
+
+    // Está em outra área (usuários/avatares): volta para Trilhas primeiro
+    if (!botao) {
+      await $('t1').onclick();
+      botao = document.querySelector('#main [data-a="nt"]');
+    }
+
+    if (botao) botao.click();
+  } else if (alvo === 'visao-geral' && $('t0')) {
+    $('t0').click();
+  } else if (alvo === 'trilhas') {
+    $('t1').click();
+  } else if (alvo === 'usuarios' && ehAdm) {
+    $('t2').click();
+  } else if (alvo === 'regras' && ehAdm && window.abrirRegras) {
+    window.abrirRegras();
+  } else if (alvo === 'avatares' && ehAdm && window.abrirRegras) {
+    // avatares e conquistas ficam dentro de "Regras de negócio"
+    window.abrirRegras('avatares');
+  } else if (alvo === 'conquistas' && ehAdm && window.abrirRegras) {
+    window.abrirRegras('conquistas');
+  } else if (alvo === 'avaliacoes' && $('t5')) {
+    $('t5').click();
+  } else if (/^trilha-\d+$/.test(alvo)) {
+    // vindo do painel de gestão: abre direto a trilha escolhida
+    const id = Number(alvo.slice(7));
+    history.replaceState(null, '', window.location.pathname);
+
+    if (!document.querySelector('#main [data-a="nt"]')) {
+      await $('t1').onclick();
+    }
+
+    if (Array.isArray(tree) && tree.some(t => Number(t.id) === id)) {
+      sel = id;
+      tab = 'mod';
+      render();
+    }
+  } else if (['usuarios', 'avatares', 'conquistas', 'regras'].includes(alvo) && $('t0')) {
+    // área exclusiva do adm pedida por quem não é adm: abre a Visão geral
+    // (outros endereços, como o #main do link "Ir para o conteúdo", não mexem na tela)
+    $('t0').click();
+  }
+}
+
+cargaInicial.then(abrirPorEndereco, () => {});
+window.addEventListener('hashchange', abrirPorEndereco);
 
 /* ==========================================
    DRAGNIX — TÍTULOS DO PAINEL
@@ -3871,6 +3953,11 @@ load();
 
 (function () {
   const sections = {
+    t0: {
+      title: 'Visão geral',
+      description:
+        'Todas as funções do painel e os atalhos para cada uma.'
+    },
     t1: {
       title: 'Trilhas e módulos',
       description:
@@ -3885,6 +3972,21 @@ load();
       title: 'Biblioteca de avatares',
       description:
         'Gerencie os avatares disponíveis para personalização dos perfis.'
+    },
+    t4: {
+      title: 'Conquistas',
+      description:
+        'Crie conquistas com ícone e condição para os alunos ganharem.'
+    },
+    t6: {
+      title: 'Regras de negócio',
+      description:
+        'Níveis, XP, moedas, vidas, missões, conquistas e avatares.'
+    },
+    t5: {
+      title: 'Avaliações',
+      description:
+        'Veja as notas que os alunos deram às trilhas e aos módulos.'
     }
   };
 
@@ -3899,7 +4001,7 @@ load();
     if (description) description.textContent = section.description;
 
     document.querySelectorAll(
-      '#adminMenuPanel #t1, #adminMenuPanel #t2, #adminMenuPanel #t3'
+      '#t0, #t1, #t2, #t3, #t4, #t5, #t6'
     ).forEach(button => {
       const active = button.id === sectionId;
 
@@ -3923,5 +4025,5 @@ load();
     });
   });
 
-  updateSection('t1');
+  updateSection(window.location.hash ? 't1' : 't0');
 })();

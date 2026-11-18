@@ -1,0 +1,663 @@
+/* ============================================================
+   DRAGNIX — css/ranking-semana.css  (RANKING DA SEMANA + GANHADOR)
+   Usado pelo js/ranking-semana.js (app.html e Controle financeiro).
+
+   [RKS-BANNER]  banner do ganhador (sempre escuro, como a arte)
+   [RKS-PODIO]   pódio do top 3
+   [RKS-LISTA]   demais posições
+   [RKS-CELULAR] telas pequenas
+   ============================================================ */
+
+.rks {
+    display: grid;
+    gap: 18px;
+    text-align: left;
+    container-type: inline-size;          /* o banner se ajusta à largura do ranking, não da janela */
+}
+
+/* ---------------- [RKS-BANNER] ---------------- */
+
+.rks-banner {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.25fr);
+    align-items: center;
+    gap: clamp(16px, 3vw, 36px);
+    min-height: 260px;
+    padding: clamp(18px, 2.6vw, 30px) clamp(18px, 2.8vw, 34px) clamp(46px, 5vw, 56px);
+    overflow: hidden;
+    border-radius: 24px;
+    color: #fff;
+    background:
+        radial-gradient(60% 90% at 0% 100%, rgba(88, 204, 2, .28), transparent 60%),
+        radial-gradient(50% 80% at 100% 0%, rgba(139, 63, 217, .35), transparent 65%),
+        linear-gradient(160deg, #1b1029 0%, #120a1d 55%, #0d0715 100%);
+    box-shadow: 0 16px 40px rgba(18, 10, 29, .35);
+}
+
+/* estrelas */
+.rks-banner::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image:
+        radial-gradient(1.5px 1.5px at 12% 22%, #fff8 50%, transparent 51%),
+        radial-gradient(1px 1px at 28% 68%, #fff6 50%, transparent 51%),
+        radial-gradient(1.5px 1.5px at 44% 14%, #fff7 50%, transparent 51%),
+        radial-gradient(1px 1px at 52% 80%, #fff5 50%, transparent 51%),
+        radial-gradient(2px 2px at 63% 30%, #fff6 50%, transparent 51%),
+        radial-gradient(1px 1px at 72% 12%, #fff8 50%, transparent 51%),
+        radial-gradient(1.5px 1.5px at 86% 44%, #fff5 50%, transparent 51%),
+        radial-gradient(1px 1px at 94% 82%, #fff7 50%, transparent 51%),
+        radial-gradient(1px 1px at 36% 40%, #fff4 50%, transparent 51%),
+        radial-gradient(1.5px 1.5px at 8% 58%, #fff6 50%, transparent 51%);
+}
+
+/* chão em pixel art (recortado da arte) */
+.rks-chao {
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    z-index: -1;
+    width: min(46%, 650px);
+    height: 34px;
+    background: url('images/ranking/chao-pixel.png') left bottom / auto 100% repeat-x;
+    image-rendering: pixelated;
+    pointer-events: none;
+}
+
+.rks-banner__logo {
+    display: block;
+    width: 150px;
+    max-width: 60%;
+    height: auto;
+    margin-bottom: 18px;
+}
+
+.rks-banner__chamada {
+    position: relative;
+    margin: 0;
+    font-size: clamp(1.2rem, 2.1vw, 1.65rem);
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.rks-banner__chamada strong {
+    display: inline-block;
+    color: #ffd43b;
+    font-size: 1.45em;
+    font-weight: 900;
+    letter-spacing: .02em;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, .35);
+}
+
+.rks-brilho {
+    margin-left: 6px;
+    color: #ffd43b;
+    font-size: 1.1em;
+    animation: rksBrilhar 2.4s ease-in-out infinite;
+}
+
+.rks-banner__semana {
+    margin: 14px 0 0;
+    color: rgba(255, 255, 255, .72);
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* foto do ganhador: aro dourado */
+.rks-banner__centro {
+    display: grid;
+    place-items: center;
+}
+
+.rks-banner__foto {
+    display: grid;
+    place-items: center;
+    width: clamp(130px, 15vw, 190px);
+    height: clamp(130px, 15vw, 190px);
+    overflow: hidden;
+    border-radius: 50%;
+    border: 6px solid #f5c518;
+    background: radial-gradient(circle at 50% 35%, #3b1f5c, #160b24);
+    box-shadow:
+        0 0 0 4px #2a1840,
+        0 0 30px rgba(245, 197, 24, .35);
+}
+
+.rks-banner__foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.rks-banner__foto .rks-iniciais {
+    font-size: clamp(2.6rem, 5vw, 3.6rem);
+    font-weight: 900;
+    color: #ffd43b;
+}
+
+.rks-banner__foto--vazia {
+    border-style: dashed;
+}
+
+.rks-banner__titulo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    color: #fff !important;               /* o app pinta todo h2 de escuro */
+    font-size: clamp(1rem, 1.7vw, 1.35rem);
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    text-align: left;
+}
+
+.rks-banner__titulo img {
+    width: 44px;
+    height: auto;
+    image-rendering: pixelated;
+}
+
+.rks-banner__nome {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin: 10px 0 0;
+    padding: 10px 18px;
+    border-radius: 14px;
+    background: #2a1840;
+    font-size: clamp(1.25rem, 2.4vw, 2rem);
+    font-weight: 700;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
+}
+
+.rks-voce {
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #58cc02;
+    color: #0d1a00;
+    font-size: 13px;
+    font-weight: 900;
+    letter-spacing: .03em;
+}
+
+.rks-banner__info {
+    margin: 8px 0 0;
+    color: rgba(255, 255, 255, .78);
+    font-size: 13px;
+}
+
+/* cartões dos prêmios */
+.rks-premios {
+    display: flex;
+    gap: clamp(10px, 1.6vw, 18px);
+    margin: 16px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.rks-premio {
+    --rks-premio: #58cc02;
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    flex: 1 1 0;
+    max-width: 150px;
+    min-width: 0;
+    padding: 8px 8px 10px;
+    border: 4px solid var(--rks-premio);
+    border-radius: 12px;
+    background: #c9d1dc;
+    box-shadow: 4px 5px 0 color-mix(in srgb, var(--rks-premio) 55%, #000);
+    color: #12121a;
+}
+
+.rks-premio b {
+    font-size: clamp(11px, 1.1vw, 14px);
+    font-weight: 900;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}
+
+.rks-premio img {
+    width: 100%;
+    max-width: 78px;
+    height: auto;
+    image-rendering: pixelated;
+}
+
+@keyframes rksBrilhar {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: .45; transform: scale(.8); }
+}
+
+/* ---------------- [RKS-PODIO] ---------------- */
+
+.rks-subtitulo {
+    margin: 4px 0 0;
+    font-size: 1.15rem;
+    text-align: left;
+}
+
+.rks-podio {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: end;
+    gap: clamp(8px, 2vw, 18px);
+    max-width: 640px;
+    width: 100%;
+    margin: 0 auto;
+}
+
+.rks-podio__lugar {
+    --medalha: #f5c518;
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    min-width: 0;
+    text-align: center;
+}
+
+.rks-podio__lugar.is-prata { --medalha: #c0c7d2; }
+.rks-podio__lugar.is-bronze { --medalha: #d08a4b; }
+
+.rks-coroa {
+    font-size: 26px;
+    line-height: 1;
+}
+
+.rks-podio__foto {
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+    overflow: hidden;
+    border-radius: 50%;
+    border: 4px solid var(--medalha);
+    background: color-mix(in srgb, var(--medalha) 22%, var(--theme-surface));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--medalha) 25%, transparent);
+}
+
+.rks-podio__lugar--1 .rks-podio__foto {
+    width: 92px;
+    height: 92px;
+}
+
+.rks-podio__foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.rks-podio__foto .rks-iniciais {
+    font-weight: 900;
+    font-size: 1.4rem;
+    color: var(--theme-text);
+}
+
+.rks-podio__nome {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 14px;
+}
+
+.rks-podio__nome small {
+    color: var(--theme-text-secondary);
+    font-weight: 600;
+}
+
+.rks-podio__xp {
+    color: var(--theme-text-secondary);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.rks-podio__bloco {
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 70px;
+    border-radius: 14px 14px 6px 6px;
+    background: linear-gradient(180deg, var(--medalha), color-mix(in srgb, var(--medalha) 70%, #000));
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: 900;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, .25);
+}
+
+.rks-podio__lugar--1 .rks-podio__bloco { height: 100px; }
+.rks-podio__lugar--3 .rks-podio__bloco { height: 52px; }
+
+.rks-podio__lugar.is-eu .rks-podio__nome {
+    color: #46a302;
+}
+
+/* ---------------- [RKS-LISTA] ---------------- */
+
+.rks-lista ol {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.rks-linha {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--theme-border);
+    border-radius: 16px;
+    background: var(--theme-surface);
+}
+
+.rks-linha.is-eu {
+    border-color: #58cc02;
+    box-shadow: 0 0 0 1px #58cc0255, 0 0 16px #58cc0222;
+}
+
+.rks-linha__pos {
+    flex: none;
+    min-width: 2.4em;
+    font-weight: 900;
+    color: var(--theme-text-secondary);
+}
+
+.rks-linha__foto {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 40px;
+    height: 40px;
+    overflow: hidden;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b3fd9, #58cc02);
+    color: #fff;
+    font-weight: 800;
+    font-size: 14px;
+}
+
+.rks-linha__foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.rks-linha__nome {
+    display: grid;
+    flex: 1;
+    min-width: 0;
+}
+
+.rks-linha__nome b {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rks-linha__nome small,
+.rks-linha__xp small {
+    color: var(--theme-text-secondary);
+    font-size: 12px;
+}
+
+.rks-linha__xp {
+    display: grid;
+    justify-items: end;
+    flex: none;
+    text-align: right;
+}
+
+.rks-linha__xp b {
+    font-size: 1.05rem;
+}
+
+.rks-sep {
+    text-align: center;
+    color: var(--theme-text-secondary);
+    letter-spacing: .3em;
+}
+
+.rks-nota {
+    margin: 0;
+    color: var(--theme-text-secondary);
+    font-size: 13px;
+}
+
+/* ---------------- [RKS-CELULAR] ---------------- */
+
+@container (max-width: 820px) {
+    .rks-banner {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .rks-banner__esq {
+        grid-column: 1 / -1;
+    }
+
+    .rks-banner__foto {
+        width: 120px;
+        height: 120px;
+    }
+}
+
+@container (max-width: 540px) {
+    .rks-banner {
+        grid-template-columns: minmax(0, 1fr);
+        justify-items: center;
+        text-align: center;
+    }
+
+    .rks-banner__titulo,
+    .rks-banner__nome {
+        justify-content: center;
+    }
+
+    .rks-premios {
+        width: 100%;
+    }
+
+    .rks-podio__foto { width: 56px; height: 56px; }
+    .rks-podio__lugar--1 .rks-podio__foto { width: 70px; height: 70px; }
+
+    .rks-linha__nome small {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rks-brilho {
+        animation: none;
+    }
+}
+
+/* ============================================================
+   [RKS-GERAL] TABELA DE CLASSIFICAÇÃO GERAL (XP total)
+   ============================================================ */
+
+.rks-sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+}
+
+.rkg {
+    display: grid;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.rkg-desc {
+    margin: -4px 0 0;
+    color: var(--theme-text-secondary);
+    font-size: 13px;
+    text-align: left;
+}
+
+.rkg-caixa {
+    overflow-x: auto;
+    border: 1px solid var(--theme-border);
+    border-radius: 18px;
+    background: var(--theme-surface);
+}
+
+.rkg-tabela {
+    width: 100%;
+    min-width: 520px;
+    border-collapse: collapse;
+    color: var(--theme-text);
+    font-size: 14px;
+    text-align: left;
+}
+
+.rkg-tabela thead tr {
+    background: linear-gradient(120deg, #5b2a96, #8b3fd9 70%, #6fbf2a);
+}
+
+.rkg-tabela thead th {
+    padding: 12px 14px;
+    color: #fff;
+    background: transparent;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.rkg-tabela td,
+.rkg-tabela tbody th {
+    padding: 10px 14px;
+    border-top: 1px solid var(--theme-border);
+    vertical-align: middle;
+}
+
+.rkg-tabela tbody tr:nth-child(even) {
+    background: color-mix(in srgb, #8b3fd9 4%, transparent);
+}
+
+.rkg-linha.is-top .rkg-pos {
+    font-size: 1.35rem;
+}
+
+.rkg-linha.is-eu {
+    background: color-mix(in srgb, #58cc02 14%, transparent) !important;
+    box-shadow: inset 4px 0 0 #58cc02;
+}
+
+.rkg-pos {
+    width: 70px;
+    font-weight: 900;
+    text-align: center;
+    color: var(--theme-text-secondary);
+}
+
+.rkg-aluno {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 180px;
+    font-weight: 700;
+}
+
+.rkg-aluno small {
+    color: var(--theme-text-secondary);
+    font-weight: 600;
+}
+
+.rkg-foto {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 34px;
+    height: 34px;
+    overflow: hidden;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #8b3fd9, #58cc02);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.rkg-foto img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.rkg-nivel {
+    white-space: nowrap;
+}
+
+.rkg-nivel b {
+    color: #8b3fd9;
+}
+
+html[data-theme="dark"] .rkg-nivel b {
+    color: #c4a1f5;
+}
+
+.rkg-nivel small {
+    display: block;
+    color: var(--theme-text-secondary);
+    font-size: 12px;
+}
+
+.rkg-xp,
+.rkg-seq {
+    font-weight: 800;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.rkg-xp small {
+    color: var(--theme-text-secondary);
+    font-weight: 700;
+}
+
+.rkg-sep td {
+    color: var(--theme-text-secondary);
+    letter-spacing: .3em;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+    .rkg-tabela {
+        min-width: 0;
+        font-size: 13px;
+    }
+
+    /* no celular a coluna "Sequência" sai para caber sem rolar de lado;
+       o nome do nível também (fica só "Nv 2") */
+    .rkg-tabela .rkg-seq,
+    .rkg-nivel small {
+        display: none;
+    }
+
+    .rkg-pos {
+        width: 44px;
+    }
+
+    .rkg-aluno {
+        min-width: 0;
+    }
+
+    .rkg-tabela td,
+    .rkg-tabela tbody th,
+    .rkg-tabela thead th {
+        padding: 9px 8px;
+    }
+}

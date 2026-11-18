@@ -1,0 +1,398 @@
+/* ============================================================
+   DRAGNIX — css/admin-form.css  (JANELA DE CRIAR/EDITAR DO PAINEL)
+   ============================================================
+
+   A janela (#dlg do admin.html) usada para criar e editar trilhas,
+   módulos, questões, desafios etc. No estilo atual do site:
+
+     [FM-JANELA]   cabeçalho roxo fixo, conteúdo que rola, botões fixos embaixo
+     [FM-SECOES]   grupos de campos (Informações, XP, Pré-requisitos...)
+     [FM-CAMPOS]   campos, cor, caixas de marcar e textos de ajuda
+     [FM-BLOCOS]   editor de blocos (texto, imagem, vídeo)
+     [FM-CELULAR]  tela cheia e uma coluna no celular
+
+   Modo claro e escuro pelas variáveis --theme-* do site.
+   ============================================================ */
+
+/* [FM-JANELA] */
+.admin-page #dlg.fm {
+    --fm-roxo: #8b3fd9;
+    --fm-roxo-escuro: #5b2a96;
+    --fm-verde: #58cc02;
+    --fm-fundo: var(--theme-surface, #fff);
+    --fm-secao: color-mix(in srgb, var(--fm-roxo) 4%, var(--fm-fundo));
+    --fm-borda: var(--theme-border, rgba(139, 63, 217, .18));
+    --fm-texto: var(--theme-text, #1f1633);
+    --fm-suave: var(--theme-text-secondary, #5b5370);
+
+    width: min(820px, calc(100vw - 32px));
+    max-width: none;
+    max-height: calc(100dvh - 32px);
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--fm-borda);
+    border-radius: 24px;
+    color: var(--fm-texto);
+    background: var(--fm-fundo);
+    box-shadow: 0 30px 80px rgba(17, 8, 40, .4);
+}
+
+.admin-page #dlg.fm[open] {
+    animation: fm-entrar .22s ease-out;
+}
+
+.admin-page #dlg.fm::backdrop {
+    background: rgba(12, 6, 28, .6);
+    backdrop-filter: blur(3px);
+}
+
+.admin-page #dlg.fm #frm {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100dvh - 34px);
+    margin: 0;
+}
+
+.fm__topo {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 20px;
+    color: #fff;
+    background: linear-gradient(120deg, var(--fm-roxo-escuro), var(--fm-roxo) 65%, #6fbf2a);
+}
+
+.fm__topo-ico {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, .18);
+    font-size: 20px;
+}
+
+.fm__topo-txt {
+    flex: 1;
+    min-width: 0;
+}
+
+.admin-page #dlg.fm #dt {
+    margin: 0;
+    color: #fff;
+    font-size: 1.2rem;
+    font-weight: 800;
+    line-height: 1.2;
+}
+
+.fm__topo-txt small {
+    display: block;
+    color: rgba(255, 255, 255, .85);
+    font-size: 12.5px;
+}
+
+.fm__x {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    min-height: 40px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, .45);
+    border-radius: 50%;
+    color: #fff;
+    background: rgba(255, 255, 255, .12);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.fm__x:hover {
+    background: rgba(255, 255, 255, .26);
+}
+
+.fm__corpo {
+    flex: 1;
+    min-height: 0;
+    padding: 18px 20px 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.admin-page #dlg.fm #derr:empty {
+    display: none;
+}
+
+.admin-page #dlg.fm #derr {
+    margin: 4px 0 12px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    color: #991b1b;
+    background: #fee2e2;
+    font-weight: 700;
+}
+
+html[data-theme="dark"] .admin-page #dlg.fm #derr {
+    color: #fecaca;
+    background: rgba(239, 68, 68, .16);
+}
+
+.admin-page #dlg.fm .fm__rodape {
+    display: flex;
+    flex: none;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    padding: 12px 20px;
+    border-top: 1px solid var(--fm-borda);
+    background: var(--fm-fundo);
+}
+
+.admin-page #dlg.fm .fm__rodape .btn {
+    min-width: 130px;
+}
+
+/* [FM-SECOES] */
+.fm-sec {
+    display: grid;
+    gap: 12px;
+    margin: 0 0 14px;
+    padding: 16px;
+    border: 1px solid var(--fm-borda);
+    border-radius: 18px;
+    background: var(--fm-secao);
+}
+
+.fm-sec__titulo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: var(--fm-texto);
+    font-size: 15px;
+    font-weight: 800;
+}
+
+.fm-sec__ico {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--fm-roxo) 14%, transparent);
+    font-size: 15px;
+}
+
+.fm-sec__titulo small {
+    display: block;
+    color: var(--fm-suave);
+    font-size: 12.5px;
+    font-weight: 600;
+}
+
+.fm-grade {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.fm-grade--titulo {
+    grid-template-columns: minmax(0, 2fr) minmax(130px, 1fr);
+}
+
+/* [FM-CAMPOS] */
+.admin-page #dlg.fm #fields label {
+    display: grid;
+    align-content: start;       /* não estica quando o vizinho da grade é mais alto */
+    gap: 6px;
+    margin: 0;
+    color: var(--fm-texto);
+    font-size: 13.5px;
+    font-weight: 700;
+}
+
+.admin-page #dlg.fm #fields input:not([type=checkbox]):not([type=radio]):not([type=color]),
+.admin-page #dlg.fm #fields textarea,
+.admin-page #dlg.fm #fields select {
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    padding: 10px 12px;
+    border: 1px solid var(--fm-borda);
+    border-radius: 12px;
+    color: var(--fm-texto);
+    background: var(--theme-input, var(--fm-fundo));
+    font: inherit;
+    font-weight: 500;
+}
+
+.admin-page #dlg.fm #fields input:focus,
+.admin-page #dlg.fm #fields textarea:focus,
+.admin-page #dlg.fm #fields select:focus {
+    outline: none;
+    border-color: var(--fm-roxo);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--fm-roxo) 22%, transparent);
+}
+
+.fm-ajuda {
+    margin: -4px 0 0;
+    color: var(--fm-suave);
+    font-size: 12.5px;
+    font-weight: 500;
+    line-height: 1.45;
+}
+
+/* cor: amostra + código */
+.fm-cor {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 44px;
+    padding: 3px 12px 3px 3px;
+    border: 1px solid var(--fm-borda);
+    border-radius: 12px;
+    background: var(--theme-input, var(--fm-fundo));
+}
+
+.admin-page #dlg.fm #fields .fm-cor input[type=color] {
+    flex: none;
+    width: 48px;
+    height: 36px;
+    min-height: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 9px;
+    background: none;
+    cursor: pointer;
+}
+
+.fm-cor input[type=color]::-webkit-color-swatch-wrapper { padding: 0; }
+.fm-cor input[type=color]::-webkit-color-swatch { border: 0; border-radius: 9px; }
+.fm-cor input[type=color]::-moz-color-swatch { border: 0; border-radius: 9px; }
+
+.fm-cor__hex {
+    color: var(--fm-suave);
+    font-family: ui-monospace, monospace;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+/* caixa de marcar em linha (ex.: "Aplicar agora aos módulos") */
+.admin-page #dlg.fm #fields .fm-marcar {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border: 1px dashed var(--fm-borda);
+    border-radius: 12px;
+    background: var(--fm-fundo);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.admin-page #dlg.fm #fields .fm-marcar input {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin: 2px 0 0;
+    accent-color: var(--fm-roxo);
+}
+
+/* pré-requisitos: uma caixinha por trilha */
+.fm-opcoes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+}
+
+.admin-page #dlg.fm #fields .fm-opcoes .opt-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    padding: 8px 12px;
+    border: 1px solid var(--fm-borda);
+    border-radius: 12px;
+    background: var(--fm-fundo);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.admin-page #dlg.fm #fields .fm-opcoes .opt-row:has(input:checked) {
+    border-color: var(--fm-roxo);
+    background: color-mix(in srgb, var(--fm-roxo) 10%, var(--fm-fundo));
+}
+
+.admin-page #dlg.fm #fields .fm-opcoes input {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--fm-roxo);
+}
+
+/* [FM-BLOCOS] editor de blocos dentro das seções */
+.fm-sec .blk {
+    border-radius: 14px;
+    background: var(--fm-fundo);
+}
+
+@keyframes fm-entrar {
+    from { opacity: 0; transform: translateY(14px) scale(.98); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .admin-page #dlg.fm[open] { animation: none; }
+}
+
+/* [FM-CELULAR] */
+@media (max-width: 640px) {
+    .admin-page #dlg.fm {
+        width: calc(100vw - 12px);
+        max-height: calc(100dvh - 12px);
+        border-radius: 20px;
+    }
+
+    .admin-page #dlg.fm #frm {
+        max-height: calc(100dvh - 14px);
+    }
+
+    .fm__topo {
+        padding: 12px 14px;
+    }
+
+    .fm__topo-ico {
+        display: none;
+    }
+
+    .fm__corpo {
+        padding: 14px 12px 4px;
+    }
+
+    .fm-sec {
+        padding: 12px;
+        border-radius: 16px;
+    }
+
+    .fm-grade,
+    .fm-grade--titulo {
+        grid-template-columns: 1fr;
+    }
+
+    /* Cancelar e Salvar lado a lado (uma regra antiga empilhava os dois) */
+    .admin-page #dlg.fm .fm__rodape {
+        flex-direction: row;
+        flex-wrap: nowrap;
+        padding: 10px 12px;
+    }
+
+    .admin-page #dlg.fm .fm__rodape .btn {
+        flex: 1;
+        min-width: 0;
+    }
+}

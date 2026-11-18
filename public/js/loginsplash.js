@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // =========================
 
     if (localStorage.token) {
-        window.location.replace('app.html');
+        window.location.replace('pag-inicial.html');
         return;
     }
 
@@ -194,6 +194,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 m === 'login'
             );
         }
+
+
+        // Aviso dos Termos de uso / Política de privacidade (só no cadastro)
+        const termosAviso = document.getElementById('termosAviso');
+        if (termosAviso) termosAviso.classList.toggle('hide', m === 'login');
 
 
         // Texto do botão principal
@@ -398,6 +403,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // SPLASH -> APP
                 // =========================
 
+                // passa pela splash (saudação 'Bem-vindo, …!') e ela segue para a página inicial
                 window.location.replace(
                     'splash.html'
                 );
