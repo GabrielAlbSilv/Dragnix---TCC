@@ -14,10 +14,7 @@
   "dependencies": {
     "@libsql/client": "^0.18.0",
     "bcryptjs": "^2.4.3",
-<<<<<<< HEAD
-=======
     "compression": "^1.8.1",
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
     "dotenv": "^18.0.9",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",

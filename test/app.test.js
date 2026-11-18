@@ -254,8 +254,6 @@ test('aplicação completa sobre o libSQL', async t => {
     assert.equal(done.data.streak, 1);
     assert.ok(done.data.badges.some(badge => badge.name === 'Primeiro passo'));
 
-<<<<<<< HEAD
-=======
     // Reenviar a conclusão sem responder de novo não vale XP outra vez
     const replay = await api.post(`/api/lessons/${lessonId}/complete`, { token: studentToken });
     assert.equal(replay.status, 400);
@@ -267,7 +265,6 @@ test('aplicação completa sobre o libSQL', async t => {
       body: { answer: 1 }
     });
 
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
     const again = await api.post(`/api/lessons/${lessonId}/complete`, { token: studentToken });
     assert.equal(again.data.repeated, true);
     assert.equal(again.data.completionNumber, 2);
@@ -505,11 +502,7 @@ test('aplicação completa sobre o libSQL', async t => {
 
     const overview = await api.get('/api/admin/system/overview', { token: adminToken });
     assert.equal(overview.status, 200);
-<<<<<<< HEAD
-    assert.equal(overview.data.database.tableCount, 20);
-=======
     assert.equal(overview.data.database.tableCount, 23);
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
     const table = await api.get('/api/admin/system/table/users', { token: adminToken });
     assert.equal(table.status, 200);
@@ -521,11 +514,7 @@ test('aplicação completa sobre o libSQL', async t => {
     backupFile = exported.data;
 
     const { data } = decryptBackupFile(backupFile);
-<<<<<<< HEAD
-    assert.equal(data.tables.length, 20);
-=======
     assert.equal(data.tables.length, 23);
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
     assert.equal(data.media.files.length, 1);
 
     const users = data.tables.find(item => item.name === 'users');

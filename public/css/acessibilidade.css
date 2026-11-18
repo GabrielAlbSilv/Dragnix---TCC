@@ -132,6 +132,10 @@ html:not([data-theme="dark"]) .side-link.active {
 .a11y-legenda[hidden],
 .a11y-ajuda[hidden] { display: none; }
 
+/* com a lista de comandos aberta, a legenda ficava escondida atrás dela
+   (aparecia só uma ponta do texto): some enquanto a lista estiver aberta */
+body:has(.a11y-ajuda:not([hidden])) .a11y-legenda { display: none; }
+
 .a11y-ajuda {
     position: fixed;
     left: 16px;

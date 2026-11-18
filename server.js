@@ -1320,11 +1320,6 @@ app.post(
   '/api/me/avatar',
   auth,
   async (req, res) => {
-<<<<<<< HEAD
-    let savedFile = null;
-
-=======
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
     try {
       // Aceita base64 puro ou data URL (data:image/jpeg;base64,...).
       const upload = readImageUpload(req.body);
@@ -1377,13 +1372,6 @@ const presetRows = async () =>
        ORDER BY position, id`
     )
     .all())
-<<<<<<< HEAD
-    .filter(
-      row =>
-        PRESET_FILE_RE.test(row.file)
-    )
-=======
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
     .map(row => ({
       id: row.id,
       label: row.label || '',
@@ -1481,14 +1469,11 @@ app.post(
 
       const previous = req.user.avatar;
 
-<<<<<<< HEAD
-=======
       // Galeria no banco: guarda só a referência "preset:<id>".
       const value = isAvatarData(preset.file)
         ? 'preset:' + preset.id
         : preset.file;
 
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
       await db.prepare(
         'UPDATE users SET avatar=? WHERE id=?'
       ).run(value, req.user.id);
@@ -1520,11 +1505,6 @@ app.post(
   auth,
   adm,
   async (req, res) => {
-<<<<<<< HEAD
-    let savedFile = null;
-
-=======
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
     try {
       const total = Number(
         (await db
@@ -1627,13 +1607,8 @@ app.delete(
 
       // Quem estava usando este avatar volta a ficar sem foto.
       await db.prepare(
-<<<<<<< HEAD
-        'UPDATE users SET avatar=NULL WHERE avatar=?'
-      ).run(preset.file);
-=======
         'UPDATE users SET avatar=NULL WHERE avatar=? OR avatar=?'
       ).run(preset.file, 'preset:' + preset.id);
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
       await db.prepare(
         'DELETE FROM avatar_presets WHERE id=?'
@@ -1800,8 +1775,6 @@ const one = async (
     .prepare(sql)
     .get(...args);
 
-<<<<<<< HEAD
-=======
 // Consultas independentes AO MESMO TEMPO (uma única espera pelo Turso
 // em vez de uma por consulta). Dentro de transação, uma de cada vez.
 // Uso: const [a, b] = await juntos(() => consultaA, () => consultaB);
@@ -1814,7 +1787,6 @@ async function juntos(...tarefas) {
   return Promise.all(tarefas.map(tarefa => tarefa()));
 }
 
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 // Como Array.map, mas para callbacks que consultam o banco:
 // executa um item por vez, na ordem (seguro dentro de transações).
 const mapAsync = async (
@@ -2380,57 +2352,6 @@ const MISSIONS = {
 
 async function stats(uid) {
 
-<<<<<<< HEAD
-  const lessonXp = (await one(
-    `SELECT COALESCE(SUM(xp), 0) AS v
-     FROM progress
-     WHERE user_id=?`,
-    uid
-  )).v;
-
-  const challengeXp = (await one(
-    `SELECT COALESCE(SUM(xp_awarded), 0) AS v
-     FROM challenge_rewards
-     WHERE user_id=?`,
-    uid
-  )).v;
-
-  const xp = lessonXp + challengeXp;
-
-
-  const tracks =
-    (await one(
-      `SELECT COUNT(*) v
-       FROM tracks t
-       WHERE EXISTS(
-         SELECT 1
-         FROM lessons
-         WHERE track_id=t.id
-       )
-       AND NOT EXISTS(
-         SELECT 1
-         FROM lessons l
-         WHERE l.track_id=t.id
-         AND l.id NOT IN(
-           SELECT lesson_id
-           FROM progress
-           WHERE user_id=?
-         )
-       )`,
-      uid
-    )).v;
-
-  const user =
-    await one(
-      `SELECT
-         streak,
-         last_day,
-         coins
-       FROM users
-       WHERE id=?`,
-      uid
-    );
-=======
   // Tudo numa consulta só (antes eram 6 idas ao banco, uma depois da outra)
   const linha = await one(
     `SELECT
@@ -2456,7 +2377,6 @@ async function stats(uid) {
 
   const xp = Number(linha.lesson_xp || 0) + Number(linha.challenge_xp || 0);
   const user = linha.streak === null && linha.last_day === null && linha.coins === null ? undefined : linha;
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
   return {
     xp,
@@ -2464,47 +2384,6 @@ async function stats(uid) {
     level_name: nomeNivel(LEVEL(xp)),
     tracks: Number(linha.tracks || 0),
     streak: streakOf(user),
-<<<<<<< HEAD
-    coins:
-      user?.coins || 0,
-
-    lessons:
-      (await one(
-        `SELECT COUNT(*) v
-         FROM progress
-         WHERE user_id=?`,
-        uid
-      )).v,
-
-    perfect:
-      (await one(
-        `SELECT COUNT(*) v
-         FROM progress
-         WHERE user_id=?
-         AND perfect=1`,
-        uid
-      )).v
-  };
-}
-
-async function awardBadges(uid) {
-  const state =
-    await stats(uid);
-
-  const have =
-    new Set(
-      (await db
-        .prepare(
-          `SELECT code
-           FROM badges
-           WHERE user_id=?`
-        )
-        .all(uid))
-        .map(
-          row => row.code
-        )
-    );
-=======
     coins: user?.coins || 0,
     lessons: Number(linha.lessons || 0),
     perfect: Number(linha.perfect || 0)
@@ -2522,7 +2401,6 @@ async function awardBadges(uid, pronto) {
       );
 
   const have = pronto ? pronto.have : new Set(haveRows.map(row => row.code));
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
   const fresh = [];
 
@@ -4804,103 +4682,6 @@ app.get(
   auth,
   async (req, res) => {
     try {
-<<<<<<< HEAD
-      const done =
-        new Set(
-          (await db
-            .prepare(
-              `SELECT lesson_id
-               FROM progress
-               WHERE user_id=?`
-            )
-            .all(
-              req.user.id
-            ))
-            .map(
-              row =>
-                row.lesson_id
-            )
-        );
-
-       const completionCounts = Object.fromEntries(
-  (await db.prepare(
-    `SELECT lesson_id, review_count
-     FROM progress
-     WHERE user_id=?`
-  )
-  .all(req.user.id))
-  .map(row => [
-    row.lesson_id,
-    Number(row.review_count || 1)
-  ])
-);
-
-      const lessons =
-        await db
-          .prepare(
-            `SELECT
-               id,
-               track_id,
-               title,
-               position,
-               xp
-             FROM lessons
-             ORDER BY position,id`
-          )
-          .all();
-
-      const questionCount =
-        Object.fromEntries(
-          (await db
-            .prepare(
-              `SELECT
-                 lesson_id l,
-                 COUNT(*) n
-               FROM questions
-               GROUP BY lesson_id`
-            )
-            .all())
-            .map(
-              row => [
-                row.l,
-                row.n
-              ]
-            )
-        );
-
-      const answerCount =
-        Object.fromEntries(
-          (await db
-            .prepare(
-              `SELECT
-                 q.lesson_id l,
-                 COUNT(*) n
-               FROM answers a
-               JOIN questions q
-                 ON q.id=a.question_id
-               WHERE a.user_id=?
-               GROUP BY q.lesson_id`
-            )
-            .all(
-              req.user.id
-            ))
-            .map(
-              row => [
-                row.l,
-                row.n
-              ]
-            )
-        );
-
-      const tracks =
-        (await db
-          .prepare(
-            `SELECT *
-             FROM tracks
-             ORDER BY position,id`
-          )
-          .all())
-=======
       // Tudo que a tela precisa, buscado AO MESMO TEMPO (antes: 13 idas
       // ao banco, uma depois da outra)
       const [
@@ -4969,7 +4750,6 @@ app.get(
 
       const tracks =
         trilhasDoBanco
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
           .map(
             track => ({
               ...track,
@@ -5094,19 +4874,6 @@ app.get(
         }
       }
 
-<<<<<<< HEAD
-      const heartState =
-        await hearts(
-          req.user.id
-        );
-
-      const state =
-        await stats(
-          req.user.id
-        );
-
-=======
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
       res.json({
         tracks,
         xp: state.xp,
@@ -5218,20 +4985,6 @@ app.get(
         });
       }
 
-<<<<<<< HEAD
-      const done =
-        await isDone(
-          req.user.id,
-          lesson.id
-        );
-
-      const heartState =
-        await hearts(
-          req.user.id
-        );
-
-      const falta = await trilhasFaltando(req.user, lesson.track_id);
-=======
       // Verificações independentes AO MESMO TEMPO (antes: uma por vez)
       const [done, heartState, falta, previous] = await juntos(
         () => isDone(req.user.id, lesson.id),
@@ -5260,7 +5013,6 @@ app.get(
               lesson.id
             )
       );
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
       if (falta.length) {
         return res.status(403).json({
@@ -5271,31 +5023,6 @@ app.get(
       if (
         !isStaff(req.user)
       ) {
-<<<<<<< HEAD
-        const previous =
-          await one(
-            `SELECT id
-             FROM lessons
-             WHERE track_id=?
-             AND (
-               position<?
-               OR (
-                 position=?
-                 AND id<?
-               )
-             )
-             ORDER BY
-               position DESC,
-               id DESC
-             LIMIT 1`,
-            lesson.track_id,
-            lesson.position,
-            lesson.position,
-            lesson.id
-          );
-
-=======
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
         if (
           previous &&
           !await isDone(
@@ -5892,11 +5619,8 @@ app.post(
 // CONCLUSÃO DA LIÇÃO
 // ============================================================
 
-<<<<<<< HEAD
-=======
 const repeatedSemQuestoes = (semQuestoes, anterior) => semQuestoes && !!anterior;
 
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 app.post('/api/lessons/:id/complete', auth, async (req, res) => {
   try {
     const lesson = await db.prepare(
@@ -5954,13 +5678,10 @@ app.post('/api/lessons/:id/complete', auth, async (req, res) => {
 
       const perfect = total > 0 && result.c === total ? 1 : 0;
 
-<<<<<<< HEAD
-=======
       // Módulo sem questões já concluído: refazer não dá XP de novo
       // (senão bastaria reenviar a conclusão várias vezes).
       const semQuestoes = total === 0;
 
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
       // Consulta quantas vezes o aluno concluiu o módulo.
       const previousProgress = await db.prepare(
         `SELECT xp, perfect, review_count
@@ -5975,23 +5696,6 @@ app.post('/api/lessons/:id/complete', auth, async (req, res) => {
         : 1;
 
       // 1ª = 100%, 2ª = 50%, 3ª = 30%, demais = 20%.
-<<<<<<< HEAD
-      const xpMultiplier =
-        completionNumber === 1 ? 1 :
-        completionNumber === 2 ? 0.5 :
-        completionNumber === 3 ? 0.3 :
-        0.2;
-
-      const originalXp =
-        Number(lesson.xp || 0) +
-        result.c * 2 +
-        (perfect ? 10 : 0);
-
-      const gained = Math.floor(originalXp * xpMultiplier);
-
-      // Moedas são concedidas apenas na primeira conclusão.
-      const coins = repeated ? 0 : 5 + (perfect ? 5 : 0);
-=======
       // % das regras de negócio (padrão: 100%, 50%, 30%, 20%)
       const xpMultiplier =
         percentualXp(completionNumber) / 100;
@@ -6009,7 +5713,6 @@ app.post('/api/lessons/:id/complete', auth, async (req, res) => {
       const coins = repeated
         ? 0
         : REGRAS.moedas.por_modulo + (perfect ? REGRAS.moedas.bonus_perfeito : 0);
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
       if (repeated) {
         await db.prepare(
@@ -6366,45 +6069,6 @@ app.get(
       const uid =
         req.user.id;
 
-<<<<<<< HEAD
-      const state =
-        await stats(uid);
-
-      const activity =
-        await todayAct(uid);
-
-      const claimed =
-        new Set(
-          (await db
-            .prepare(
-              `SELECT code
-               FROM claims
-               WHERE user_id=?
-               AND day=?`
-            )
-            .all(
-              uid,
-              today()
-            ))
-            .map(
-              row => row.code
-            )
-        );
-
-      const have =
-        new Set(
-          (await db
-            .prepare(
-              `SELECT code
-               FROM badges
-               WHERE user_id=?`
-            )
-            .all(uid))
-            .map(
-              row => row.code
-            )
-        );
-=======
       // Tudo buscado AO MESMO TEMPO (antes: 23 idas ao banco em fila)
       const [
         state,
@@ -6470,37 +6134,6 @@ app.get(
       } catch (error) {
         console.error('Erro ao conferir conquistas:', error);
       }
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
-
-      const challengeBadges =
-        await db.prepare(`
-          SELECT
-            c.badge_code AS code,
-            c.badge_icon AS icon,
-            c.badge_name AS name,
-            c.badge_description AS description,
-            CASE WHEN r.id IS NULL THEN 0 ELSE 1 END AS got
-          FROM challenges c
-          LEFT JOIN challenge_rewards r
-            ON r.challenge_id=c.id
-            AND r.user_id=?
-          WHERE (c.enabled = 1 AND c.deleted_at IS NULL)
-          OR r.id IS NOT NULL
-          ORDER BY c.id
-        `).all(uid);
-
-      const week =
-        await db
-          .prepare(
-            `SELECT
-               day,
-               xp
-             FROM activity
-             WHERE user_id=?
-             ORDER BY day DESC
-             LIMIT 7`
-          )
-          .all(uid);
 
       res.json({
         ...state,
@@ -6679,16 +6312,10 @@ app.post(
         if (inserted) {
           await db.prepare(
             `UPDATE users
-<<<<<<< HEAD
-             SET coins=coins+10
-             WHERE id=?`
-          ).run(
-=======
              SET coins=coins+?
              WHERE id=?`
           ).run(
             REGRAS.moedas.missao,
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
             req.user.id
           );
         }
@@ -8634,14 +8261,11 @@ app.delete(
           `DELETE FROM users
            WHERE id=?`
         ).run(id);
-<<<<<<< HEAD
-=======
 
         // Código de recuperação e bloqueio de login do e-mail apagado
         for (const t of ['password_resets', 'login_attempts']) {
           await db.prepare(`DELETE FROM ${t} WHERE email=?`).run(user.email);
         }
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
       });
 
       // Remove também a foto de perfil do usuário excluído.
@@ -9038,159 +8662,6 @@ app.post(
     }
   }
 );
-<<<<<<< HEAD
-// ==========================================================
-// AVALIAÇÃO DO MÓDULO
-// ==========================================================
-app.post(
-  '/api/lessons/:id/evaluation',
-  auth,
-  async (req, res) => {
-
-    try {
-
-      const lessonId =
-        Number(req.params.id);
-
-      const rating =
-        Number(req.body?.rating);
-
-      // =====================================================
-      // VALIDAR MÓDULO
-      // =====================================================
-
-      if (
-        !Number.isInteger(lessonId) ||
-        lessonId <= 0
-      ) {
-        return res.status(400).json({
-          error: 'Módulo inválido'
-        });
-      }
-
-      // =====================================================
-      // VALIDAR NOTA
-      // =====================================================
-
-      if (
-        !Number.isInteger(rating) ||
-        rating < 1 ||
-        rating > 5
-      ) {
-        return res.status(400).json({
-          error:
-            'A avaliação deve ser uma nota de 1 a 5'
-        });
-      }
-
-      // =====================================================
-      // VERIFICAR SE O MÓDULO EXISTE
-      // =====================================================
-
-      const lesson =
-        await db.prepare(`
-          SELECT
-            id,
-            track_id,
-            title
-          FROM lessons
-          WHERE id = ?
-        `).get(lessonId);
-
-      if (!lesson) {
-        return res.status(404).json({
-          error:
-            'Módulo não encontrado'
-        });
-      }
-
-      // =====================================================
-      // VERIFICAR SE O ALUNO CONCLUIU O MÓDULO
-      // =====================================================
-
-      if (
-        !await isDone(
-          req.user.id,
-          lessonId
-        )
-      ) {
-        return res.status(403).json({
-          error:
-            'Conclua o módulo antes de avaliá-lo'
-        });
-      }
-
-      // =====================================================
-      // SALVAR AVALIAÇÃO
-      // APENAS UMA AVALIAÇÃO POR ALUNO/MÓDULO
-      // =====================================================
-
-      try {
-
-        await db.prepare(`
-          INSERT INTO lesson_evaluations (
-            user_id,
-            lesson_id,
-            rating,
-            created_at
-          )
-          VALUES (?, ?, ?, ?)
-        `).run(
-          req.user.id,
-          lessonId,
-          rating,
-          new Date().toISOString()
-        );
-
-      } catch (error) {
-
-        // O UNIQUE(user_id, lesson_id)
-        // impede uma segunda avaliação.
-
-        if (
-          String(error.message)
-            .toLowerCase()
-            .includes('unique')
-        ) {
-
-          return res.status(409).json({
-            error:
-              'Você já avaliou este módulo.'
-          });
-
-        }
-
-        throw error;
-      }
-
-      // =====================================================
-      // SUCESSO
-      // =====================================================
-
-      res.json({
-        ok: true,
-        message:
-          'Avaliação do módulo enviada com sucesso',
-        rating
-      });
-
-    } catch (error) {
-
-      console.error(
-        'Erro ao salvar avaliação do módulo:',
-        error
-      );
-
-      res.status(500).json({
-        error:
-          'Erro ao salvar avaliação do módulo'
-      });
-    }
-  }
-);
-
-=======
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 // ============================================================
 // PAINEL DE DÚVIDAS (CHAT)
 // ============================================================
@@ -9512,10 +8983,7 @@ app.use(
 let server = null;
 
 db.ready()
-<<<<<<< HEAD
-=======
   .then(carregarRegras)
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
   .then(() => {
     server =
       app.listen(

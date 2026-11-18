@@ -371,8 +371,6 @@ const SCHEMA = [
     sql: `CREATE INDEX idx_doubts_parent
         ON doubts(parent_id)`
   },
-<<<<<<< HEAD
-=======
   
   {
     type: 'table',
@@ -421,7 +419,6 @@ const SCHEMA = [
   )`
   },
 
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
   {
     type: 'index',
     name: 'idx_challenges_enabled',

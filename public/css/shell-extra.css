@@ -542,6 +542,7 @@ button.user-profile__link {
 
 /* atalho para o Nix dentro do balão de dúvidas */
 .sx-chat__nix {
+    flex: none;                 /* não encolhe (antes ficava por cima das mensagens) */
     display: flex;
     align-items: center;
     gap: 10px;

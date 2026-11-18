@@ -435,16 +435,12 @@ function close() {
 // EXPORTAÇÃO
 // ============================================================
 
-<<<<<<< HEAD
-module.exports = {
-=======
 // true dentro de db.transaction(): ali as consultas precisam ser
 // uma de cada vez (a transação interativa não aceita várias ao mesmo tempo).
 const emTransacao = () => !!txStorage.getStore();
 
 module.exports = {
     emTransacao,
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
     prepare,
     exec,
     batch,

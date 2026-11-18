@@ -38,11 +38,7 @@ test('provisionamento cria exatamente o esquema existente', async () => {
   assert.equal(objects.length, SCHEMA.length);
 
   const tables = objects.filter(o => o.type === 'table').map(o => o.name).sort();
-<<<<<<< HEAD
-  assert.equal(tables.length, 20);
-=======
   assert.equal(tables.length, 23);
->>>>>>> 1907a42 (Alterações vindas da Versão Web x5)
 
   for (const expected of SCHEMA) {
     const found = objects.find(o => o.name === expected.name);
