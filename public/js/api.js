@@ -2,7 +2,9 @@ const logout = () => {
     const user = JSON.parse(localStorage.getItem('user') || 'null');
     const nome = user?.name ? user.name.split(' ')[0] : '';
 
+    const tema = localStorage.getItem('dragnix-theme');    /* o tema escolhido continua depois de sair */
     localStorage.clear();
+    if (tema) localStorage.setItem('dragnix-theme', tema);
     try { sessionStorage.removeItem('dgx-api-cache'); } catch { /* ignora */ }
 
     location.replace(

@@ -468,7 +468,7 @@
             if (e.target.closest('#sxVidas')) acao(() => window.dgxMissoes ? window.dgxMissoes.recarregarVidas() : window.api('/shop/hearts', 'POST'));
             if (e.target.closest('.sx-pop__sair')) {
                 if (typeof logout === 'function') logout();          /* logout() vem do api.js */
-                else { localStorage.clear(); location.replace('splash.html?logout=1'); }
+                else { const t = localStorage.getItem('dragnix-theme'); localStorage.clear(); if (t) localStorage.setItem('dragnix-theme', t); location.replace('splash.html?logout=1'); }
             }
         });
 

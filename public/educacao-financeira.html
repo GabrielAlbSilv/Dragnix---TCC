@@ -16,6 +16,14 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
+  <script>
+    /* tema salvo aplicado antes de desenhar a tela (evita voltar ao tema do navegador ao trocar de página) */
+    (function () { try {
+      var t = localStorage.getItem('dragnix-theme');
+      document.documentElement.setAttribute('data-theme',
+        t === 'dark' || t === 'light' ? t : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
+    } catch (e) {} })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Educação financeira | Dragnix</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
